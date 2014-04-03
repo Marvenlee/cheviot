@@ -1,0 +1,46 @@
+BOOT_OBJ:=  $(patsubst %.c,%.o, $(wildcard boot/*.c)) \
+			$(patsubst %.cc,%.o, $(wildcard boot/*.cc)) \
+			$(patsubst %.s,%.o, $(wildcard boot/*.s)) \
+			$(patsubst %.S,%.o, $(wildcard boot/*.S))
+			
+			
+
+# ----------------------------------------------------------------------------
+
+.PHONY:= boot
+boot : boot/kernel.img
+boot/kernel.img : boot/boot.exe
+	$(OBJCOPY) boot/boot.exe -O binary boot/kernel.img
+
+boot/boot.exe : $(BOOT_OBJ) boot/linker.ls
+	$(LINK) $(BOOT_OBJ) -lgcc -T boot/linker.ls -o boot/boot.exe
+	
+	
+	
+# ----------------------------------------------------------------------------
+
+.PHONY : boot/depend
+boot/depend : 
+	$(DEPEND) $(DFLAGS) -f boot/makefile.in $(wildcard boot/*.c)
+
+# ----------------------------------------------------------------------------
+
+.PHONY : boot/clean
+boot/clean :
+	rm -f boot/boot.exe
+	rm -f boot/kernel.img
+	rm -f boot/*.o
+	rm -f boot/dump.txt
+	rm -f boot/makefile.in.bak
+
+.PHONY : boot/dump
+boot/dump :
+	$(OBJDUMP) -xshDt boot/boot >boot/dump.txt
+
+.PHONY : boot/strip
+boot/strip :
+	$(STRIP) -s --remove-section=.comment boot/boot
+
+# ----------------------------------------------------------------------------	
+	
+# DO NOT DELETE

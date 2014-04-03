@@ -1,0 +1,45 @@
+EXECUTIVE_OBJ:=  	$(patsubst %.c,%.o, $(wildcard executive/*.c)) \
+					$(patsubst %.cc,%.o, $(wildcard executive/*.cc)) \
+					$(patsubst %.s,%.o, $(wildcard executive/*.s)) \
+					$(patsubst %.S,%.o, $(wildcard executive/*.S))
+	
+# ----------------------------------------------------------------------------
+
+.PHONY:= executive
+executive : executive/exec
+executive/exec : $(EXECUTIVE_OBJ)  executive/armelf.x
+	$(CPP) $(CFLAGS) $(EXECUTIVE_OBJ) -ltask -Texecutive/armelf.x -o executive/exec
+
+	
+# ----------------------------------------------------------------------------
+
+.PHONY : executive/depend
+executive/depend : 
+	$(DEPEND) $(DFLAGS) -f executive/makefile.in \
+					 $(wildcard executive/*.cc) 
+					 
+# ----------------------------------------------------------------------------
+
+.PHONY : executive/clean
+executive/clean :
+	rm -f executive/exec
+	rm -f executive/*.o
+	rm -f executive/dump.txt
+	rm -f executive/makefile.in.bak
+
+# ----------------------------------------------------------------------------
+
+.PHONY : executive/dump
+executive/dump :
+	$(OBJDUMP) -xshDt executive/exec >executive/dump.txt
+
+
+# ----------------------------------------------------------------------------
+
+.PHONY : executive/strip
+executive/strip :
+	$(STRIP) -s --remove-section=.comment executive/exec
+
+# ----------------------------------------------------------------------------
+
+# DO NOT DELETE
