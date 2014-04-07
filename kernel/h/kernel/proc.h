@@ -6,7 +6,7 @@
 #include <kernel/vm.h>
 #include <kernel/timer.h>
 #include <kernel/arch.h>
-
+#include <kernel/parcel.h>
 
 
 
@@ -15,6 +15,68 @@
  */
  
 struct Process;
+
+
+/*
+ * Array of handles passed to Spawn and retrieve by GetSystemPorts.
+ */
+
+
+#define SYSTEM_PORT         0
+#define EXCEPTION_PORT      1
+#define ROOT_DIR_PORT       2
+#define PROGRAM_DIR_PORT    3
+#define CURRENT_DIR_PORT    4
+#define STDIN_PORT          5
+#define STDOUT_PORT         6
+#define STDERR_PORT         7    
+
+
+/*
+ * Spawn flags
+ */
+
+#define PROCF_EXECUTIVE         (1<<0) 
+#define PROCF_ALLOW_IO          (1<<1)
+
+
+/*
+ *
+ */
+ 
+#define NSPAWNSEGMENTS      32
+#define NSYSPORT            10
+
+
+/*
+ *
+ */
+
+struct SpawnArgs
+{
+    void *entry;
+    void *stack_top;
+    char **argv;
+    int argc;
+    char **envv;
+    int envc;
+    bits32_t flags;
+    void *segment[NSPAWNSEGMENTS];
+    int segment_cnt;
+    int handle[NSYSPORT];
+    int handle_cnt;
+};
+
+
+
+
+/*
+ * PutMsg() and PutHandle() flags
+ */
+
+
+#define MSG_GRANT_ONCE               (1<<0)
+#define MSG_SILENT                   (1<<1)
 
 
 
@@ -27,6 +89,7 @@ struct Process;
 #define EXIT_FAILURE    1
 #define EXIT_FATAL      2
 #define EXIT_KILLED     3
+
 
 
 
@@ -45,25 +108,20 @@ struct Process;
 
 
 /*
- * Number of clock ticks before process yields
+ * Scheduling policy flags and kernel constants
  */
 
-#define PROCESS_QUANTA                  2
+
 #define SCHED_OTHER                     0
 #define SCHED_RR                        1
 #define SCHED_FIFO                      2
 #define SCHED_IDLE                      -1
 
-
-
-/*
- * Stride Scheduling constants
- */
  
 #define STRIDE1                         1000000
 #define STRIDE_DEFAULT_TICKETS          100
 #define STRIDE_MAX_TICKETS              800
-
+#define PROCESS_QUANTA                  2
 
 
 
@@ -79,10 +137,8 @@ struct Rendez
 
 
 
-
-
 /*
- * struct ISRHandler
+ * Interrupt Service Routine kernel object
  */
 
 struct ISRHandler
@@ -104,9 +160,10 @@ struct ISRHandler
 #define HANDLE_TYPE_ISR                 2
 #define HANDLE_TYPE_CHANNEL             4
 #define HANDLE_TYPE_TIMER               5
-#define HANDLE_TYPE_CONDITION           6
+#define HANDLE_TYPE_NOTIFICATION        6
 
-#define HANDLEF_GRANT_ONCE               (1<<0)
+#define HANDLEF_GRANTED_ONCE            (1<<0)
+
 
 
 
@@ -122,35 +179,12 @@ struct Handle
     void *object;
     bits32_t flags;
     LIST_ENTRY (Handle) link;
+    
+    struct Parcel *parcel;
 };
 
 
 
-/*
- * System port handles passed in an array to a child process in Spawn().
- * Can be retrieved by a process using GetSystemPorts.
- */
-
-#define SYSTEM_PORT         0
-#define EXCEPTION_PORT      1
-#define ROOT_DIR_PORT       2
-#define PROGRAM_DIR_PORT    3
-#define CURRENT_DIR_PORT    4
-#define STDIN_PORT          5
-#define STDOUT_PORT         6
-#define STDERR_PORT         7    
-#define TERMINATE_PORT      8
-
-#define NSYSPORT            9
-
-
-
-/*
- * Spawn() flags
- */
-
-#define PROCF_EXECUTIVE         (1<<0) 
-#define PROCF_ALLOW_IO          (1<<1)
 
 
 /*
@@ -176,7 +210,8 @@ struct Process
     
     bits32_t flags;                     // Spawn() flags
     
-    struct Timer watchdog;
+    struct Timer watchdog;              // Timeout for sleeping system calls
+    size_t virtualalloc_sz;             // Size of memory requested by virtualalloc
     
     void (*continuation_function)(void);
     
@@ -202,13 +237,15 @@ struct Process
 };
 
 
+
+
 /*
- *
+ * State notification shared between two handles
  */
  
 struct Notification
 {
-    LIST_ENTRY (Condition) link;    // Free list link
+    LIST_ENTRY (Notification) link;    // Free list link
     int handle[2];                  // Handles for both endpoints
     int state;                      // Single state variable shared between
                                     // both endpoints
@@ -218,18 +255,23 @@ struct Notification
 
 
 /*
- * struct Channel
+ * Message passing link between two handles
+ * CONSIDER: Split into two Port structures pointing to each other.
  */
  
 struct Channel
 {
-    LIST_ENTRY (Channel) link;      // Free list link
-    int handle[2];                  // Handles for both channel endpoints
-    LIST (MemArea) msg_list[2];     // Endpoint's list of pending messages
+    LIST_ENTRY (Channel) link;     // Free list link
+    int handle[2];                 // Handles for both channel endpoints
+    LIST (Parcel) msg_list[2];     // Endpoint's list of pending messages
 };
 
 
 
+
+/*
+ * Typedefs for linked lists
+ */
 
 LIST_TYPE (Channel) channel_list_t;
 LIST_TYPE (Notification) notification_list_t;
@@ -239,6 +281,11 @@ LIST_TYPE (Process) process_list_t;
 CIRCLEQ_TYPE (Process) process_circleq_t;
 
 
+
+
+/*
+ * Function Prototypes
+ */
 
 // event.c
 
@@ -250,12 +297,11 @@ void DoClearEvent (struct Process *proc, int handle);
 
 // handle.c
 
-SYSCALL int GrantHandle (int r, int h, bits32_t flags);
 SYSCALL int CloseHandle (int handle);
 void ClosePendingHandles (void);
 void *GetObject (struct Process *proc, int handle, int type);
 void SetObject (struct Process *proc, int handle, int type, void *object);
-struct Handle *GetHandle (struct Process *proc, int h);
+struct Handle *FindHandle (struct Process *proc, int h);
 int PeekHandle (int index);
 int AllocHandle (void);
 void FreeHandle (int handle);
@@ -273,10 +319,10 @@ void FreeISRHandler (struct ISRHandler *isr_handler);
 
 // proc.c
 
-SYSCALL int Spawn (vm_addr *segtable, int segcnt, void *entry, void *stack,
-    int *sysports, bits32_t flags);
 
-int ValidateSystemPorts (int *sysports);
+SYSCALL int Spawn (struct SpawnArgs *sa);
+SYSCALL int GetSystemPorts (int *sysports, int cnt);
+int ValidateSystemPorts (int *sysports, int handle_cnt);
 void TransferSystemPorts (struct Process *proc, int *sysports);
         
    
@@ -322,15 +368,14 @@ void WakeupProcess (struct Process *proc);
 
 // proc/msg.c
 
-SYSCALL int PutMsg (int handle, void **iov_table, int niov);
-SYSCALL ssize_t GetMsg (int handle, void **msg, bits32_t access);
+SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags);
+SYSCALL ssize_t GetMsg (int handle, void **rcv_msg, bits32_t access);
 int CreateChannel (int result[2]);
 int DoCloseChannel (int h);
 SYSCALL int IsAChannel (int handle1, int handle2);
-SYSCALL int GetSystemPorts (int *sysports);
 
-SYSCALL int InjectHandle (vm_addr addr, int h, bits32_t flags);
-SYSCALL int ExtractHandle (vm_addr addr);
+SYSCALL int PutHandle (int port_h, int h, bits32_t flags);
+SYSCALL int GetHandle (int port_h, int *rcv_h);
 
 
 // proc/notification.c

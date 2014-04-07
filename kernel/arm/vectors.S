@@ -99,7 +99,7 @@
 syscall_table:
     .long UnknownSyscall            // 0
     .long Debug                     // 1
-    .long Spawn                     // 2
+    .long Spawn                     // 2  Executive process only
     .long Exit                      // 3
     .long Join                      // 4
     .long CloseHandle               // 5
@@ -107,35 +107,37 @@ syscall_table:
     .long CheckFor                  // 7
     .long SetSchedParams            // 8
     .long Yield                     // 9
-    .long AddInterruptHandler       // 10    Rename, CreateInterrupt()
-    .long MaskInterrupt             // 11    Use interrupt handle instead of irq
+    .long AddInterruptHandler       // 10  
+    .long MaskInterrupt             // 11  
     .long UnmaskInterrupt           // 12
     .long CreateTimer               // 13
     .long SetTimer                  // 14
     .long GetSystemTime             // 15
-    .long SystemInfo                // 16    Return stats, possibly for current process
+    .long SystemInfo                // 16 
     .long VirtualAlloc              // 17
-    .long VirtualAllocPhys          // 18
+    .long VirtualAllocPhys          // 18    Privileged, IO processes
     .long VirtualFree               // 19
-    .long VirtualProtect            // 20 Rename VirtualGetFlags, VirtualSetFlags(mask, flags)
+    .long VirtualProtect            // 20 
     .long VirtualSizeOf             // 21
     .long VirtualVersion            // 22
-    .long WireMem                   // 23
-    .long UnwireMem                 // 24
+    .long WireMem                   // 23    Privileged, IO processes
+    .long UnwireMem                 // 24    Privileged, IO processes
     .long CreateChannel             // 25
     .long PutMsg                    // 26 
     .long GetMsg                    // 27
-    .long PutCondition              // 28
-    .long GetCondition              // 29
+    .long PutNotification           // 28
+    .long GetNotification           // 29
     .long IsAChannel                // 30
     .long CoalesceVirtualMem        // 31     Privileged, Executive-only
     .long CoalescePhysicalMem       // 32     Privileged, Executive-only
     .long CompactPhysicalMem        // 33     Privileged, Executive-only
-    .long InjectHandle              // 34
-    .long ExtractHandle             // 35
+    .long PutHandle                 // 34
+    .long GetHandle                 // 35
+    .long GetNextMsgType            // 36
+    
     
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 34
+#define MAX_SYSCALL                 36
 
 
 .balign 16

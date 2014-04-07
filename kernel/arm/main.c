@@ -50,15 +50,16 @@ void Main (void)
 {
 //  GetOptions();
 
-    max_segment = 65536;
-    max_memarea = 65536;
-
-    max_process = 128;      // OR limit to 255 for 4mb (255 *16k page tables plus 1 page directory)
+    max_physseg = 32000;
+    max_virtseg = 32000;
+    max_process = 128;
     max_timer   = 1024;
     max_isr_handler = 128;
-    max_channel = 32768;
-    max_handle  = 32768;
-    
+    max_channel = 10000;
+    max_notification = 4000;
+    max_handle  = 10000;
+    max_parcel = max_handle + max_virtseg;
+        
     free_process_cnt     = max_process;
     free_timer_cnt       = max_timer;
     free_isr_handler_cnt = max_isr_handler;

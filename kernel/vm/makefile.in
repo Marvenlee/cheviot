@@ -30,8 +30,8 @@ kernel/vm/segment.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/lists.h
 kernel/vm/segment.o: ./kernel/h/kernel/vm.h ./kernel/h/kernel/arch.h
 kernel/vm/segment.o: ./kernel/h/kernel/arm/arm.h ./kernel/h/kernel/arm/task.h
 kernel/vm/segment.o: ./kernel/h/kernel/error.h ./kernel/h/kernel/arm/locks.h
-kernel/vm/segment.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/proc.h
-kernel/vm/segment.o: ./kernel/h/kernel/timer.h
+kernel/vm/segment.o: ./kernel/h/kernel/parcel.h ./kernel/h/kernel/dbg.h
+kernel/vm/segment.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/timer.h
 kernel/vm/segment.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/vm/segment.o: ./kernel/h/kernel/globals.h
 kernel/vm/segment.o: ./kernel/h/kernel/arm/globals.h
@@ -41,7 +41,8 @@ kernel/vm/addessspace.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
 kernel/vm/addessspace.o: ./kernel/h/kernel/arm/task.h
 kernel/vm/addessspace.o: ./kernel/h/kernel/error.h
 kernel/vm/addessspace.o: ./kernel/h/kernel/arm/locks.h ./kernel/h/kernel/vm.h
-kernel/vm/addessspace.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/timer.h
+kernel/vm/addessspace.o: ./kernel/h/kernel/parcel.h ./kernel/h/kernel/proc.h
+kernel/vm/addessspace.o: ./kernel/h/kernel/timer.h
 kernel/vm/addessspace.o: ./kernel/h/kernel/utility.h
 kernel/vm/addessspace.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/vm/addessspace.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/globals.h
@@ -51,8 +52,8 @@ kernel/vm/vm.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/lists.h
 kernel/vm/vm.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
 kernel/vm/vm.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
 kernel/vm/vm.o: ./kernel/h/kernel/arm/locks.h ./kernel/h/kernel/vm.h
-kernel/vm/vm.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/timer.h
-kernel/vm/vm.o: ./kernel/h/kernel/utility.h
+kernel/vm/vm.o: ./kernel/h/kernel/parcel.h ./kernel/h/kernel/proc.h
+kernel/vm/vm.o: ./kernel/h/kernel/timer.h ./kernel/h/kernel/utility.h
 kernel/vm/vm.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/vm/vm.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/globals.h
 kernel/vm/vm.o: ./kernel/h/kernel/arm/globals.h
@@ -61,25 +62,15 @@ kernel/vm/area.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/vm.h
 kernel/vm/area.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/arch.h
 kernel/vm/area.o: ./kernel/h/kernel/arm/arm.h ./kernel/h/kernel/arm/task.h
 kernel/vm/area.o: ./kernel/h/kernel/error.h ./kernel/h/kernel/arm/locks.h
-kernel/vm/area.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/proc.h
-kernel/vm/area.o: ./kernel/h/kernel/timer.h
+kernel/vm/area.o: ./kernel/h/kernel/parcel.h ./kernel/h/kernel/dbg.h
+kernel/vm/area.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/timer.h
 kernel/vm/area.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/vm/area.o: ./kernel/h/kernel/utility.h ./kernel/h/kernel/globals.h
 kernel/vm/area.o: ./kernel/h/kernel/arm/globals.h
 kernel/vm/area.o: ./kernel/h/kernel/arm/raspberry.h
-kernel/vm/iovec.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/vm.h
-kernel/vm/iovec.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/arch.h
-kernel/vm/iovec.o: ./kernel/h/kernel/arm/arm.h ./kernel/h/kernel/arm/task.h
-kernel/vm/iovec.o: ./kernel/h/kernel/error.h ./kernel/h/kernel/arm/locks.h
-kernel/vm/iovec.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/proc.h
-kernel/vm/iovec.o: ./kernel/h/kernel/timer.h
-kernel/vm/iovec.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/vm/iovec.o: ./kernel/h/kernel/utility.h ./kernel/h/kernel/globals.h
-kernel/vm/iovec.o: ./kernel/h/kernel/arm/globals.h
-kernel/vm/iovec.o: ./kernel/h/kernel/arm/raspberry.h
-kernel/vm/iovec.o: /cheviot/arm-eabi/include/limits.h /usr/include/limits.h
-kernel/vm/iovec.o: /usr/include/features.h
-kernel/vm/iovec.o: /cheviot/arm-eabi/include/sys/cdefs.h
-kernel/vm/iovec.o: /cheviot/arm-eabi/include/sys/features.h
-kernel/vm/iovec.o: /usr/include/bits/wordsize.h
-kernel/vm/iovec.o: /cheviot/arm-eabi/include/sys/syslimits.h
+kernel/vm/area.o: /cheviot/arm-eabi/include/limits.h /usr/include/limits.h
+kernel/vm/area.o: /usr/include/features.h
+kernel/vm/area.o: /cheviot/arm-eabi/include/sys/cdefs.h
+kernel/vm/area.o: /cheviot/arm-eabi/include/sys/features.h
+kernel/vm/area.o: /usr/include/bits/wordsize.h
+kernel/vm/area.o: /cheviot/arm-eabi/include/sys/syslimits.h

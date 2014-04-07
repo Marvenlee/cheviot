@@ -33,18 +33,31 @@
 
 
 /*
- * This is where things go a little 'caca'.
- * 
+ * __KernelExit is the exit pathway out of the kernel for system calls,
+ * interrupts and exceptions.  They all call __KernelExit which in turn
+ * calls KernelExit.
+ *
+ * This performs deferred procedure calls of timer and interrupt bottom half
+ * processing as well as exit detection.
+ *
  * Notes:
  *
- * If we support SMP, If a CPU has entered then kernel then we only
- * want interrupts to go to that CPU. Is it possible to do that
- * when acquiring inkernel_now spinlock?
+ * Unsure how SMP will affect the inkernel_now, inkernel_lock and interrupt
+ * handling.
  *
  * Any continuation function needs to check TSF flags
  * in case CopyIn() or CopyOut() causes an exception and so avoid
  * an infinite loop.
- * 
+ *
+ * Continuation is useful for VirtualAlloc.  Memory can be mapped in supervisor
+ * mode, wiped clean with preemption enabled in a continuation and then
+ * finally set to user-mode protection.
+ *
+ * taskstate.flags may become Unix-like signals, such as SIGKILL, SIGTERM,
+ * SIGHUP etc.  These could be delivered to user-mode from within this function.
+ * However, Unix advances the program counter when a system call is interrupted.
+ * The PC-lusering in this microkernel doesn't advance the program counter, so
+ * the system call restarts.
  */
 
 void KernelExit (void)
@@ -77,6 +90,9 @@ void KernelExit (void)
     if (current->continuation_function != NULL)
     {
         // May want to set task_state->r0
+        // May want to advance program counter (if syscall function didn't exit
+        // normally.
+        
         current->continuation_function();
         EnablePreemption();
     }

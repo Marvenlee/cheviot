@@ -48,25 +48,22 @@ void FreeAddressSpace (void)
 {
     struct Process *current;
     int t;
-    struct Segment *seg;
-
+  
 
     current = GetCurrentProcess();
     
     DisablePreemption();
         
-    for (t= 0; t < memarea_cnt; t++)
+    for (t= 0; t < virtseg_cnt; t++)
     {   
-        if (memarea_table[t].owner_process == current
-            && MEM_TYPE(memarea_table[t].flags) == MEM_ALLOC)
+        if (virtseg_table[t].owner == current
+            && MEM_TYPE (virtseg_table[t].flags) == MEM_ALLOC
+            && virtseg_table[t].busy == TRUE)
         {
-            seg = SegmentFind (memarea_table[t].physical_addr);
-        
-            if (seg->busy == TRUE)
-                Sleep (&vm_rendez);
+            Sleep (&vm_rendez);
         }
         
-        VirtualFree (memarea_table[t].base);
+        VirtualFree (virtseg_table[t].base);
             
     }
 }

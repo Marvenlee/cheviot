@@ -77,7 +77,7 @@ void InitProcessTables (void)
     struct Channel *channel;
     struct Notification *notif;
     struct Handle *handle;
-    
+    struct Parcel *parcel;
     
     KPRINTF ("InitProcessTables()");
         
@@ -159,6 +159,15 @@ void InitProcessTables (void)
         
         LIST_ADD_TAIL (&free_handle_list, handle, link);
     }
+    
+    
+    LIST_INIT (&free_parcel_list);
+    
+    for (t=0; t < max_parcel; t++)
+    {
+        parcel = &parcel_table[t];
+        LIST_ADD_TAIL (&free_parcel_list, parcel, link);
+    }
 }
 
 
@@ -202,6 +211,7 @@ void InitProcesses (void)
     root_process->remaining = 0;
     root_process->pass = 0;
     root_process->continuation_function = NULL;
+    root_process->virtualalloc_sz = 0;
     
     LIST_INIT (&root_process->pending_handle_list);
     LIST_INIT (&root_process->close_handle_list);
@@ -244,6 +254,7 @@ void InitProcesses (void)
     idle_process->remaining = 0;
     idle_process->pass = 0;
     idle_process->continuation_function = NULL;
+    idle_process->virtualalloc_sz = 0;
 
     LIST_INIT (&idle_process->pending_handle_list);
     LIST_INIT (&idle_process->close_handle_list);
@@ -294,13 +305,13 @@ void InitRootAddressSpace (void)
 {
     int t;  
 
-    for (t=0; t<memarea_cnt; t++)
+    for (t=0; t<virtseg_cnt; t++)
     {
-        if ((memarea_table[t].flags & MEM_MASK) == MEM_ALLOC)
+        if ((virtseg_table[t].flags & MEM_MASK) == MEM_ALLOC)
         {
-            memarea_table[t].owner_process = root_process;
-            memarea_table[t].version = memarea_version_counter;
-            memarea_version_counter++;
+            virtseg_table[t].owner = root_process;
+            virtseg_table[t].version = segment_version_counter;
+            segment_version_counter++;
         }
     }
 }
@@ -315,15 +326,6 @@ void InitRootAddressSpace (void)
 
 
 
-
-void idle_loop (void)
-{
-    while (1)
-    {
-        KPrintXY (300, 140, "IDLE **");
-    
-    }
-}
 
 
 

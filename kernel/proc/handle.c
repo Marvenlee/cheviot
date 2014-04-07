@@ -36,16 +36,16 @@
 
 SYSCALL int CloseHandle(int h)
 {
-	struct Process *current;
-	
-	current = GetCurrentProcess();
-		
-	if (h < 0 || h >= max_handle || handle_table[h].owner != current)
-		return paramErr;
+    struct Process *current;
+    
+    current = GetCurrentProcess();
+        
+    if (h < 0 || h >= max_handle || handle_table[h].owner != current)
+        return paramErr;
 
-	DisablePreemption();
-	
-	LIST_ADD_TAIL (&current->close_handle_list, &handle_table[h], link);
+    DisablePreemption();
+    
+    LIST_ADD_TAIL (&current->close_handle_list, &handle_table[h], link);
     return 0;
 }
 
@@ -67,39 +67,39 @@ void ClosePendingHandles (void)
     current = GetCurrentProcess();
     
     DisablePreemption();
-	
-	while ((handle = LIST_HEAD(&current->close_handle_list)) != NULL)
-	{
-	    LIST_REM_HEAD (&current->close_handle_list, link);
-	    
-	    h = handle - handle_table;
-	
-    	switch (handle->type)
-    	{
-    		case HANDLE_TYPE_PROCESS:
-    			DoCloseProcess (h);
-    			break;
-    			
-    		case HANDLE_TYPE_ISR:
-    			DoCloseInterruptHandler (h);
-    			break;
-    						
-    		case HANDLE_TYPE_CHANNEL:
-    			DoCloseChannel (h);
-    			break;
-    			
-    		case HANDLE_TYPE_TIMER:
-    			DoCloseTimer (h);
+    
+    while ((handle = LIST_HEAD(&current->close_handle_list)) != NULL)
+    {
+        LIST_REM_HEAD (&current->close_handle_list, link);
+        
+        h = handle - handle_table;
+    
+        switch (handle->type)
+        {
+            case HANDLE_TYPE_PROCESS:
+                DoCloseProcess (h);
                 break;
                 
-    		case HANDLE_TYPE_CONDITION:
-    			DoCloseCondition (h);
-    			break;
+            case HANDLE_TYPE_ISR:
+                DoCloseInterruptHandler (h);
+                break;
+                            
+            case HANDLE_TYPE_CHANNEL:
+                DoCloseChannel (h);
+                break;
+                
+            case HANDLE_TYPE_TIMER:
+                DoCloseTimer (h);
+                break;
+                
+            case HANDLE_TYPE_NOTIFICATION:
+                DoCloseNotification (h);
+                break;
     
-    		default:
-    			break;
-    	}
-	}
+            default:
+                break;
+        }
+    }
 }
 
 
@@ -188,7 +188,7 @@ void *GetObject(struct Process *proc, int h, int type)
  */
 
 
-struct Handle *GetHandle (struct Process *proc, int h)
+struct Handle *FindHandle (struct Process *proc, int h)
 {
     if (h < 0 || h >= max_handle)
         return NULL;
@@ -287,94 +287,6 @@ void FreeHandle (int h)
     handle_table[h].type = HANDLE_TYPE_FREE;
     handle_table[h].owner = NULL;
 }
-
-
-
-
-/*
- * Grants a handle to a recipient process.  The recipient can either
- * be determined from a channel or process handle.
- *
- * The original intent was to pass handles between processes by embedding
- * them into a message segment using InjectHandle (mem, handle) and
- * handle = ExtractHandle (mem).  The process could then pass a message
- * segment pointed to by 'mem' to another process which would then extract
- * the handle.
- *
- * It got messy and could potentially form loops or dead ends, passing
- * one channel handle to then other end.
- *
- * Problem is this works fine for servers, it can grant a handle and then
- * send the handle number in the process message.  The client trusts
- * whatever handle number in the message is correct.
- *
- * What if we want to grant a handle to a server or other process?
- * 
- * *** Should a granted handle raise an event?
- *
- * OR can we somehow send a Grant as a message???  Maybe check queue
- * is empty????????????
- * 
- */
-
-/*
-SYSCALL int GrantHandle (int r, int h, bits32_t flags)
-{
-    struct Process *current;
-    struct Process *recipient;
-    struct Channel *channel;
-
-    current = GetCurrentProcess();
-
-    if (h < 0 || h >= max_handle || handle_table[h].owner != current)
-        return paramErr;
-       
-    if (r < 0 || r >= max_handle || handle_table[r].owner != current)
-        return paramErr;
-    
-    if (handle_table[r].type == HANDLE_TYPE_PROCESS)
-    {
-        recipient = handle_table[r].object;
-    }
-    else if (handle_table[r].type == HANDLE_TYPE_CHANNEL)
-    {
-        channel = handle_table[r].object;
-        
-        if (channel->process[0] == current)
-            recipient = channel->process[1];
-        else if (channel->process[1] == current)
-            recipient = channel->process[1];
-        else
-            return paramErr;
-    }
-
-    if (recipient == NULL)
-        return paramErr;
-    
-    if (handle_table[h].flags & HANDLEF_GRANT_ONCE)
-        return privilegeErr;
-    
-    DisablePreemption();
-    
-    handle_table[h].flags = flags;
-    handle_table[h].owner = recipient;
-    return 0;
-}
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -30,9 +30,6 @@
 /*
  * Joins an already exited process, returning its status and performing
  * final cleanup and release of its handle.
- *
- * FIXME: CHECKME:  Should Join() block and should the handle be placed
- * on the close_handle_list ???
  */
 
 int Join (int handle, int *status)
@@ -58,6 +55,59 @@ int Join (int handle, int *status)
     FreeHandle (handle);
     
     return 0;
+}
+
+
+
+
+
+
+
+/*
+ * Closes a process when called by the app calls CloseHandle().
+ *
+ * Sets the owner to the root process, does not block and does not
+ * try to kill the process.
+ *
+ * Makes child process an orphaned process.
+ *
+ * If called by root then performs the Join() cleanup of zombie process.
+ */
+ 
+int DoCloseProcess (int h)
+{
+	struct Process *child;
+	struct Process *current;
+	struct Handle *handle;
+	
+	
+	current = GetCurrentProcess();
+	
+	if ((child = GetObject (current, h, HANDLE_TYPE_PROCESS)) == NULL)
+	    return paramErr;
+	
+	KASSERT (child != current);
+		
+	DisablePreemption();
+
+    handle = FindHandle (current, h);
+    
+    if (child->state == PROC_STATE_ZOMBIE)
+    {
+        ArchFreeProcess (child);
+        FreeProcess (child);
+        FreeHandle (h);
+        return 0;
+    }
+    else if (handle->owner != root_process)
+    {
+        handle->owner = root_process;
+        return 0;
+    }
+    else
+    {
+        return handleErr;
+    }
 }
 
 

@@ -90,8 +90,6 @@ SYSCALL int GetNotification (int h)
 {
     struct Notification *notif;
     struct Process *current;
-    int q;
-    int value;
     
     
     current = GetCurrentProcess();
@@ -99,14 +97,10 @@ SYSCALL int GetNotification (int h)
     if ((notif = GetObject(current, h, HANDLE_TYPE_NOTIFICATION)) == NULL)
         return paramErr;
     
-    q = (h == notif->handle[0]) ? 0 : 1;
-    
     DisablePreemption();
         
-    value = notif->state;
     DoClearEvent (current, h);
-        
-    return value;
+    return notif->state;
 }
 
 
@@ -127,7 +121,7 @@ SYSCALL int CreateNotification (int result[2])
     
     current = GetCurrentProcess();
 
-    if (free_handle_cnt < 2 || free_Notification_cnt < 1)
+    if (free_handle_cnt < 2 || free_notification_cnt < 1)
         return resourceErr;
 
     handle[0] = PeekHandle(0);
@@ -140,9 +134,9 @@ SYSCALL int CreateNotification (int result[2])
     handle[0] = AllocHandle();
     handle[1] = AllocHandle();
         
-    notif = LIST_HEAD(&free_Notification_list);
-    LIST_REM_HEAD (&free_Notification_list, link);
-    free_Notification_cnt --;
+    notif = LIST_HEAD(&free_notification_list);
+    LIST_REM_HEAD (&free_notification_list, link);
+    free_notification_cnt --;
         
     notif->handle[0] = handle[0];
     notif->handle[1] = handle[1];
@@ -183,8 +177,8 @@ int DoCloseNotification (int h)
     
     if (notif->handle[v] == -1)
     {
-        LIST_ADD_HEAD (&free_Notification_list, notif, link);
-        free_Notification_cnt ++;
+        LIST_ADD_HEAD (&free_notification_list, notif, link);
+        free_notification_cnt ++;
     }
     else
     {

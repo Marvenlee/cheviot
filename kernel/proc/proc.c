@@ -35,50 +35,50 @@
  * child process.
  */
 
-SYSCALL int Spawn (vm_addr *user_iov, int niov, void *entry, void *stack_top,
-    int *u_sysports, bits32_t flags)
+SYSCALL int Spawn (struct SpawnArgs *user_sa)
 {
     struct Process *proc, *current;
-    
-    struct MemArea *matable[MAX_IOV_SEGMENTS];
-    int sysports[NSYSPORT];
+    struct VirtualSegment *vs_ptrs[NSPAWNSEGMENTS];
     int h;  
     int t;
+    struct SpawnArgs sa;
     
     
     current = GetCurrentProcess();
-
+    
     if (!(current->flags & PROCF_EXECUTIVE))
         return privilegeErr;
-        
-    CopyIn (&sysports, u_sysports, sizeof sysports);
     
-    if (ValidateSystemPorts (sysports) < 0)
-        return paramErr;
-    
-    if (CopyInIOVs (matable, user_iov, niov) < 0)
+    CopyIn (&sa, user_sa, sizeof sa);
+            
+    if (sa.segment_cnt < 1 || sa.segment_cnt > NSPAWNSEGMENTS)
         return paramErr;
 
     if (free_handle_cnt < 1 || free_process_cnt < 1)
         return resourceErr;
+            
+    if (ValidateSystemPorts (sa.handle, sa.handle_cnt) < 0)
+        return paramErr;
+    
+    if (VirtualSegmentFindMultiple (vs_ptrs, sa.segment, sa.segment_cnt) < 0)
+        return paramErr;
     
     DisablePreemption();
     
     h = AllocHandle();
     proc = AllocProcess();
     proc->handle = h;
-    proc->flags = flags;
+    proc->flags = sa.flags;
     SetObject (current, h, HANDLE_TYPE_PROCESS, proc);
-    ArchAllocProcess(proc, entry, stack_top);
-    TransferSystemPorts (proc, sysports);
+    ArchAllocProcess(proc, sa.entry, sa.stack_top);
+    TransferSystemPorts (proc, sa.handle);
     
-    for (t=0; t < niov; t++)
+    for (t=0; t < sa.segment_cnt; t++)
     {
-        PmapRemoveRegion (&current->pmap, matable[t]);
-        matable[t]->owner_process = proc;
+        PmapRemoveRegion (&current->pmap, vs_ptrs[t]);
+        vs_ptrs[t]->owner = proc;
     }
-
-
+    
     proc->state = PROC_STATE_READY;
     SchedReady(proc);
     return h;
@@ -93,12 +93,19 @@ SYSCALL int Spawn (vm_addr *user_iov, int niov, void *entry, void *stack_top,
  * passed to the process by Spawn().
  */
 
-SYSCALL int GetSystemPorts (int *sysports)
+SYSCALL int GetSystemPorts (int *sysports, int cnt)
 {
     struct Process *current;
     
     current = GetCurrentProcess();
-    CopyOut (sysports, current->system_port, sizeof (int) * 8);
+    
+    if (cnt < 1)
+        return paramErr;
+    
+    if (cnt > NSYSPORT)
+        cnt = NSYSPORT;
+    
+    CopyOut (sysports, current->system_port, sizeof (int) * cnt);
     return 0;
 }
 
@@ -110,25 +117,36 @@ SYSCALL int GetSystemPorts (int *sysports)
  * calling Spawn().  Makes sure there are no duplicates.
  */
  
-int ValidateSystemPorts (int *sysports)
+int ValidateSystemPorts (int *sysports, int handle_cnt)
 {
     int s, t;
     struct Process *current;
     
+    
     current = GetCurrentProcess();
+    
+    if (handle_cnt > NSYSPORT)
+        return paramErr;
     
     for (t=0; t< NSYSPORT; t++)
     {
-        if (sysports[t] != -1)
+        if (t < handle_cnt)
         {
-            for (s=0; s<t; s++)
+            if (sysports[t] != -1)
             {
-                if (sysports[t] == sysports[s])
+                for (s=0; s<t; s++)
+                {
+                    if (sysports[t] == sysports[s])
+                        return paramErr;
+                }
+    
+                if (FindHandle (current, sysports[t]) == NULL)
                     return paramErr;
             }
-
-            if (GetHandle (current, sysports[t]) == NULL)
-                return paramErr;
+        }
+        else
+        {
+            sysports[t] = -1;
         }
     }
     
@@ -155,7 +173,7 @@ void TransferSystemPorts (struct Process *proc, int *sysports)
         if (sysports[t] != -1)
         {
             handle_table[sysports[t]].owner = proc;
-            handle_table[sysports[t]].flags |= HANDLEF_GRANT_ONCE;
+            handle_table[sysports[t]].flags |= HANDLEF_GRANTED_ONCE;
         }
     }
 }
@@ -189,6 +207,7 @@ struct Process *AllocProcess (void)
     proc->remaining = 0;
     proc->pass = global_pass;
     proc->continuation_function = NULL;
+    proc->virtualalloc_sz = 0;
     
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);
@@ -214,7 +233,6 @@ void FreeProcess (struct Process *proc)
 
     free_process_cnt ++;
 }
-
 
 
 

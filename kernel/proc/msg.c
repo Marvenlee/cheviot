@@ -30,46 +30,46 @@
 
  
 /*
- * Sends a multipart message comprising of a number memory segments through
- * a channel.  user_iov is an array of pointers to the segments to pass and
- * niov is the number of entries in this array.
+ * Sends a segment of memory through a channel to the recipient process.
  *
- * PutMsg() is a non blocking call and queues the segments on the receiving
- * end of the channel.  Further calls to PutMsg() will enqueue additional
- * segments on the receiving end.
+ * PutMsg() is a non blocking call and queues the segments on the recipients
+ * end of the channel.
  *
- * void *iov[1];
- * void *reply;
+ * struct MyMessage *msg;
+ * struct MyMessageReply *reply;
  * ssize_t reply_sz;
  *
  * while (1)
  * {
  *     // initialize message segment
  *     iov[0] = message_segment;
- *     PutMsg (handle, &iov[0], 1);
+ *     PutMsg (handle, msg);
  *     WaitFor (handle);
  *     reply_sz = GetMsg (handle, &reply, PROT_READWRITE);
  *     // process reply
  * }
  */
 
-SYSCALL int PutMsg (int h, void **user_iov, int niov)
+SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
 {
-    struct Channel *channel;
     struct Process *current;
-    struct MemArea *matable[MAX_IOV_SEGMENTS];
+    struct VirtualSegment *vs;
+    struct Channel *channel;
+    struct Parcel *parcel;
     int rq;
-    int t;
-    
-    if (CopyInIOVs (matable, (vm_addr *)user_iov, niov) != 0)
-        return paramErr;
-    
-    current = GetCurrentProcess();
+ 
 
-    if ((channel = GetObject(current, h, HANDLE_TYPE_CHANNEL)) == NULL)
+    current = GetCurrentProcess();
+        
+    vs = VirtualSegmentFind ((vm_addr)msg);
+    
+    if (vs == NULL || vs->owner != current || (vs->flags & MEM_MASK) != MEM_ALLOC)
+        return memoryErr;
+    
+    if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
         return paramErr;
     
-    if (h == channel->handle[0])
+    if (port_h == channel->handle[0])
         rq = 1;
     else
         rq = 0;
@@ -78,15 +78,23 @@ SYSCALL int PutMsg (int h, void **user_iov, int niov)
         return connectionErr;
 
     DisablePreemption();
-
-    for (t=0; t < niov; t++)
-    {
-        PmapRemoveRegion(&current->pmap, matable[t]);
-        LIST_ADD_TAIL (&channel->msg_list[rq], matable[t], link);
-        matable[t]->owner_process = NULL;
-    }
     
-    DoRaiseEvent (channel->handle[rq]);
+    parcel = LIST_HEAD (&free_parcel_list);
+    LIST_REM_HEAD (&free_parcel_list, link);
+    
+    KASSERT (parcel != NULL);
+    
+    PmapRemoveRegion(&current->pmap, vs);
+    
+    parcel->type = PARCEL_MSG;
+    parcel->content.virtualsegment = vs;
+    LIST_ADD_TAIL (&channel->msg_list[rq], parcel, link);
+    
+    vs->parcel = parcel;
+    vs->owner = NULL;
+
+    if (!(flags & MSG_SILENT))
+        DoRaiseEvent (channel->handle[rq]);
     
     return 0;
 }
@@ -108,51 +116,102 @@ SYSCALL int PutMsg (int h, void **user_iov, int niov)
  * 0 is returned with no errno if there are no messages in the queue.  If
  * the channel receive queue is empty has been closed on the other end then
  * it returns connectionErr.
+ *
+ * If the segment is currently marked as busy, we don't update the page tables.
+ * We let it be caught by the page fault handler which will sleep until it
+ * is unbusied.
  */
 
-SYSCALL ssize_t GetMsg (int h, void **msg, bits32_t access)
+SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg, bits32_t access)
 {
     struct Channel *channel;
     struct Process *current;
-    struct MemArea *ma;
+    struct VirtualSegment *vs;
+    struct Parcel *parcel;
     int rq;
     
     
     current = GetCurrentProcess();
     
-    if ((channel = GetObject(current, h, HANDLE_TYPE_CHANNEL)) == NULL)
+    if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
         return paramErr;
+
+    if (channel->handle[0] == -1 || channel->handle[1] == -1)
+        return connectionErr;
     
-    if (h == channel->handle[0])
+    if (port_h == channel->handle[0])
         rq = 0;
     else
         rq = 1;
         
-    ma = LIST_HEAD (&channel->msg_list[rq]);
-    
-    if (ma == NULL && (channel->handle[0] == -1 || channel->handle[1] == -1))
-        return connectionErr;
-    else if (ma == NULL)
+    parcel = LIST_HEAD (&channel->msg_list[rq]);
+   
+    if (parcel == NULL)
         return 0;
-    
-    if ((ma->flags & access & PROT_MASK) != (access & PROT_MASK))
+         
+    if (parcel->type != PARCEL_MSG)
         return messageErr;
+        
+    vs = parcel->content.virtualsegment;
+        
+    if ((vs->flags & access & PROT_MASK) != (access & PROT_MASK))
+        return privilegeErr;
     
-    CopyOut (msg, &ma->base, sizeof (void *));
+    CopyOut (rcv_msg, &vs->base, sizeof (void *));
     
     DisablePreemption();
     
     LIST_REM_HEAD (&channel->msg_list[rq], link);
     
-    if (LIST_HEAD (&channel->msg_list[rq]) == NULL)
-        DoClearEvent (current, h);
+    LIST_ADD_HEAD (&free_parcel_list, parcel, link);
+        
+    vs->parcel = NULL;
+    vs->owner = current;
     
-    ma->owner_process = current;
-    PmapEnterRegion (&current->pmap, ma, ma->base);
-    return ma->ceiling - ma->base;
+    
+    // possibly move the busy flags into vs
+    
+    if (vs->busy == FALSE)
+        PmapEnterRegion (&current->pmap, vs, vs->base);
+    
+    return vs->ceiling - vs->base;
 }
 
 
+
+
+/*
+ *
+ */
+ 
+SYSCALL ssize_t GetNextMsgType (int port_h)
+{
+    struct Channel *channel;
+    struct Process *current;
+    struct Parcel *parcel;
+    int rq;
+    
+
+    current = GetCurrentProcess();
+    
+    if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
+        return paramErr;
+
+    if (channel->handle[0] == -1 || channel->handle[1] == -1)
+        return connectionErr;
+    
+    if (port_h == channel->handle[0])
+        rq = 0;
+    else
+        rq = 1;
+        
+    parcel = LIST_HEAD (&channel->msg_list[rq]);
+   
+    if (parcel == NULL)
+        return messageErr;
+         
+    return parcel->type;
+}
 
 
 /*
@@ -167,7 +226,8 @@ SYSCALL int CreateChannel (int result[2])
     int handle[2];
     struct Channel *channel;
     struct Process *current;
-    
+
+        
     current = GetCurrentProcess();
 
     if (free_handle_cnt < 2 || free_channel_cnt < 1)
@@ -206,30 +266,19 @@ SYSCALL int CreateChannel (int result[2])
  * Called by CloseHandle() to close one end of a channel.  If both ends are
  * freed then the channel structure is deleted.
  *
- * Any remaining message segments are freed by calling VirtualFree.  This
- * also places any embedded handles on the current process's close_handle_list
- * which gets harvested during KernelExit.
- *
- * AWOOGA: FIXME: CHECKME
- *
- * There are possible issues of sending a Channel handle to itself.
- * This can be done by injecting a Channel handle into a message
- * and then passing it to the Channel's second handle.
- *
- * We may want to come up with a solution to close/free all messages IF
- * one end of a channel is freed and the other end has a handle with NO owner.
- *
- * We have modified the code to free all segments and handles on BOTH pending
- * message lists.
+ * If either of handles to a Channel are closed then all of the queued messages
+ * going in both directions are freed.  This will close and delete the channel
+ * if a message is sent to the channel with one of the channel's handles
+ * embedded in the message.
  */
 
 int DoCloseChannel (int h)
 {
     struct Channel *ch;
     struct Process *current;
-    struct MemArea *ma;
-    struct Segment *seg;
-    int u, v;
+    struct VirtualSegment *vs;
+    struct Parcel *parcel;
+    int t, t2;
     
     
     current = GetCurrentProcess();
@@ -237,54 +286,43 @@ int DoCloseChannel (int h)
     if ((ch = GetObject (current, h, HANDLE_TYPE_CHANNEL)) == NULL)
         return paramErr;
             
-    u = (ch->handle[0] == h) ? 0 : 1;    
-    v = (ch->handle[1] == h) ? 1 : 0;
-    
     DisablePreemption();
     
-    while ((ma = LIST_HEAD (&ch->msg_list[u])) != NULL)
+    for (t=0; t<2; t++)
     {
-        seg = SegmentFind (ma->physical_addr);
+        while ((parcel = LIST_HEAD (&ch->msg_list[t])) != NULL)
+        {
+            if (parcel->type == PARCEL_MSG)
+            {
+                vs = parcel->content.virtualsegment;
+                vs->owner = current;
             
-        if (seg->busy == TRUE)
-            Sleep (&vm_rendez);
+                VirtualFree (vs->base);
+            }
+            else if (parcel->type == PARCEL_HANDLE);
+            {
+                CloseHandle (parcel->content.handle);
+            }
             
-        ma->owner_process = current;
-        
-        LIST_REM_HEAD (&ch->msg_list[u], link);
-        
-        VirtualFree (ma->base);
-    }
-    
+            LIST_REM_HEAD (&ch->msg_list[t], link);            
+        }
+                    
+        t2 = (t + 1) % 2;
 
-    while ((ma = LIST_HEAD (&ch->msg_list[v])) != NULL)
-    {
-        seg = SegmentFind (ma->physical_addr);
-            
-        if (seg->busy == TRUE)
-            Sleep (&vm_rendez);
-            
-        ma->owner_process = current;
-        
-        LIST_REM_HEAD (&ch->msg_list[v], link);
-        
-        VirtualFree (ma->base);
+        if (ch->handle[t2] == -1)
+        {
+            LIST_ADD_HEAD (&free_channel_list, ch, link);
+            free_channel_cnt ++;
+        }
+        else
+        {
+            DoRaiseEvent (ch->handle[t2]);
+        }
     }
-    
-               
-    ch->handle[u] = -1;
-    
-    if (ch->handle[v] == -1)
-    {
-        LIST_ADD_HEAD (&free_channel_list, ch, link);
-        free_channel_cnt ++;
-    }
-    else
-    {
-        DoRaiseEvent (ch->handle[v]);
-    }
-    
+
+
     FreeHandle (h);
+    
     return 0;
 }
 
@@ -292,8 +330,8 @@ int DoCloseChannel (int h)
 
 
 /*
- * Peforms a check to see if handle1 and handle2 both point to the same
- * channel.  Both handles must be owned by the current process.
+ * Peforms a check to see if handles h1 and h2 are ports to the same
+ * Channel.  Both handles must be owned by the current process.
  */
  
 SYSCALL int IsAChannel (int h1, int h2)
@@ -326,52 +364,64 @@ SYSCALL int IsAChannel (int h1, int h2)
  * Inserts a handle into a memory segment so that it may be passed
  * inside a message. The handle can then be extracted with ExtractHandle().
  *
- * AWOOGA: FIXME: CHECKME
+ * If the handle has already been marked as GRANT_ONCE it cannot be
+ * injected into another message.
  *
- * There are possible issues of sending a Channel handle to itself.
- * This can be done by injecting a Channel handle into a message
- * and then passing it to the Channel's second handle.
  *
- * May want a flag or separate system call to set the GRANT_ONCE flag
- * to handle.
+ * FIXME: The grant_once, we need a second flag and putmsg/getmsg to
+ * check if it has previously been passed/granted.
  */
 
-SYSCALL int InjectHandle (vm_addr addr, int h, bits32_t flags)
+SYSCALL int PutHandle (int port_h, int h, bits32_t flags)
 {
-	struct Process *current;
-	struct MemArea *ma;
-	
-	current = GetCurrentProcess();
-
-	if (h < 0 || h >= max_handle || handle_table[h].type == HANDLE_TYPE_FREE
-	    || handle_table[h].owner != current)
-	{
-	    return paramErr;
-	}
-
-	ma = MemAreaFind (addr);
-		
-	if (ma == NULL || ma->owner_process != current
-	    || MEM_TYPE(ma->flags) != MEM_ALLOC)
-	{
-	    return memoryErr;
-    }
+    struct Channel *channel;
+    struct Process *current;
+    struct Parcel *parcel;
+    struct Handle *handle;
+    int rq;
     
-	if (ma->msg_handle != -1)
-	    return messageErr;
-	    
-    if (handle_table[h].flags & HANDLEF_GRANT_ONCE)
-        return paramErr;	    
-	
-	DisablePreemption();
-	
-	if (handle_table[h].pending == 1)
-		LIST_REM_ENTRY (&current->pending_handle_list, &handle_table[h], link);
     
-    handle_table[h].flags = flags;
-	handle_table[h].owner = NULL;
-	ma->msg_handle = h;
-	return 0;
+    current = GetCurrentProcess();
+    
+    if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
+        return paramErr;
+
+    if ((handle = FindHandle(current, h)) == NULL)
+        return paramErr;
+
+    if (port_h == channel->handle[0])
+        rq = 1;
+    else
+        rq = 0;
+    
+    if (channel->handle[rq] == -1)
+        return connectionErr;
+
+    if (handle->flags & HANDLEF_GRANTED_ONCE)
+        return handleErr;
+    
+    DisablePreemption();
+    
+    parcel = LIST_HEAD (&free_parcel_list);
+    LIST_REM_HEAD (&free_parcel_list, link);
+    
+    KASSERT (parcel != NULL);
+    
+    parcel->type = PARCEL_HANDLE;
+    parcel->content.handle = h;
+    
+    LIST_ADD_TAIL (&channel->msg_list[rq], parcel, link);
+    
+    handle->parcel = parcel;
+    handle->owner = NULL;
+    
+    if (flags & MSG_GRANT_ONCE)
+        handle->flags |= HANDLEF_GRANTED_ONCE;
+    
+    if (!(flags & MSG_SILENT))
+        DoRaiseEvent (channel->handle[rq]);
+ 
+    return 0;
 }
 
 
@@ -382,36 +432,50 @@ SYSCALL int InjectHandle (vm_addr addr, int h, bits32_t flags)
  * handles injected into message segments.
  */
 
-SYSCALL int ExtractHandle (vm_addr addr)
+SYSCALL int GetHandle (int port_h, int *rcv_h)
 {
-	struct Process *current;
-	struct MemArea *ma;
-	int h;
-	
-			
-	current = GetCurrentProcess();
-	
-	ma = MemAreaFind (addr);
-		
-	if (ma == NULL || ma->owner_process != current
-    	|| MEM_TYPE(ma->flags) != MEM_ALLOC)
-	{
-	    return memoryErr;
-	}
+    struct Channel *channel;
+    struct Process *current;
+    struct Parcel *parcel;
+    int h;
+    int rq;
+    
+    
+    current = GetCurrentProcess();
+    
+    if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
+        return paramErr;
 
-	if (ma->msg_handle == -1)
-	    return messageErr;
-	
-	DisablePreemption();
+    if (channel->handle[0] == -1 || channel->handle[1] == -1)
+        return connectionErr;
+    
+    if (port_h == channel->handle[0])
+        rq = 0;
+    else
+        rq = 1;
+        
+    parcel = LIST_HEAD (&channel->msg_list[rq]);
+   
+    if (parcel == NULL)
+        return 0;
+         
+    if (parcel->type != PARCEL_HANDLE)
+        return messageErr;
+        
+    h = parcel->content.handle;
+    
+    CopyOut (rcv_h, &h, sizeof (int));
+    
+    DisablePreemption();
+    
+    LIST_REM_HEAD (&channel->msg_list[rq], link);
+    
+    LIST_ADD_HEAD (&free_parcel_list, parcel, link);
 
-	handle_table[ma->msg_handle].owner = current;
-	
-	if (handle_table[ma->msg_handle].pending == 1)
-		DoRaiseEvent (ma->msg_handle);
-	
-	h = ma->msg_handle;
-	ma->msg_handle = -1;
-	return h;
+    handle_table[h].parcel = NULL;
+    handle_table[h].owner = current;
+
+    return 1;
 }
 
 

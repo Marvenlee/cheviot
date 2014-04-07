@@ -41,7 +41,7 @@ int free_process_cnt;
 int free_channel_cnt;
 int free_timer_cnt;
 int free_isr_handler_cnt;
-int free_condition_cnt;
+int free_notification_cnt;
 
 
 
@@ -162,14 +162,21 @@ handle_list_t free_handle_list;
 uint32 *pagedirectory;
 uint32 *pagetable_pool;
 pagetable_list_t free_pagetable_list;
-int max_memarea;
-struct MemArea *memarea_table;
-int memarea_cnt;
-int64 memarea_version_counter;
-int max_segment;
-struct Segment *segment_table;
-int segment_cnt;
+
+int max_virtseg;
+struct VirtualSegment *virtseg_table;
+int virtseg_cnt;
+
+int max_physseg;
+struct PhysicalSegment *physseg_table;
+int physseg_cnt;
+
 struct Rendez vm_rendez;
+
+int64 segment_version_counter;
+
+
+
 
 vm_addr user_base;
 vm_addr user_ceiling;
@@ -195,6 +202,17 @@ struct Channel *channel_table;
 int max_notification;
 notification_list_t free_notification_list;
 struct Notification *notification_table;
+
+
+
+/*
+ *
+ */
+ 
+int max_parcel;
+parcel_list_t free_parcel_list;
+struct Parcel *parcel_table;
+
 
 
 /*

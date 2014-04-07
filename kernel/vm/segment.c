@@ -16,8 +16,7 @@
 
 /*
  * Physical memory managment.  Manages physical memory using an array
- * of Segment structures.  Most functions are called by the Virtuslxyz()
- * functions in kernel/vm/vm.c.
+ * of PhysicalSegment structures.
  */
  
 #include <kernel/types.h>
@@ -31,8 +30,12 @@
 
 
 /*
- * Coalesces free physical memory segments but does not compact them.
- * Shrinks the size of the segment_table array that manages physical memory.
+ * Coalesces free physical memory physsegs but does not compact them.
+ * Shrinks the size of the physseg_table array that manages physical memory.
+ *
+ * Called by a kernel task to periodically coalesce memory.  Algorithm could
+ * be improved to leave a certain number of common sizes avaiable such as
+ * 256k, 64k and 4k.
  */
  
 SYSCALL int CoalescePhysicalMem (void)
@@ -43,27 +46,28 @@ SYSCALL int CoalescePhysicalMem (void)
 
     current = GetCurrentProcess();
     
-    if (!(current->flags & PROCF_EXECUTIVE))
+    if (!(current->flags & PROCF_SYSTEMTASK))
         return privilegeErr;
 
     DisablePreemption();
 
-    for (t = 0, s = 0; t < segment_cnt; t++)
+    for (t = 0, s = 0; t < physseg_cnt; t++)
     {
-        if (s > 0 && (segment_table[s-1].type == SEG_TYPE_FREE && segment_table[t].type == SEG_TYPE_FREE))
+        if (s > 0 && (physseg_table[s-1].type == SEG_TYPE_FREE && physseg_table[t].type == SEG_TYPE_FREE))
         {
-            segment_table[s-1].ceiling = segment_table[t].ceiling;
+            physseg_table[s-1].ceiling      = physseg_table[t].ceiling;
         }
         else
         {
-            segment_table[s].base        = segment_table[t].base;
-            segment_table[s].ceiling       = segment_table[t].ceiling;
-            segment_table[s].type        = segment_table[t].type;
+            physseg_table[s].base           = physseg_table[t].base;
+            physseg_table[s].ceiling        = physseg_table[t].ceiling;
+            physseg_table[s].type           = physseg_table[t].type;
+            physseg_table[s].virtual_addr   = physseg_table[t].virtual_addr;
             s++;
         }
     }
 
-    segment_cnt = s;
+    physseg_cnt = s;
     return 0;
 }
 
@@ -73,13 +77,21 @@ SYSCALL int CoalescePhysicalMem (void)
 
 
 /*
- * Compacts physical memory segments,  moves segments downwards in
+ * Compacts physical memory.  moves segments downwards in
  * physical memory unless they are locked by the WireMem() system
  * call.
  *
- * To be called by root process/Executive.  The actual compaction may be
- * implemented in a kernel thread that has physical memory mapped in its
- * address space.
+ * To be called by a kernel task running with SYSTEM privileges
+ * that periodically coalesces and compacts memory based on memory
+ * demands.
+ *
+ * The kernel task needs to have physical memory mapped or the page
+ * fault handler needs to special case the handling of page faults
+ * that it generates.
+ *
+ * The kernel thread has to make this system call and not access
+ * the data structures directly in order to lock access to kernel
+ * data structures, make use of preemption/restartable system calls etc.
  */
 
 SYSCALL vm_addr CompactPhysicalMem (vm_addr addr)
@@ -100,18 +112,15 @@ SYSCALL vm_addr CompactPhysicalMem (vm_addr addr)
 
 
 
-
-
-
 /*
  * Searches for and returns a suitably sized free physical memory segment of
- * the desired size and type. Inserts entries into the segment_table array
+ * the desired size and type. Inserts entries into the physseg_table array
  * if needed
  */
 
-struct Segment *SegmentCreate (vm_offset addr, vm_size size, int type)
+struct PhysicalSegment *PhysicalSegmentCreate (vm_offset addr, vm_size size, int type)
 {
-    struct Segment *seg;
+    struct PhysicalSegment *ps;
     vm_addr base, ceiling;
     bits32_t flags;
     int t;
@@ -121,128 +130,129 @@ struct Segment *SegmentCreate (vm_offset addr, vm_size size, int type)
 
     flags = 0;
      
-    KASSERT (segment_cnt < (max_segment - 3));   
+    KASSERT (physseg_cnt < (max_physseg - 3));   
     
-    if ((seg = SegmentAlloc (size, flags, &addr)) == NULL)
+    if ((ps = PhysicalSegmentBestFit (size, flags, &addr)) == NULL)
         return NULL;
     
     
-    KASSERT (seg->base <= addr && addr+size <= seg->ceiling);
+    KASSERT (ps->base <= addr && addr+size <= ps->ceiling);
     
-    t = seg - segment_table;
+    t = ps - physseg_table;
 
-    if (seg->base == addr && seg->ceiling == addr + size)
+    if (ps->base == addr && ps->ceiling == addr + size)
     {
         /* Perfect fit, initialize region */
         
-        seg->base = addr;
-        seg->ceiling = addr + size;
-        seg->type = type;
+        ps->base = addr;
+        ps->ceiling = addr + size;
+        ps->type = type;
     }
-    else if (seg->base < addr && seg->ceiling > addr + size)
+    else if (ps->base < addr && ps->ceiling > addr + size)
     {
         /* In the middle, between two parts */
     
-        base = seg->base;
-        ceiling = seg->ceiling;
+        base = ps->base;
+        ceiling = ps->ceiling;
     
-        SegmentInsert (t, 2);
+        PhysicalSegmentInsert (t, 2);
                 
-        seg->base = base;
-        seg->ceiling = addr;
-        seg->type = SEG_TYPE_FREE;
-        seg++;
+        ps->base = base;
+        ps->ceiling = addr;
+        ps->type = SEG_TYPE_FREE;
+        ps++;
         
-        seg->base = addr;
-        seg->ceiling = addr + size;
-        seg->type = type;
-        seg++;
+        ps->base = addr;
+        ps->ceiling = addr + size;
+        ps->type = type;
+        ps++;
         
-        seg->base = addr + size;
-        seg->ceiling = ceiling;
-        seg->type = SEG_TYPE_FREE;
-        seg --;     // Return the middle seg
+        ps->base = addr + size;
+        ps->ceiling = ceiling;
+        ps->type = SEG_TYPE_FREE;
+        ps --;     // Return the middle ps
         
     }
-    else if (seg->base == addr && seg->ceiling > addr + size)
+    else if (ps->base == addr && ps->ceiling > addr + size)
     {
         /* Starts at bottom of area */
     
-        base = seg->base;
-        ceiling = seg->ceiling;
+        base = ps->base;
+        ceiling = ps->ceiling;
     
-        SegmentInsert (t, 1);
+        PhysicalSegmentInsert (t, 1);
         
-        seg->base = addr;
-        seg->ceiling = addr + size;
-        seg->type = type;
-        seg++;
+        ps->base = addr;
+        ps->ceiling = addr + size;
+        ps->type = type;
+        ps++;
         
-        seg->base = addr + size;
-        seg->ceiling = ceiling;
-        seg->type = SEG_TYPE_FREE;
-        seg --;         // Return the first seg
+        ps->base = addr + size;
+        ps->ceiling = ceiling;
+        ps->type = SEG_TYPE_FREE;
+        ps --;         // Return the first ps
     }
     else
     {
         /* Starts at top of area */
         
-        base = seg->base;
-        ceiling = seg->ceiling;
+        base = ps->base;
+        ceiling = ps->ceiling;
     
-        SegmentInsert (t, 1);
+        PhysicalSegmentInsert (t, 1);
         
-        seg->base = base;
-        seg->ceiling = addr;
-        seg->type = SEG_TYPE_FREE;
+        ps->base = base;
+        ps->ceiling = addr;
+        ps->type = SEG_TYPE_FREE;
         
-        seg++;
-        seg->base = addr;
-        seg->ceiling = addr + size;
-        seg->type = type;
+        ps++;
+        ps->base = addr;
+        ps->ceiling = addr + size;
+        ps->type = type;
         
-        // Return the second seg
+        // Return the second ps
     }
     
     
-    return seg;
+    return ps;
 }
 
 
 
 
 /*
- * Marks a segment as free.  Does not coalesce free segments.  Coalescing is
- * done by a seperate CoalescePhysicalMem() system call.
+ * Marks a PhysicalSegment as free.  Does not coalesce free physsegs.
+ * Coalescing is done by a seperate CoalescePhysicalMem() system call.
  */
  
-void SegmentDelete (struct Segment *seg)
+void PhysicalSegmentDelete (struct PhysicalSegment *ps)
 {
-    seg->type = SEG_TYPE_FREE;
+    ps->type = SEG_TYPE_FREE;
 }
 
 
 
 
 /*
- * Inserts 'cnt' empty segment_table entries after segment_table entry 'index' 
- * Used by SegmentCreate() if a perfectly sized segment could not be found.
- * This inserts free entries in the segment_table so that SegmentCreate() can
- * carve up a larger free segment into the desired size plus the leftovers.
+ * Inserts 'cnt' empty physseg_table entries after physseg_table entry 'index' 
+ * Used by PhysicalSegmentCreate() if a perfectly sized physseg could not be found.
+ * This inserts free entries in the physseg_table so that PhysicalSegmentCreate() can
+ * carve up a larger free physseg into the desired size plus the leftovers.
  */
  
-void SegmentInsert (int index, int cnt)
+void PhysicalSegmentInsert (int index, int cnt)
 {
     int t;
     
-    for (t = segment_cnt - 1 + cnt; t >= (index + cnt); t--)
+    for (t = physseg_cnt - 1 + cnt; t >= (index + cnt); t--)
     {
-        segment_table[t].base = segment_table[t-cnt].base;
-        segment_table[t].ceiling = segment_table[t-cnt].ceiling;
-        segment_table[t].type = segment_table[t-cnt].type;
+        physseg_table[t].base           = physseg_table[t-cnt].base;
+        physseg_table[t].ceiling        = physseg_table[t-cnt].ceiling;
+        physseg_table[t].type           = physseg_table[t-cnt].type;
+        physseg_table[t].virtual_addr   = physseg_table[t-cnt].virtual_addr;
     }
     
-    segment_cnt += cnt;
+    physseg_cnt += cnt;
 }
 
 
@@ -252,10 +262,10 @@ void SegmentInsert (int index, int cnt)
  *
  */
 
-struct Segment *SegmentFind (vm_addr addr)
+struct PhysicalSegment *PhysicalSegmentFind (vm_addr addr)
 {
     int low = 0;
-    int high = segment_cnt - 1;
+    int high = physseg_cnt - 1;
     int mid;    
     
     
@@ -263,12 +273,12 @@ struct Segment *SegmentFind (vm_addr addr)
     {
         mid = low + ((high - low) / 2);
         
-        if (addr >= segment_table[mid].ceiling)
+        if (addr >= physseg_table[mid].ceiling)
             low = mid + 1;
-        else if (addr < segment_table[mid].base)
+        else if (addr < physseg_table[mid].base)
             high = mid - 1;
         else
-            return &segment_table[mid];
+            return &physseg_table[mid];
     }
 
     return NULL;
@@ -278,19 +288,19 @@ struct Segment *SegmentFind (vm_addr addr)
 
 
 /*
- * Performs a best fit search for a segment of physical memory.
- * returns the segment and the physical address of where it segment
+ * Performs a best fit search for a physseg of physical memory.
+ * returns the physseg and the physical address of where it physseg
  * to be returned to the user should start.  This may be different
- * from the base address of the segment if alignment options
+ * from the base address of the physseg if alignment options
  * are added to the code.
- * SegmentCreate() then carves this segment up if it is larger than
+ * PhysicalSegmentCreate() then carves this physseg up if it is larger than
  * the requested size.
  */
 
-struct Segment *SegmentAlloc (vm_size size, uint32 flags, vm_addr *ret_addr)
+struct PhysicalSegment *PhysicalSegmentBestFit (vm_size size, uint32 flags, vm_addr *ret_addr)
 {
     int i;
-    vm_size seg_size;
+    vm_size ps_size;
     vm_size best_size = VM_USER_CEILING - VM_USER_BASE;
     int best_idx = -1;
     bool found = FALSE;
@@ -299,26 +309,26 @@ struct Segment *SegmentAlloc (vm_size size, uint32 flags, vm_addr *ret_addr)
     
     // Might want to support NOX64 (same for compaction)
 
-    for (i = 0; i < segment_cnt; i++)
+    for (i = 0; i < physseg_cnt; i++)
     {
-        if (segment_table[i].type != SEG_TYPE_FREE)
+        if (physseg_table[i].type != SEG_TYPE_FREE)
             continue;
         
         if (found == FALSE)
             found = TRUE;
     
-        seg_size = segment_table[i].ceiling - segment_table[i].base;
+        ps_size = physseg_table[i].ceiling - physseg_table[i].base;
     
-        if (seg_size > size && seg_size < best_size)
+        if (ps_size > size && ps_size < best_size)
         {
-            best_size = seg_size;
+            best_size = ps_size;
             best_idx = i;
             
         }
-        else if (seg_size == size)
+        else if (ps_size == size)
         {
-            *ret_addr = segment_table[i].base;
-            return &segment_table[i];
+            *ret_addr = physseg_table[i].base;
+            return &physseg_table[i];
         }
         
     }
@@ -326,8 +336,8 @@ struct Segment *SegmentAlloc (vm_size size, uint32 flags, vm_addr *ret_addr)
     if (best_idx == -1)
         return NULL;
 
-    *ret_addr = segment_table[best_idx].base;
-    return &segment_table[best_idx];
+    *ret_addr = physseg_table[best_idx].base;
+    return &physseg_table[best_idx];
 }
 
 

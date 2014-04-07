@@ -181,12 +181,9 @@ void DataAbortHandler (void)
 void DoPageFault (void)
 {
     struct Process *current;
-    struct MemArea *ma;
+    struct VirtualSegment *vs;
     vm_addr addr;
     bits32_t access;
-    struct Segment *seg;
-    
-//    KLog ("DoPageFault()");
     
     current = GetCurrentProcess();
         
@@ -195,40 +192,14 @@ void DoPageFault (void)
     addr = current->task_state.fault_addr;
     access = current->task_state.fault_access;
     addr = ALIGN_DOWN (addr, PAGE_SIZE);
-    ma = MemAreaFind (addr);
-
-/*  
-    if (access & PROT_READ)
-    {
-        KLog ("addr = %#010x,  PROT_READ, ma = %#010x", addr, ma);
-    }
-    else if (access & PROT_WRITE)
-    {
-        KLog ("addr = %#010x,  PROT_WRITE, ma = %#010x", addr, ma);
-    }
-    else if (access & PROT_EXEC)
-    {
-        KLog ("addr = %#010x,  PROT_EXEC, ma = %#010x", addr, ma);
-    }
-    else
-    {
-        KLog ("addr = %#010x,  PROT UNKNOWN, ma = %#010x", addr, ma);
-    }
-    
-    KASSERT (addr >= user_base && addr < user_ceiling);
-    KASSERT (ma != NULL);
-    KASSERT (ma->owner_process == current);
-    KASSERT (MEM_TYPE(ma->flags) != MEM_FREE);
-    KASSERT (MEM_TYPE(ma->flags) != MEM_RESERVED);
-    KASSERT ((access & ma->flags) == access);
-*/
+    vs = VirtualSegmentFind (addr);
     
     if (addr < user_base || addr >= user_ceiling
-            || ma == NULL
-            || ma->owner_process != current
-            || MEM_TYPE(ma->flags) == MEM_FREE
-            || MEM_TYPE(ma->flags) == MEM_RESERVED
-            || (access & ma->flags) != access)
+            || vs == NULL
+            || vs->owner != current
+            || MEM_TYPE(vs->flags) == MEM_FREE
+            || MEM_TYPE(vs->flags) == MEM_RESERVED
+            || (access & vs->flags) != access)
     {
         current->task_state.flags |= TSF_EXCEPTION;
         DoExit(EXIT_FATAL);
@@ -237,24 +208,17 @@ void DoPageFault (void)
 
     DisablePreemption();
 
-
-    if (MEM_TYPE(ma->flags) == MEM_ALLOC)
+    if (vs->busy == TRUE)
+        Sleep (&vm_rendez);
+            
+    if (vs->flags & MAP_VERSION && access & PROT_WRITE)
     {
-        seg = SegmentFind (ma->physical_addr);
-        
-        if (seg->busy == TRUE)
-            Sleep (&vm_rendez);
-    }
-
-    if (ma->flags & MAP_VERSION && access & PROT_WRITE)
-    {
-        ma->flags &= ~MAP_VERSION;
-        ma->version = memarea_version_counter;
-        memarea_version_counter ++;
+        vs->flags &= ~MAP_VERSION;
+        vs->version = segment_version_counter;
+        segment_version_counter ++;
     }
     
-    PmapEnterRegion(&current->pmap, ma, addr);
-
+    PmapEnterRegion(&current->pmap, vs, addr);
     
     current->task_state.flags &= ~TSF_PAGEFAULT;
     KLog ("Returning from fault");

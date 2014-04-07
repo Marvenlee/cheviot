@@ -133,13 +133,20 @@ void PmapDestroy (struct Pmap *pmap)
 /*
  * Converts the higher level VM description of MemAreas and Segments
  * into page tables.  Called whenever a memory map is changed through
- * the VirtualXXX() calls, message passing or a page fault occurs.
+ * the allocation, message passing or a page fault occurs.
  * Updates part of a process's page table with new page table entries
  * based on the specified address and the MemArea that contains it.
  * An optimization is to set several page table entries at once.
+ *
+ * OPTIMIZE:  If virtual and physical segments are 64k aligned we
+ * should try to use the large page sizes to improve TLB efficiency.
+ *
+ * Could prevent the first page table of a process from being subjected to
+ * LRU replacement.  This will be the page tale with the code and possibly
+ * data bss and stack sections of the process..
  */
 
-void PmapEnterRegion (struct Pmap *pmap, struct MemArea *ma, vm_addr addr)
+void PmapEnterRegion (struct Pmap *pmap, struct VirtualSegment *vs, vm_addr addr)
 {
     uint32 *pt;
     int pde_idx, pte_idx;
@@ -150,12 +157,12 @@ void PmapEnterRegion (struct Pmap *pmap, struct MemArea *ma, vm_addr addr)
     
 
     KASSERT ((addr & 0x00000fff) == 0);
-    KASSERT (ma->base <= addr && addr < ma->ceiling);
+    KASSERT (vs->base <= addr && addr < vs->ceiling);
     KASSERT (pmap != NULL);
-    KASSERT (ma != NULL);
+    KASSERT (vs != NULL);
     KASSERT (pagedirectory != NULL);
     KASSERT (addr >= 0x00800000);
-    KASSERT ((ma->flags & MEM_MASK) == MEM_ALLOC || (ma->flags & MEM_MASK) == MEM_PHYS);
+    KASSERT ((vs->flags & MEM_MASK) == MEM_ALLOC || (vs->flags & MEM_MASK) == MEM_PHYS);
     
     
     pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
@@ -190,13 +197,13 @@ void PmapEnterRegion (struct Pmap *pmap, struct MemArea *ma, vm_addr addr)
 
     pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
     
-    pa = ma->physical_addr + (addr - ma->base);
-    pa_bits = PmapFlagsToPTE (ma->flags);
+    pa = vs->physical_addr + (addr - vs->base);
+    pa_bits = PmapFlagsToPTE (vs->flags);
 
     ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
     
-    if (ceiling >= ma->ceiling)
-        ceiling = ma->ceiling;
+    if (ceiling >= vs->ceiling)
+        ceiling = vs->ceiling;
     
     if ((addr + 0x00010000) < ceiling)
         ceiling = addr + 0x00010000;
@@ -214,18 +221,23 @@ void PmapEnterRegion (struct Pmap *pmap, struct MemArea *ma, vm_addr addr)
 /*
  * Unmaps and removes all of the page table entries for a range of memory
  * specified by a MemArea structure.
+ *
+ * OPTIMIZE: See if we can unmap an entire page table (instead of each page)
+ * Incmrent in 1MB spans (page table's coverage) if possible.  Alternatively
+ * Check each of the 16k page table entries, see if they are covered in
+ * entirity.  All that is left is first page table and last page table of span.
  */
 
-void PmapRemoveRegion (struct Pmap *pmap, struct MemArea *ma)
+void PmapRemoveRegion (struct Pmap *pmap, struct VirtualSegment *vs)
 {
     uint32 *pt;
     uint32 pde_idx, pte_idx;
     vm_addr va;
 
     KASSERT (pmap != NULL);
-    KASSERT (ma != NULL);
+    KASSERT (vs!= NULL);
     
-    for (va = ma->base; va < ma->ceiling; va += PAGE_SIZE)
+    for (va = vs->base; va < vs->ceiling; va += PAGE_SIZE)
     {
         pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
         pt = (uint32 *)(pagedirectory[pde_idx] & L1_C_ADDR_MASK);

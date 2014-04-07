@@ -36,9 +36,20 @@ void GetVideoCoreMem (uint32 *phys_base, uint32 *size);
 
 
 /*
- * InitVM();
+ * Initializes the kernel's memory management, allocates tables in the
+ * kernel for all kernel objects.  The kernel starts at 0MB and ends at 8MB.
+ * User-Mode begins at 8MB and ends at 2GB.  Above 2GB the framebuffer and
+ * Broadcom chipset peripheral memory are mapped.
  *
- * Called by Init() in i386/init/main.c
+ * A memory map is passed by the bootloader in the bootinfo structure.
+ * All structures and tables passed by the bootloader is guaranteed to be
+ * below 1MB, so the kernel is mapped at 1MB.  The Executive (or root process)
+ * is compiled to load at 8MB.
+ *
+ * Two tables manage virtual memory,  the virtseg_table manages the virtual
+ * address space (remember it is a single address space) and the
+ * physseg_table.manages physical memory.  These arrays are expanding arrays
+ * but have a maximum size.
  */
 
 void InitVM (void)
@@ -53,15 +64,6 @@ void InitVM (void)
     
 //  Calculate table sizes
     
-    max_segment = 32000;
-    max_memarea = 32000;
-    max_process = 128;
-    max_timer   = 1024;
-    max_isr_handler = 128;
-    max_channel = 10000;
-    max_notification = 4000;
-    max_handle  = 10000;
-
     user_base = bootinfo->user_base;
     user_ceiling = 0x80000000;
 
@@ -69,41 +71,39 @@ void InitVM (void)
     heap_ceiling = bootinfo->heap_ceiling;
     heap_ptr = heap_base;
 
-//  MemSet ((void *)heap_base, 0, heap_ceiling - heap_base);
-    
-    KLog ("...allocating heap");
+    MemSet ((void *)heap_base, 0, heap_ceiling - heap_base);
     
     idle_process_table   = HeapAlloc (MAX_CPU         * PROCESS_SZ);
     process_table        = HeapAlloc (max_process     * PROCESS_SZ);
     timer_table          = HeapAlloc (max_timer       * sizeof (struct Timer));
     isr_handler_table    = HeapAlloc (max_isr_handler * sizeof (struct ISRHandler));
     channel_table        = HeapAlloc (max_channel     * sizeof (struct Channel));
-    notification_table   = HeapAlloc (max_notification * sizeof (struct Notificationl));    
+    notification_table   = HeapAlloc (max_notification * sizeof (struct Notification));    
     handle_table         = HeapAlloc (max_handle      * sizeof (struct Handle));
-    segment_table        = HeapAlloc (max_segment     * sizeof (struct Segment));
-    memarea_table        = HeapAlloc (max_memarea     * sizeof (struct MemArea));
-
+    physseg_table        = HeapAlloc (max_physseg     * sizeof (struct PhysicalSegment));
+    virtseg_table        = HeapAlloc (max_virtseg     * sizeof (struct VirtualSegment));
+    parcel_table         = HeapAlloc (max_parcel      * sizeof (struct Parcel));
 
     for (u = 0, t = 0; t < bootinfo->segment_cnt; t++)
     {
         if (bootinfo->segment_table[t].base >= bootinfo->user_base)
         {
-            segment_table[u].base    =  bootinfo->segment_table[t].base;
-            segment_table[u].ceiling =  bootinfo->segment_table[t].ceiling;
-            segment_table[u].type    =  bootinfo->segment_table[t].type;
+            physseg_table[u].base    =  bootinfo->segment_table[t].base;
+            physseg_table[u].ceiling =  bootinfo->segment_table[t].ceiling;
+            physseg_table[u].type    =  bootinfo->segment_table[t].type;
             
-            memarea_table[u].base          = bootinfo->segment_table[t].base;
-            memarea_table[u].ceiling       = bootinfo->segment_table[t].ceiling;
-            memarea_table[u].physical_addr = bootinfo->segment_table[t].base;
-            memarea_table[u].owner_process = NULL;
-            memarea_table[u].msg_handle = -1;
+            virtseg_table[u].base          = bootinfo->segment_table[t].base;
+            virtseg_table[u].ceiling       = bootinfo->segment_table[t].ceiling;
+            virtseg_table[u].physical_addr = bootinfo->segment_table[t].base;
+            virtseg_table[u].owner = NULL;
+
                 
-            if (segment_table[u].type == SEG_TYPE_ALLOC)
-                memarea_table[u].flags = MEM_ALLOC | bootinfo->segment_table[t].flags;
-            else if (segment_table[u].type == SEG_TYPE_FREE)
-                memarea_table[u].flags = MEM_FREE;
-            else if (segment_table[u].type == SEG_TYPE_RESERVED)
-                memarea_table[u].flags = MEM_RESERVED;
+            if (physseg_table[u].type == SEG_TYPE_ALLOC)
+                virtseg_table[u].flags = MEM_ALLOC | bootinfo->segment_table[t].flags;
+            else if (physseg_table[u].type == SEG_TYPE_FREE)
+                virtseg_table[u].flags = MEM_FREE;
+            else if (physseg_table[u].type == SEG_TYPE_RESERVED)
+                virtseg_table[u].flags = MEM_RESERVED;
             else
                 KernelPanic ("Undefined bootinfo segment");
         
@@ -111,12 +111,12 @@ void InitVM (void)
         }
     }
 
-    memarea_table[u-1].ceiling = user_ceiling;
-    segment_cnt = u;
-    memarea_cnt = u;
-    memarea_version_counter = 0;
+    virtseg_table[u-1].ceiling = user_ceiling;
+    physseg_cnt = u;
+    virtseg_cnt = u;
+    segment_version_counter = 0;
     
-    KASSERT (memarea_cnt > 0);
+    KASSERT (virtseg_cnt > 0);
     
     
     // FIXME: Move up to beginning of function?
@@ -176,8 +176,6 @@ void InitVM (void)
             paddr += 0x00100000, vaddr += 0x00100000)
         pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | paddr;
     
-    KLog ("*** screen_buf     = %#010x", screen_buf);
-    KLog ("*** videocore_phys = %#010x", videocore_phys); 
     KLog ("Enabling paging");
 
     EnablePaging((uint32) pagedirectory, 0x00800001);

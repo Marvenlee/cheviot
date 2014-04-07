@@ -32,13 +32,30 @@
 
 
 /*
+ * Allocates a clean area are virtual memory to the current process and
+ * returns a pointer to it.  Returns NULL if unsuccessful.  Will sleep
+ * for other tasks to free memory.
  *
+ * The timeout watchdog is currently unimplemented.  A way of notifying
+ * the Executive to free cached file segments is currently unimplemented.
+ *
+ * The look up and creation of the virtseg and freeseg data structures
+ * has preemption disabled.  Preemption is disabled for the duration of
+ * cleaning the allocated memory.
+ *
+ * This could be optimized to allow preemption during the lookup of
+ * suitable sized segments, but any resizing or changes to the
+ * virtseg_table and [hysseg_table requiring preemption to be disabled.
+ *
+ * The cleaning of the allocated memory could be done with preemption
+ * enabled in a continuation.  Progress could be saved every few kilobytes
+ * within the process structure.
  */
 
 SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 {
-	struct Segment *seg;
-	struct MemArea *ma;
+	struct PhysicalSegment *ps;
+	struct VirtualSegment *vs;
 	struct Process *current;
     vm_addr va;
 
@@ -48,7 +65,7 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 	if (CheckWatchdog() == -1)
 	    return (vm_addr)NULL;
 	
-	if (memarea_cnt >= (max_memarea - 3) || segment_cnt >= (max_segment - 3))
+	if (virtseg_cnt >= (max_virtseg - 3) || physseg_cnt >= (max_physseg - 3))
         Sleep (&vm_rendez);
 
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
@@ -64,34 +81,33 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 	
 	DisablePreemption();
 		
-	if ((ma = MemAreaCreate (addr, len, flags)) == NULL)
+	if ((vs = VirtualSegmentCreate (addr, len, flags)) == NULL)
 	    Sleep(&vm_rendez);
 	
-	if ((seg = SegmentCreate (0, ma->ceiling - ma->base, flags)) == NULL)
+	if ((ps = PhysicalSegmentCreate (0, vs->ceiling - vs->base, flags)) == NULL)
 	{
-		MemAreaDelete (ma);
+		VirtualSegmentDelete (vs);
 	    Sleep(&vm_rendez);
 	}
 	
-	seg->memarea = ma;
-	ma->owner_process = current;
-	ma->physical_addr = seg->base;
-	ma->version = memarea_version_counter;
-
-	memarea_version_counter ++;
+	ps->virtual_addr = vs->base;
+	vs->owner = current;
+	vs->physical_addr = ps->base;
+	vs->version = segment_version_counter;
+	segment_version_counter ++;
 	
-	ma->flags = (flags & ~PROT_MASK) | PROT_READWRITE;
-	PmapEnterRegion (&current->pmap, ma, ma->base);
+	vs->flags = (flags & ~PROT_MASK) | PROT_READWRITE;
+	PmapEnterRegion (&current->pmap, vs, vs->base);
 	
-	for (va = ma->ceiling - PAGE_SIZE; va >= ma->base; va -= PAGE_SIZE)
+	for (va = vs->ceiling - PAGE_SIZE; va >= vs->base; va -= PAGE_SIZE)
 		MemSet ((void *)va, 0, PAGE_SIZE);
 	
-	ma->flags = flags;
-	PmapRemoveRegion (&current->pmap, ma);
-	PmapEnterRegion (&current->pmap, ma, ma->base);
+	vs->flags = flags;
+	PmapRemoveRegion (&current->pmap, vs);
+	PmapEnterRegion (&current->pmap, vs, vs->base);
 	
 	SetWatchdog (0);
-	return ma->base;
+	return vs->base;
 	
 }
 
@@ -99,12 +115,14 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 
 
 /*
- * 
+ * Maps an area of physical memory such as IO devie or framebuffer into the
+ * address space of the calling process.
+ * Should be renamed to VirtualMapPhys
  */
 
 SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_addr paddr)
 {
-	struct MemArea *ma;
+	struct VirtualSegment *vs;
 	struct Process *current;
 
 
@@ -119,7 +137,7 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
 		return (vm_addr)NULL;
 	}
 	
-	if (memarea_cnt >= (max_memarea - 3))
+	if (virtseg_cnt >= (max_virtseg - 3))
         Sleep (&vm_rendez);
 
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
@@ -136,21 +154,21 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
     
 	DisablePreemption();
 
-	if ((ma = MemAreaCreate (addr, len, flags)) == NULL)
+	if ((vs = VirtualSegmentCreate (addr, len, flags)) == NULL)
 	{
 	    Sleep(&vm_rendez);
     }
     	
-	ma->owner_process = current;
-	ma->physical_addr = paddr;
-	ma->flags = flags;
-	ma->version = memarea_version_counter;
-    memarea_version_counter ++;
+	vs->owner = current;
+	vs->physical_addr = paddr;
+	vs->flags = flags;
+	vs->version = segment_version_counter;
+    segment_version_counter ++;
 
-	PmapEnterRegion (&current->pmap, ma, ma->base);
+	PmapEnterRegion (&current->pmap, vs, vs->base);
 	
 	SetWatchdog (0);
-	return ma->base;
+	return vs->base;
 }
 
 
@@ -162,8 +180,8 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
 
 SYSCALL int VirtualFree (vm_offset addr)
 {
-	struct MemArea *ma;
-	struct Segment *seg;
+	struct VirtualSegment *vs;
+	struct PhysicalSegment *ps;
 	struct Process *current;
 	
 
@@ -171,32 +189,27 @@ SYSCALL int VirtualFree (vm_offset addr)
 
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
 
-	if ((ma = MemAreaFind (addr)) == NULL || ma->owner_process != current)
+	if ((vs = VirtualSegmentFind (addr)) == NULL || vs->owner != current)
 		return memoryErr;
 	
 	DisablePreemption();
+	
+// FIXME: Check to see if segment is busy?  Sleep if needed??????
 			
-	if (MEM_TYPE (ma->flags) == MEM_ALLOC)
+	if (MEM_TYPE (vs->flags) == MEM_ALLOC)
 	{	
-		PmapRemoveRegion (&current->pmap, ma);
-		
-		if (ma->msg_handle != -1)
-		{   
-		    handle_table[ma->msg_handle].owner = current;
-		    CloseHandle (ma->msg_handle);
-		    ma->msg_handle = -1;
-		}
-		
-		seg = SegmentFind (ma->physical_addr);
-		SegmentDelete(seg);
-		MemAreaDelete (ma);
+		PmapRemoveRegion (&current->pmap, vs);
+
+		ps = PhysicalSegmentFind (vs->physical_addr);
+		PhysicalSegmentDelete (ps);
+		VirtualSegmentDelete (vs);
         Wakeup (&vm_rendez);
 		return 0;
 	}
-	else if (MEM_TYPE (ma->flags) == MEM_PHYS)
+	else if (MEM_TYPE (vs->flags) == MEM_PHYS)
 	{
-		PmapRemoveRegion (&current->pmap, ma);
-		MemAreaDelete (ma);
+		PmapRemoveRegion (&current->pmap, vs);
+		VirtualSegmentDelete (vs);
         Wakeup (&vm_rendez);
 		return 0;
 	}
@@ -209,33 +222,31 @@ SYSCALL int VirtualFree (vm_offset addr)
 
 
 
-
-
 /*
- *
+ * Changes the read/write/execute protection attributes of a virtual
+ * memory segment pointed to by 'addr'..
  */
 
 SYSCALL int VirtualProtect (vm_addr addr, bits32_t flags)
 {
-	struct MemArea *ma;
+	struct VirtualSegment *vs;
 	struct Process *current;
 
 	
 	current = GetCurrentProcess();
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
 		
-	if ((ma = MemAreaFind (addr)) == NULL)
+	if ((vs = VirtualSegmentFind (addr)) == NULL)
 		return memoryErr;
 		
-	if (ma->owner_process != current || MEM_TYPE(ma->flags) == MEM_RESERVED)
+	if (vs->owner != current || MEM_TYPE(vs->flags) == MEM_RESERVED)
 	    return memoryErr;
 
 	DisablePreemption();
 
-	PmapRemoveRegion (&current->pmap, ma);
-		
-	ma->flags = (ma->flags & ~PROT_MASK) | (flags & PROT_MASK);
-	PmapEnterRegion (&current->pmap, ma, ma->base);
+	PmapRemoveRegion (&current->pmap, vs);
+    vs->flags = (vs->flags & ~PROT_MASK) | (flags & PROT_MASK);
+	PmapEnterRegion (&current->pmap, vs, vs->base);
 	return 0;
 }
 
@@ -246,29 +257,29 @@ SYSCALL int VirtualProtect (vm_addr addr, bits32_t flags)
  * Returns a 64-bit unique ID for a segment.  This ID is uniquely chosen
  * whenever a segment is allocated with VirtualAlloc() or VirtualAllocPhys().
  * The ID is updated to another unique value whenever a segment has the
- * MAP_VERSION flag set and write is performed.  Once a write is performed
+ * MAP_VERSION flag set and a write is performed.  Once a write is performed
  * the MAP_VERSION flag has to be reenabled with a call to VirtualVersion().
  */
 
 SYSCALL int VirtualVersion (vm_addr addr, uint64 *version)
 {
-	struct MemArea *ma;
+	struct VirtualSegment *vs;
     struct Process *current;
     
 	current = GetCurrentProcess();
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
 	
-	if ((ma = MemAreaFind (addr)) == NULL || ma->owner_process != current
-	    || MEM_TYPE(ma->flags) != MEM_ALLOC)
+	if ((vs = VirtualSegmentFind (addr)) == NULL || vs->owner != current
+	    || !(MEM_TYPE(vs->flags) == MEM_ALLOC || MEM_TYPE(vs->flags) == MEM_PHYS))
 	{
 	    return memoryErr;
 	}
     
-    CopyOut (version, &ma->version, sizeof (uint64));
+    CopyOut (version, &vs->version, sizeof (uint64));
 
     DisablePreemption();
     
-    ma->flags |= MAP_VERSION;
+    vs->flags |= MAP_VERSION;
     return 0;
 }
 
@@ -281,33 +292,35 @@ SYSCALL int VirtualVersion (vm_addr addr, uint64 *version)
 
 SYSCALL ssize_t VirtualSizeOf (vm_addr addr)
 {
-	struct MemArea *ma;
+	struct VirtualSegment *vs;
 	struct Process *current;
 	
 
 	current = GetCurrentProcess();
 	
-	if ((ma = MemAreaFind (addr)) == NULL || ma->owner_process != current)
+	if ((vs = VirtualSegmentFind (addr)) == NULL || vs->owner != current)
 		return memoryErr;
 		
-	return ma->ceiling - ma->base;
+	return vs->ceiling - vs->base;
 }
 
 
 
 
 /*
- * Flags a segment of memory pointed to by 'addr' as immovable to prevent the
- * physical memory compaction system call CompactMem() from moving it. This
- * returns the physical address of the segment and is to be used prior to
- * performing DMA access.
+ * Marks a segment of memory pointed to by 'addr' as immovable to prevent this
+ * segment from being compacted. Returns the physical address of the segment
+ * for DMA purposes.
+ *
+ * Sleeps if the compactor marks segment as busy, which indicates it either
+ * intends to compact the memory once the wired flag is cleared or is currently
+ * performing segment compaction.
  */
 
 SYSCALL int WireMem (vm_addr addr, vm_addr *ret_phys)
 {
-	struct MemArea *ma;
 	struct Process *current;
-	struct Segment *seg;
+	struct VirtualSegment *vs;
 	vm_addr phys;
 
 
@@ -316,26 +329,24 @@ SYSCALL int WireMem (vm_addr addr, vm_addr *ret_phys)
 	if (!(current->flags & PROCF_ALLOW_IO))
 	    return privilegeErr;
 		
-	if ((ma = MemAreaFind (addr)) == NULL || ma->owner_process != current
-        || MEM_TYPE(ma->flags) != MEM_ALLOC)
+	if ((vs = VirtualSegmentFind (addr)) == NULL || vs->owner != current
+        || MEM_TYPE(vs->flags) != MEM_ALLOC)
 	{
 		return memoryErr;
     }
 	
-	seg = SegmentFind (ma->physical_addr);
-	phys = ma->physical_addr + (addr - ma->base);
+	phys = vs->physical_addr + (addr - vs->base);
 	CopyOut (ret_phys, &phys, sizeof (vm_addr));
 	
-	if (seg->wired == TRUE)
+	if (vs->wired == TRUE)
 	    return memoryErr;
 		
 	DisablePreemption();
 	
-	if (seg->busy == TRUE)
+	if (vs->busy == TRUE)
 		Sleep (&vm_rendez);
 	
-	seg->busy = TRUE;
-	seg->wired = TRUE;
+	vs->wired = TRUE;
 	return 0;
 }
 
@@ -348,9 +359,9 @@ SYSCALL int WireMem (vm_addr addr, vm_addr *ret_phys)
 
 SYSCALL int UnwireMem (vm_addr addr)
 {
-	struct MemArea *ma;
 	struct Process *current;
-	struct Segment *seg;
+	struct VirtualSegment *vs;
+
 
 	current = GetCurrentProcess();
 
@@ -359,21 +370,18 @@ SYSCALL int UnwireMem (vm_addr addr)
 		
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
 		
-	if ((ma = MemAreaFind (addr)) == NULL || ma->owner_process != current
-	    || MEM_TYPE(ma->flags) != MEM_ALLOC)
+	if ((vs = VirtualSegmentFind (addr)) == NULL || vs->owner != current
+	    || MEM_TYPE(vs->flags) != MEM_ALLOC)
 	{
 		return memoryErr;
     }
     
-	seg = SegmentFind (ma->physical_addr);
-
-	if (seg->wired == FALSE)
+	if (vs->wired == FALSE)
 	    return memoryErr;
 
 	DisablePreemption();
 	
-	seg->busy = FALSE;
-	seg->wired = FALSE;
+	vs->wired = FALSE;
 	Wakeup (&vm_rendez);
 	return 0;
 }

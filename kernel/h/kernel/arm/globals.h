@@ -49,8 +49,7 @@ extern int free_process_cnt;
 extern int free_channel_cnt;
 extern int free_timer_cnt;
 extern int free_isr_handler_cnt;
-extern int free_condition_cnt;
-
+extern int free_notification_cnt;
 
 
 
@@ -145,7 +144,8 @@ extern int max_isr_handler;
 extern struct ISRHandler *isr_handler_table;
 extern isrhandler_list_t isr_handler_list[NIRQ];
 extern isrhandler_list_t free_isr_handler_list;
-
+int irq_mask_cnt[NIRQ];
+int irq_handler_cnt[NIRQ];
 extern bits32_t mask_interrupts[3];
 extern bits32_t pending_interrupts[3];
 
@@ -171,17 +171,17 @@ extern uint32 *pagedirectory;
 extern uint32 *pagetable_pool;
 extern pagetable_list_t free_pagetable_list;
 
-extern int max_memarea;
-extern struct MemArea *memarea_table;
-extern int memarea_cnt;
+extern int max_virtseg;
+extern struct VirtualSegment *virtseg_table;
+extern int virtseg_cnt;
 
-extern int max_segment;
-extern struct Segment *segment_table;
-extern int segment_cnt;
+extern int max_physseg;
+extern struct PhysicalSegment *physseg_table;
+extern int physseg_cnt;
 
 extern struct Rendez vm_rendez;
 
-extern int64 memarea_version_counter;
+extern int64 segment_version_counter;
 
 /*
  *
@@ -199,6 +199,11 @@ extern int max_notification;
 extern notification_list_t free_notification_list;
 extern struct Notification *notification_table;
 
+
+
+extern int max_parcel;
+extern parcel_list_t free_parcel_list;
+extern struct Parcel *parcel_table;
 
 /*
  *
