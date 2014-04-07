@@ -1,4 +1,6 @@
-Cheviot Microkernel.by Marven Gilhespie
+Cheviot Microkernel.(c) 2014 Marven Gilhespie
+
+*****************************************************************************
 
 The Microkenel is under the Apache license, see source code for details.
 
@@ -67,20 +69,25 @@ To-Do
 
 * Add a directory containing the Newlib /sys/cheviot source files so
   that Newlib can be used by others.
+
+* Add compaction kernel task to periodically coalesce and compact memory.
+
+* Possibly add Unix signals and some way of notifying the Executive of
+  changing levels of free memory so as to dynamically resize the file
+  cache.  Add timeouts to the VirtualAlloc calls.
   
-* Begin writing the Executive/root process.  Test various system calls.
+* Begin to get the Executive/root process running.  Begin porting some
+of the previous file system code from i386 kernel.
 
 * Begin adding drivers/file system support.
 
 * It is undecided whether the Executive will be the parent process of
-  all processes in the system.  The reason for this is that Spawn() is
-  a privileged call, The Executive loads the segments and passes them
-  to Spawn.  Handles to message ports are passed to the new process.
-  A 'Notification' event could be passed to the parent process to 
-  simulate passing the handle.
+  all processes in the system.  Spawn() is a privileged call and must
+  be called by the Executive.
   
-  Alternatively the actual child process's handle could be passed by
-  the Executive to the real parent process.
+  The Executive can either pass the handle to the real parent process
+  or can be the parent and keep the handle, create a Notification and
+  pass that to the real parent process.
   
 
   
