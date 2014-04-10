@@ -5,7 +5,8 @@
  */
 
 
-#include "types.h"
+#include <sys/types.h>
+#include <sys/syscalls.h>
 #include "elf.h"
 
 

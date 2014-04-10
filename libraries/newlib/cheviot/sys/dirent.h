@@ -35,7 +35,7 @@ struct dirent
 {
     long d_reclen;  			/* Length of this dirent */
 	long d_ino;
-	char d_name[NAME_MAX + 1];
+	char d_name[1];
 };
 
 

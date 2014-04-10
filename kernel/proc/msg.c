@@ -151,8 +151,8 @@ SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg, bits32_t access)
          
     if (parcel->type != PARCEL_MSG)
         return messageErr;
-        
-    vs = parcel->content.virtualsegment;
+    
+    vs = VirtualSegmentFind (parcel->content.msg);
         
     if ((vs->flags & access & PROT_MASK) != (access & PROT_MASK))
         return privilegeErr;
@@ -167,9 +167,6 @@ SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg, bits32_t access)
         
     vs->parcel = NULL;
     vs->owner = current;
-    
-    
-    // possibly move the busy flags into vs
     
     if (vs->busy == FALSE)
         PmapEnterRegion (&current->pmap, vs, vs->base);
@@ -428,11 +425,11 @@ SYSCALL int PutHandle (int port_h, int h, bits32_t flags)
 
 
 /*
- * Extracts a handle from a segment pointed to by addr.  Used for extracting
- * handles injected into message segments.
+ * Receives a handle from the message port channel. Returns the handle
+ * on success, 0 if no handle pending or a negative error code.
  */
 
-SYSCALL int GetHandle (int port_h, int *rcv_h)
+SYSCALL int GetHandle (int port_h)
 {
     struct Channel *channel;
     struct Process *current;
@@ -464,8 +461,6 @@ SYSCALL int GetHandle (int port_h, int *rcv_h)
         
     h = parcel->content.handle;
     
-    CopyOut (rcv_h, &h, sizeof (int));
-    
     DisablePreemption();
     
     LIST_REM_HEAD (&channel->msg_list[rq], link);
@@ -475,7 +470,7 @@ SYSCALL int GetHandle (int port_h, int *rcv_h)
     handle_table[h].parcel = NULL;
     handle_table[h].owner = current;
 
-    return 1;
+    return h;
 }
 
 

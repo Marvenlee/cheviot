@@ -61,21 +61,26 @@
  * In effect a system call is a bit like a transaction, we prepare all
  * the data beforehand with preemption disabled.  Only at the end of 
  * a system call when we want to commit changes do we disable preemption.
- *  
  *   
  * __KernelExit code is the common exit path out of the kernel.  This
  * calls KernelExit that expires timers, checks for interrupts and
  * performs the final part of process termination.
  * __KernelExit is also called by code that puts a process to sleep.
  *
+ *
  * Further reading on Interrupt-model kernels:
  *  
- *  1) "The 27 Year Old Microkernel" powerpoint presentation On QNX
+ *  1) "The 27 Year Old Microkernel" powerpoint presentation On QNX.
+ *     This presentation on Neutrino's interrupt-model kernel and how it
+ *     achieves kernel preemption is a major influence of the Cheviot
+ *     microkernel.
  *  
  *  2) "Interface and Execution Models in the Fluke Kernel" by
  *  Bryan Ford, Mike Hibler, Jay Lepreau, Roland McGrath, Patrick Tullmann
  *  
- *  3) "Single Kernel Stack L4" by Matthew Warton
+ *  3) "Single Kernel Stack L4" by Matthew Warton.  This interrupt-model L4
+ *     appears to do the opposite of Cheviot and QNX in having interrupts
+ *     disabled for the majority of the time.
  */
 
 #include <kernel/arm/arm.i>

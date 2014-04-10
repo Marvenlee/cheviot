@@ -28,7 +28,7 @@ SYSCALL1( Spawn)
 SYSCALL1( Exit)
 
 #define SYS_Join                            4
-SYSCALL2( Join)
+SYSCALL1( Join)
 
 #define SYS_CloseHandle                     5
 SYSCALL1( CloseHandle)
@@ -40,7 +40,7 @@ SYSCALL1( WaitFor)
 SYSCALL1( CheckFor)
 
 #define SYS_SetSchedParams                  8
-SYSCALL3( SetSchedParams)
+SYSCALL2( SetSchedParams)
 
 #define SYS_Yield                           9
 SYSCALL0( Yield)
@@ -99,11 +99,11 @@ SYSCALL3( PutMsg)
 #define SYS_GetMsg                          27
 SYSCALL3( GetMsg)
 
-#define SYS_PutCondition                    28
-SYSCALL2( PutCondition)
+#define SYS_PutNotification                 28
+SYSCALL2( PutNotification)
 
-#define SYS_GetCondition                    29
-SYSCALL1( GetCondition)
+#define SYS_GetNotification                 29
+SYSCALL1( GetNotification)
 
 #define SYS_IsAChannel                      30
 SYSCALL2( IsAChannel)
@@ -117,8 +117,17 @@ SYSCALL2( CoalescePhysicalMem)
 #define SYS_CompactPhysicalMem	            33
 SYSCALL2( CompactPhysicalMem)
 
+#define SYS_PutHandle                       34
+SYSCALL3( PutHandle)
 
-#define MAX_SYSCALL                         33
+#define SYS_GetHandle                       35
+SYSCALL3( GetHandle)
+
+#define SYS_GetNextMsgType                  36
+SYSCALL1( GetNextMsgType)
+
+
+#define MAX_SYSCALL                         36
 
 
 

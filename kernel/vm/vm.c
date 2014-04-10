@@ -43,9 +43,14 @@
  * has preemption disabled.  Preemption is disabled for the duration of
  * cleaning the allocated memory.
  *
- * This could be optimized to allow preemption during the lookup of
- * suitable sized segments, but any resizing or changes to the
- * virtseg_table and [hysseg_table requiring preemption to be disabled.
+ * This could be optimized to allow preemption during the lookup/best fit
+ * of suitable sized virtual and physical segments.  If the virtseg and
+ * physseg arrays need to grow then there are two options:
+ *
+ * 1) Disable preemption and resize arrays.
+ * 2) Double-buffer, create a new array, with any insertions added, then
+ *    only disable preemption to update a pointer to the new array.
+ *    This may need a time limit after which preemption is disabled.
  *
  * The cleaning of the allocated memory could be done with preemption
  * enabled in a continuation.  Progress could be saved every few kilobytes

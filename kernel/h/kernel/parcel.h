@@ -32,7 +32,7 @@ struct Parcel
     union
     {
         int handle;
-        struct VirtualSegment *virtualsegment;
+        vm_addr msg;
     } content;
 };
 

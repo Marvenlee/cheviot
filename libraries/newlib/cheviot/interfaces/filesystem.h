@@ -31,47 +31,55 @@ extern "C" {
  * Filesystem commands
  */
 
-#define FS_CMD_OPEN						1
-#define FS_CMD_CLOSE					2
-#define FS_CMD_READ						3
-#define FS_CMD_WRITE					4
-#define FS_CMD_LSEEK					5
-#define FS_CMD_CHDIR					6
-#define FS_CMD_FCHDIR					7
-#define FS_CMD_MKDIR					8
-#define FS_CMD_RMDIR					9
-#define FS_CMD_OPENDIR					10
-#define FS_CMD_READDIR					11
-#define FS_CMD_REWINDDIR				12
-#define FS_CMD_SYMLINK					13
-#define FS_CMD_CHMOD					14
-#define FS_CMD_CHOWN					15
-#define FS_CMD_REMOVE					16
-#define FS_CMD_RENAME					17
-#define FS_CMD_FTRUNCATE				18
-#define FS_CMD_TRUNCATE					19
-#define FS_CMD_FSTAT					20
-#define FS_CMD_STAT						21
-#define FS_CMD_STATFS					22
-#define FS_CMD_SYNC						23
-#define FS_CMD_ACCESS					24
+#define EXEC_CMD_OPEN					1
+#define EXEC_CMD_CLOSE				    2
+#define EXEC_CMD_READ					3
+#define EXEC_CMD_WRITE					4
+#define EXEC_CMD_LSEEK					5
+#define EXEC_CMD_CHDIR					6
+#define EXEC_CMD_FCHDIR					7
+#define EXEC_CMD_MKDIR					8
+#define EXEC_CMD_RMDIR					9
+#define EXEC_CMD_OPENDIR				10
+#define EXEC_CMD_READDIR				11
+#define EXEC_CMD_REWINDDIR				12
+#define EXEC_CMD_SYMLINK				13
+#define EXEC_CMD_CHMOD					14
+#define EXEC_CMD_CHOWN					15
+#define EXEC_CMD_REMOVE					16
+#define EXEC_CMD_RENAME					17
+#define EXEC_CMD_FTRUNCATE				18
+#define EXEC_CMD_TRUNCATE				19
+#define EXEC_CMD_FSTAT					20
+#define EXEC_CMD_STAT					21
+#define EXEC_CMD_STATFS					22
+#define EXEC_CMD_SYNC					23
+#define EXEC_CMD_ACCESS					24
 
-#define FS_CMD_RELABEL					25
-#define FS_CMD_FORMAT					26
-#define FS_CMD_GETVOLUMEGUID			27
-#define FS_CMD_SETVOLUMEGUID			28
-#define FS_CMD_READDEVICEENTRY			29
-#define FS_CMD_READPARTITIONTABLE		30
-#define FS_CMD_WRITEPARTITIONTABLE		31
-#define FS_CMD_INSTALLMBRBOOTLOADER		32
+#define EXEC_CMD_RELABEL				25
+#define EXEC_CMD_FORMAT					26
+#define EXEC_CMD_GETVOLUMEGUID			27
+#define EXEC_CMD_SETVOLUMEGUID			28
+#define EXEC_CMD_READDEVICEENTRY		29
+#define EXEC_CMD_READPARTITIONTABLE		30
+#define EXEC_CMD_WRITEPARTITIONTABLE	31
+#define EXEC_CMD_INSTALLMBRBOOTLOADER	32
 
-#define FS_CMD_SETREMOVABLEATTRS		33
-#define FS_CMD_SETPROGRAMDIR			34
-#define FS_CMD_STARTNOTIFY				35
-#define FS_CMD_ENDNOTIFY				36
-#define FS_CMD_WAITNOTIFY				37
-#define FS_CMD_DUP						38
+#define EXEC_CMD_SETREMOVABLEATTRS		33
+#define EXEC_CMD_SETPROGRAMDIR			34
+#define EXEC_CMD_STARTNOTIFY			35
+#define EXEC_CMD_ENDNOTIFY				36
+#define EXEC_CMD_WAITNOTIFY				37
+#define EXEC_CMD_DUP					38
 
+#define EXEC_CMD_SETUID                 39
+#define EXEC_CMD_GETUID                 40
+#define EXEC_CMD_SETGID                 41
+#define EXEC_CMD_GETGID                 42
+
+#define EXEC_CMD_CREATEPORT             43
+#define EXEC_CMD_LISTEN                 44
+#define EXEC_CMD_CONNECT                45
 
 
 

@@ -337,17 +337,13 @@ void FreeProcess (struct Process *proc);
 
 
 SYSCALL int Join (int pid, int *status);
+int DoCloseProcess (int handle);
 
 
 // exit.c
 
 SYSCALL void Exit (int status);
 void DoExit (int status);
-
-
-// kill.c
-
-int DoCloseProcess (int handle);
 
 
 // sched.c
@@ -375,7 +371,7 @@ int DoCloseChannel (int h);
 SYSCALL int IsAChannel (int handle1, int handle2);
 
 SYSCALL int PutHandle (int port_h, int h, bits32_t flags);
-SYSCALL int GetHandle (int port_h, int *rcv_h);
+SYSCALL int GetHandle (int port_h);
 
 
 // proc/notification.c
