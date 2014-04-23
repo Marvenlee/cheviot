@@ -39,7 +39,7 @@
  * The timeout watchdog is currently unimplemented.  A way of notifying
  * the Executive to free cached file segments is currently unimplemented.
  *
- * The look up and creation of the virtseg and freeseg data structures
+ * The look up and creation of the vseg and pseg data structures
  * has preemption disabled.  Preemption is disabled for the duration of
  * cleaning the allocated memory.
  *
@@ -70,7 +70,7 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 	if (CheckWatchdog() == -1)
 	    return (vm_addr)NULL;
 	
-	if (virtseg_cnt >= (max_virtseg - 3) || physseg_cnt >= (max_physseg - 3))
+	if (vseg_cnt >= (max_vseg - 3) || pseg_cnt >= (max_pseg - 3))
         Sleep (&vm_rendez);
 
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);
@@ -142,7 +142,7 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
 		return (vm_addr)NULL;
 	}
 	
-	if (virtseg_cnt >= (max_virtseg - 3))
+	if (vseg_cnt >= (max_vseg - 3))
         Sleep (&vm_rendez);
 
 	addr = ALIGN_DOWN (addr, PAGE_SIZE);

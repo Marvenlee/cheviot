@@ -56,8 +56,8 @@ void Main (void)
     
     // Load root process (the Executive at 8MB mark
 		
-	if (elf_load ("BOOT/EXEC", (void *)&procman_entry_point) != 0)
-		KPanic ("Cannot load process manager");
+	if (elf_load ("BOOT/FILESYS", (void *)&procman_entry_point) != 0)
+		KPanic ("Cannot load filesystem manager");
 
 	procman_phdr_cnt = phdr_cnt;
 	bmemcpy (procman_phdr_table, phdr_table, sizeof (Elf32_PHdr) * MAX_PHDR);

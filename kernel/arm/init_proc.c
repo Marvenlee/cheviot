@@ -35,8 +35,16 @@ extern int exception_stack_top;
 
 
 void InitProcesses(void);
-void InitRootAddressSpace(void);
-void idle_loop (void);
+void IdleTask (void);
+void VMTask (void);
+void ReaperTask (void);
+
+struct Process *InitRootProcess (void (*entry)(void), void *stack,
+    int policy, int priority);
+struct Process *InitDaemon (void (*entry)(void), void *stack,
+    int policy, int priority);
+void InitSchedParams (struct Process *proc, int policy, int priority);
+
 
 
 /*
@@ -55,7 +63,6 @@ void InitProc (void)
     
     InitProcessTables();
     InitProcesses();
-    InitRootAddressSpace();
 }
 
 
@@ -183,114 +190,27 @@ void InitProcessTables (void)
 void InitProcesses (void)
 {   
     struct CPU *cpu;
-    int handle;
-    
+   
+   
     KLog("InitProcesses()");
     
     max_cpu = 1;
     cpu = &cpu_table[0];
 
-    root_process = LIST_HEAD (&free_process_list);
+    root_process = InitRootProcess (bootinfo->procman_entry_point,
+                    (void *)bootinfo->user_stack_ceiling, SCHED_OTHER, 100);
+                    
+    idle_task    = InitDaemon (IdleTask, (void *)&idle_task_stack_top, SCHED_IDLE, 0);
+    vm_task      = InitDaemon (VMTask, (void *)&vm_task_stack_top, SCHED_OTHER, 100);
+    reaper_task  = InitDaemon (ReaperTask, (void *)&reaper_task_stack_top, SCHED_OTHER, 100);
     
-    KASSERT (root_process != NULL);
-    
-    LIST_REM_HEAD (&free_process_list, free_entry);
-
-    handle = AllocHandle();
-
-    KASSERT (handle >= 0);
-        
-    SetObject (root_process, handle, HANDLE_TYPE_PROCESS, root_process);
-    
-    root_process->handle = handle;
-    root_process->exit_status = 0;
-    root_process->sched_policy = SCHED_RR;
-    root_process->quanta_used = 0;      
-    root_process->tickets = 16;
-    root_process->stride = 0;
-    root_process->remaining = 0;
-    root_process->pass = 0;
-    root_process->continuation_function = NULL;
-    root_process->virtualalloc_sz = 0;
-    
-    LIST_INIT (&root_process->pending_handle_list);
-    LIST_INIT (&root_process->close_handle_list);
-    
-    
-    PmapInit (&root_process->pmap);
-    
-    root_process->task_state.cpu = &cpu_table[0];
-    root_process->task_state.flags = 0;
-    
-    root_process->task_state.pc = (uint32)bootinfo->procman_entry_point;
-    root_process->task_state.r0 = 0;
-    root_process->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
-    root_process->task_state.r1 = 0;
-    root_process->task_state.r2 = 0;
-    root_process->task_state.r3 = 0;
-    root_process->task_state.r4 = 0;
-    root_process->task_state.r5 = 0;
-    root_process->task_state.r6 = 0;
-    root_process->task_state.r7 = 0;
-    root_process->task_state.r8 = 0;
-    root_process->task_state.r9 = 0;
-    root_process->task_state.r10 = 0;
-    root_process->task_state.r11 = 0;
-    root_process->task_state.r12 = 0;
-    root_process->task_state.sp = (uint32)bootinfo->user_stack_ceiling;
-    root_process->task_state.lr = 0;
-
-    idle_process = LIST_HEAD (&free_process_list);
-    
-    KASSERT (idle_process != NULL);
-    
-    LIST_REM_HEAD (&free_process_list, free_entry);
-    
-    idle_process->exit_status = 0;
-    idle_process->quanta_used = 0;
-    idle_process->sched_policy = SCHED_IDLE;            
-    idle_process->tickets = 0;
-    idle_process->stride = 0;
-    idle_process->remaining = 0;
-    idle_process->pass = 0;
-    idle_process->continuation_function = NULL;
-    idle_process->virtualalloc_sz = 0;
-
-    LIST_INIT (&idle_process->pending_handle_list);
-    LIST_INIT (&idle_process->close_handle_list);
-
-    idle_process->task_state.cpu = &cpu_table[0];
-    idle_process->task_state.flags = 0;
-    
-    idle_process->task_state.pc = (uint32)idle_loop;
-    idle_process->task_state.r0 = 0;
-    idle_process->task_state.cpsr = cpsr_dnm_state | SYS_MODE | CPSR_DEFAULT_BITS;
-    idle_process->task_state.r1 = 0;
-    idle_process->task_state.r2 = 0;
-    idle_process->task_state.r3 = 0;
-    idle_process->task_state.r4 = 0;
-    idle_process->task_state.r5 = 0;
-    idle_process->task_state.r6 = 0;
-    idle_process->task_state.r7 = 0;
-    idle_process->task_state.r8 = 0;
-    idle_process->task_state.r9 = 0;
-    idle_process->task_state.r10 = 0;
-    idle_process->task_state.r11 = 0;
-    idle_process->task_state.r12 = 0;
-    idle_process->task_state.sp = (uint32)idle_stack_top;
-    idle_process->task_state.lr = 0;
-
     root_process->state = PROC_STATE_RUNNING;
-    idle_process->state = PROC_STATE_READY;
-    
     cpu->current_process = root_process;
-    cpu->idle_process = idle_process;
+    cpu->idle_process = idle_task;
     cpu->reschedule_request = 0;
     cpu->svc_stack = (vm_addr)&svc_stack_top;
     cpu->interrupt_stack = (vm_addr)&interrupt_stack_top;
     cpu->exception_stack = (vm_addr)&exception_stack_top;
-        
-    SchedReady (root_process);
 }
 
 
@@ -300,21 +220,149 @@ void InitProcesses (void)
 /*
  *
  */
- 
-void InitRootAddressSpace (void)
-{
-    int t;  
+     
+struct Process *InitRootProcess (void (*entry)(void), void *stack,
+    int policy, int priority)
+{    
+    int handle;
+    struct Process *proc;
+    int t;
+    
+    
+    proc = AllocProcess();
+    handle = AllocHandle();
 
-    for (t=0; t<virtseg_cnt; t++)
+    KASSERT (handle >= 0);
+        
+    SetObject (proc, handle, HANDLE_TYPE_PROCESS, proc);
+    
+    proc->handle = handle;
+    proc->exit_status = 0;
+    proc->virtualalloc_sz = 0;
+    
+    LIST_INIT (&proc->pending_handle_list);
+    LIST_INIT (&proc->close_handle_list);
+    
+    PmapInit (&proc->pmap);
+    
+    proc->task_state.cpu = &cpu_table[0];
+    proc->task_state.flags = 0;
+    proc->task_state.pc = (uint32)entry;
+    proc->task_state.r0 = 0;
+    proc->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
+    proc->task_state.r1 = 0;
+    proc->task_state.r2 = 0;
+    proc->task_state.r3 = 0;
+    proc->task_state.r4 = 0;
+    proc->task_state.r5 = 0;
+    proc->task_state.r6 = 0;
+    proc->task_state.r7 = 0;
+    proc->task_state.r8 = 0;
+    proc->task_state.r9 = 0;
+    proc->task_state.r10 = 0;
+    proc->task_state.r11 = 0;
+    proc->task_state.r12 = 0;
+    proc->task_state.sp = (uint32)stack;
+    proc->task_state.lr = 0;
+
+    for (t=0; t<vseg_cnt; t++)
     {
-        if ((virtseg_table[t].flags & MEM_MASK) == MEM_ALLOC)
+        if ((vseg_table[t].flags & MEM_MASK) == MEM_ALLOC)
         {
-            virtseg_table[t].owner = root_process;
-            virtseg_table[t].version = segment_version_counter;
+            vseg_table[t].owner = proc;
+            vseg_table[t].version = segment_version_counter;
             segment_version_counter++;
         }
     }
+    
+    InitSchedParams (proc, policy, priority);
+    return proc;
 }
+
+
+
+
+
+
+
+
+struct Process *InitDaemon (void (*entry)(void), void *stack,
+    int policy, int priority)
+{
+    struct Process *proc;
+    
+    proc = AllocProcess();
+    
+    proc->exit_status = 0;
+    proc->virtualalloc_sz = 0;
+
+    LIST_INIT (&proc->pending_handle_list);
+    LIST_INIT (&proc->close_handle_list);
+
+    proc->task_state.cpu = &cpu_table[0];
+    proc->task_state.flags = 0;
+    proc->task_state.pc = (uint32)entry;
+    proc->task_state.r0 = 0;
+    proc->task_state.cpsr = cpsr_dnm_state | SYS_MODE | CPSR_DEFAULT_BITS;
+    proc->task_state.r1 = 0;
+    proc->task_state.r2 = 0;
+    proc->task_state.r3 = 0;
+    proc->task_state.r4 = 0;
+    proc->task_state.r5 = 0;
+    proc->task_state.r6 = 0;
+    proc->task_state.r7 = 0;
+    proc->task_state.r8 = 0;
+    proc->task_state.r9 = 0;
+    proc->task_state.r10 = 0;
+    proc->task_state.r11 = 0;
+    proc->task_state.r12 = 0;
+    proc->task_state.sp = (uint32)stack;
+    proc->task_state.lr = 0;
+
+    InitSchedParams (proc, policy, priority);
+    return proc;
+}
+
+
+
+
+/*
+ *
+ */
+     
+void InitSchedParams (struct Process *proc, int policy, int tickets)
+{
+    if (policy == SCHED_RR || policy == SCHED_FIFO)
+    {
+        proc->quanta_used = 0;
+        proc->sched_policy = policy;
+        proc->tickets = tickets;
+        SchedReady (proc);
+    }
+    else if (policy == SCHED_OTHER)
+    {
+        proc->quanta_used = 0;
+        proc->sched_policy = policy;
+        proc->tickets = tickets;
+        proc->stride = STRIDE1 / proc->tickets;
+        proc->remaining = proc->stride;
+        proc->pass = global_pass;
+        SchedReady (proc);
+    }
+    else if (policy == SCHED_IDLE)
+    {
+
+    }
+}
+
+
+
+
+
+
+
+
+
 
 
 

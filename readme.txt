@@ -12,7 +12,7 @@ copyright of Todd C. Miller.
 
 *****************************************************************************
 
-The Cheviot Microkernel is a kernel that combines with an Executive/Root
+The Cheviot Microkernel is a kernel that combines with a File system/Root
 process to provide basic OS functionality.
 
 
@@ -42,17 +42,9 @@ A brief description of the goals and features:
   other kernel objects can be embedded in messages and passed to other
   processes.
 
-* The Executive (or Root process) will implement the bulk of 
-  the file system interface and file caching.  The executive will
-  also manage a namespace for public message ports.
-  
-* The Executive's file system code will support zero-copy access to
-  files, with parts of files mapped as segments..  
-
-* There are no kernel threads.  All processes will be multithreaded
-  by user-mode coroutines.  Libtask by Russ Cox provides great support
-  for coroutines.  Coroutines are used to multithread servers such as
-  the Executive and its file system.
+* No kernel threads.  All processes will be multithreaded by user-mode
+  coroutines.  Libtask used for coroutines. Coroutines are used to
+  multithread servers such as the Filesys server.
 
 * The microkernel implements an interrupt-model kernel with a single
   kernel stack per CPU.  Kernel calls are preemptive and restart from
@@ -61,38 +53,54 @@ A brief description of the goals and features:
 
 
 *****************************************************************************
+*****************************************************************************
 
-To-Do
+To-Do / Doing / Roadmap
 
-* Add a patch for Libtask to this repository so that others can begin using
-  this, even as a simple single tasking embedded OS.
+* Need scripts to build arm-eabi GCC and binutils 
+* Need scripts to patch and build libtask and newlib.
 
-* Add a directory containing the Newlib /sys/cheviot source files so
-  that Newlib can be used by others.
+* Clean up and decide which handles are passed to newly spawned
+  processes.
 
-* Add compaction kernel task to periodically coalesce and compact memory.
+* Add kernel daemon to periodically coalesce and compact memory.
+  Add notification to Filesys to scale memory used for cache.
 
-* Possibly add Unix signals and some way of notifying the Executive of
-  changing levels of free memory so as to dynamically resize the file
-  cache.  Add timeouts to the VirtualAlloc calls.
+* Add timeout to VirtualAlloc system calls,  Add preemption to 
+  VirtualAlloc, use continuation if necessary, Mark memory as
+  supervisor, clear (with preemption) and then change to user-mode
+  permissions.
   
-* Begin to get the Executive/root process running.  Begin porting some
-of the previous file system code from i386 kernel.
-
-* Begin adding drivers/file system support.
-
-* It is undecided whether the Executive will be the parent process of
-  all processes in the system.  Spawn() is a privileged call and must
-  be called by the Executive.
+  It is biggest path through kernel with preemption disabled.
   
-  The Executive can either pass the handle to the real parent process
-  or can be the parent and keep the handle, create a Notification and
-  pass that to the real parent process.
+* Add system event handles for equivalent to SIGHUP, SIGTERM and
+  low memory conditions
   
-
+* Started writing Filesys server which is the root process.
+  Each open file will have it's own channel and a coroutine to handle
+  requests.
   
+  Copyied over previous block buffer cache code and skeleton code
+  from x86 kernel.  Will be replaced by segment cache, where each
+  segment contain a part of a file or directory.
   
+  Will map files loaded by bootloader as cached file segments, avoids
+  needing a boot image/filesystem.  Path to these entries can be
+  found using the directory lookup cache.
+  
+  Need to decide on file interface, how reads and writes occur.  How
+  we do zero-copy reading and writing.  Whether we expose the interface
+  to the cache such as using BRead(), GetBlk() and BRelse() 
 
-
-
+  Need to add named channel/port handling.
+   
+  Ports possibly in /ports directory,  /ports/system and /ports/user.
+  Partitions mounted in root directory by volume name.
+  
+  Need to limit what ports can be accessed by whom.  Originally intended
+  to use the first 10 UIDs as rings.  May instead limit access for drivers
+  and modules by making /ports/system directory owned by root.  Drivers
+  and such can then be limited by chroot to directories within /ports/system.
+  
+* Get some processes running, drivers etc.  
 

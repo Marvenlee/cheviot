@@ -166,6 +166,7 @@ typedef uint32      iflag_t;
  */
 
 #define PAGE_SIZE                   4096
+#define LARGE_PAGE_SIZE             65536
 #define VM_KERNEL_BASE              0x00000000
 #define VM_KERNEL_CEILING           0x00800000
 #define VM_USER_BASE                0x00800000

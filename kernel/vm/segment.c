@@ -30,12 +30,13 @@
 
 
 /*
- * Coalesces free physical memory physsegs but does not compact them.
- * Shrinks the size of the physseg_table array that manages physical memory.
+ * Coalesces free physical memory psegs but does not compact them.
+ * Shrinks the size of the pseg_table array that manages physical memory.
  *
- * Called by a kernel task to periodically coalesce memory.  Algorithm could
- * be improved to leave a certain number of common sizes avaiable such as
- * 256k, 64k and 4k.
+ * Called periodically by the kernel's VM daemon.
+ * 
+ * Algorithm could be improved to leave a certain number of common sizes
+ * available such as 256k, 64k and 4k.
  */
  
 SYSCALL int CoalescePhysicalMem (void)
@@ -46,28 +47,28 @@ SYSCALL int CoalescePhysicalMem (void)
 
     current = GetCurrentProcess();
     
-    if (!(current->flags & PROCF_SYSTEMTASK))
+    if (!(current->flags & PROCF_DAEMON))
         return privilegeErr;
 
     DisablePreemption();
 
-    for (t = 0, s = 0; t < physseg_cnt; t++)
+    for (t = 0, s = 0; t < pseg_cnt; t++)
     {
-        if (s > 0 && (physseg_table[s-1].type == SEG_TYPE_FREE && physseg_table[t].type == SEG_TYPE_FREE))
+        if (s > 0 && (pseg_table[s-1].type == SEG_TYPE_FREE && pseg_table[t].type == SEG_TYPE_FREE))
         {
-            physseg_table[s-1].ceiling      = physseg_table[t].ceiling;
+            pseg_table[s-1].ceiling      = pseg_table[t].ceiling;
         }
         else
         {
-            physseg_table[s].base           = physseg_table[t].base;
-            physseg_table[s].ceiling        = physseg_table[t].ceiling;
-            physseg_table[s].type           = physseg_table[t].type;
-            physseg_table[s].virtual_addr   = physseg_table[t].virtual_addr;
+            pseg_table[s].base           = pseg_table[t].base;
+            pseg_table[s].ceiling        = pseg_table[t].ceiling;
+            pseg_table[s].type           = pseg_table[t].type;
+            pseg_table[s].virtual_addr   = pseg_table[t].virtual_addr;
             s++;
         }
     }
 
-    physseg_cnt = s;
+    pseg_cnt = s;
     return 0;
 }
 
@@ -81,9 +82,7 @@ SYSCALL int CoalescePhysicalMem (void)
  * physical memory unless they are locked by the WireMem() system
  * call.
  *
- * To be called by a kernel task running with SYSTEM privileges
- * that periodically coalesces and compacts memory based on memory
- * demands.
+ * Called periodically by the kernel's VM daemon.
  *
  * The kernel task needs to have physical memory mapped or the page
  * fault handler needs to special case the handling of page faults
@@ -114,7 +113,7 @@ SYSCALL vm_addr CompactPhysicalMem (vm_addr addr)
 
 /*
  * Searches for and returns a suitably sized free physical memory segment of
- * the desired size and type. Inserts entries into the physseg_table array
+ * the desired size and type. Inserts entries into the pseg_table array
  * if needed
  */
 
@@ -130,7 +129,7 @@ struct PhysicalSegment *PhysicalSegmentCreate (vm_offset addr, vm_size size, int
 
     flags = 0;
      
-    KASSERT (physseg_cnt < (max_physseg - 3));   
+    KASSERT (pseg_cnt < (max_pseg - 3));   
     
     if ((ps = PhysicalSegmentBestFit (size, flags, &addr)) == NULL)
         return NULL;
@@ -138,7 +137,7 @@ struct PhysicalSegment *PhysicalSegmentCreate (vm_offset addr, vm_size size, int
     
     KASSERT (ps->base <= addr && addr+size <= ps->ceiling);
     
-    t = ps - physseg_table;
+    t = ps - pseg_table;
 
     if (ps->base == addr && ps->ceiling == addr + size)
     {
@@ -221,7 +220,7 @@ struct PhysicalSegment *PhysicalSegmentCreate (vm_offset addr, vm_size size, int
 
 
 /*
- * Marks a PhysicalSegment as free.  Does not coalesce free physsegs.
+ * Marks a PhysicalSegment as free.  Does not coalesce free psegs.
  * Coalescing is done by a seperate CoalescePhysicalMem() system call.
  */
  
@@ -234,25 +233,25 @@ void PhysicalSegmentDelete (struct PhysicalSegment *ps)
 
 
 /*
- * Inserts 'cnt' empty physseg_table entries after physseg_table entry 'index' 
- * Used by PhysicalSegmentCreate() if a perfectly sized physseg could not be found.
- * This inserts free entries in the physseg_table so that PhysicalSegmentCreate() can
- * carve up a larger free physseg into the desired size plus the leftovers.
+ * Inserts 'cnt' empty pseg_table entries after pseg_table entry 'index' 
+ * Used by PhysicalSegmentCreate() if a perfectly sized pseg could not be found.
+ * This inserts free entries in the pseg_table so that PhysicalSegmentCreate() can
+ * carve up a larger free pseg into the desired size plus the leftovers.
  */
  
 void PhysicalSegmentInsert (int index, int cnt)
 {
     int t;
     
-    for (t = physseg_cnt - 1 + cnt; t >= (index + cnt); t--)
+    for (t = pseg_cnt - 1 + cnt; t >= (index + cnt); t--)
     {
-        physseg_table[t].base           = physseg_table[t-cnt].base;
-        physseg_table[t].ceiling        = physseg_table[t-cnt].ceiling;
-        physseg_table[t].type           = physseg_table[t-cnt].type;
-        physseg_table[t].virtual_addr   = physseg_table[t-cnt].virtual_addr;
+        pseg_table[t].base           = pseg_table[t-cnt].base;
+        pseg_table[t].ceiling        = pseg_table[t-cnt].ceiling;
+        pseg_table[t].type           = pseg_table[t-cnt].type;
+        pseg_table[t].virtual_addr   = pseg_table[t-cnt].virtual_addr;
     }
     
-    physseg_cnt += cnt;
+    pseg_cnt += cnt;
 }
 
 
@@ -265,7 +264,7 @@ void PhysicalSegmentInsert (int index, int cnt)
 struct PhysicalSegment *PhysicalSegmentFind (vm_addr addr)
 {
     int low = 0;
-    int high = physseg_cnt - 1;
+    int high = pseg_cnt - 1;
     int mid;    
     
     
@@ -273,12 +272,12 @@ struct PhysicalSegment *PhysicalSegmentFind (vm_addr addr)
     {
         mid = low + ((high - low) / 2);
         
-        if (addr >= physseg_table[mid].ceiling)
+        if (addr >= pseg_table[mid].ceiling)
             low = mid + 1;
-        else if (addr < physseg_table[mid].base)
+        else if (addr < pseg_table[mid].base)
             high = mid - 1;
         else
-            return &physseg_table[mid];
+            return &pseg_table[mid];
     }
 
     return NULL;
@@ -288,13 +287,16 @@ struct PhysicalSegment *PhysicalSegmentFind (vm_addr addr)
 
 
 /*
- * Performs a best fit search for a physseg of physical memory.
- * returns the physseg and the physical address of where it physseg
+ * Performs a best fit search for a pseg of physical memory.
+ * returns the pseg and the physical address of where it pseg
  * to be returned to the user should start.  This may be different
- * from the base address of the physseg if alignment options
+ * from the base address of the pseg if alignment options
  * are added to the code.
- * PhysicalSegmentCreate() then carves this physseg up if it is larger than
+ * PhysicalSegmentCreate() then carves this pseg up if it is larger than
  * the requested size.
+ *
+ * Perhaps we could allocate at the top of the heap, if there isn't enough room
+ * then compact.
  */
 
 struct PhysicalSegment *PhysicalSegmentBestFit (vm_size size, uint32 flags, vm_addr *ret_addr)
@@ -303,21 +305,16 @@ struct PhysicalSegment *PhysicalSegmentBestFit (vm_size size, uint32 flags, vm_a
     vm_size ps_size;
     vm_size best_size = VM_USER_CEILING - VM_USER_BASE;
     int best_idx = -1;
-    bool found = FALSE;
+    vm_addr new_base;
+    vm_size new_size;
     
     
-    
-    // Might want to support NOX64 (same for compaction)
-
-    for (i = 0; i < physseg_cnt; i++)
+    for (i = 0; i < pseg_cnt; i++)
     {
-        if (physseg_table[i].type != SEG_TYPE_FREE)
+        if (pseg_table[i].type != SEG_TYPE_FREE)
             continue;
-        
-        if (found == FALSE)
-            found = TRUE;
-    
-        ps_size = physseg_table[i].ceiling - physseg_table[i].base;
+            
+        ps_size = pseg_table[i].ceiling - pseg_table[i].base;
     
         if (ps_size > size && ps_size < best_size)
         {
@@ -327,8 +324,8 @@ struct PhysicalSegment *PhysicalSegmentBestFit (vm_size size, uint32 flags, vm_a
         }
         else if (ps_size == size)
         {
-            *ret_addr = physseg_table[i].base;
-            return &physseg_table[i];
+            *ret_addr = pseg_table[i].base;
+            return &pseg_table[i];
         }
         
     }
@@ -336,8 +333,25 @@ struct PhysicalSegment *PhysicalSegmentBestFit (vm_size size, uint32 flags, vm_a
     if (best_idx == -1)
         return NULL;
 
-    *ret_addr = physseg_table[best_idx].base;
-    return &physseg_table[best_idx];
+
+    if (best_size >= LARGE_PAGE_SIZE)
+    {
+        new_base = ALIGN_UP (pseg_table[i].base, LARGE_PAGE_SIZE);
+        
+        if (new_base < pseg_table[i].ceiling)
+        {
+            new_size = pseg_table[i].ceiling - new_base;
+        
+            if (new_size >= size)
+            {
+                *ret_addr = new_base;
+                return &pseg_table[best_idx];
+            }
+        }
+    }
+
+    *ret_addr = pseg_table[best_idx].base;
+    return &pseg_table[best_idx];
 }
 
 

@@ -37,6 +37,7 @@ typedef struct
     int total_pages;
     int page_size;
     int virtualalloc_alignment;
+    size_t virtualalloc_requested;
     int max_memareas;
     int max_handles;
     int power_state;

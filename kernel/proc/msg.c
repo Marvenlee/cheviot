@@ -87,7 +87,7 @@ SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
     PmapRemoveRegion(&current->pmap, vs);
     
     parcel->type = PARCEL_MSG;
-    parcel->content.virtualsegment = vs;
+    parcel->content.msg = vs->base;
     LIST_ADD_TAIL (&channel->msg_list[rq], parcel, link);
     
     vs->parcel = parcel;
@@ -291,10 +291,11 @@ int DoCloseChannel (int h)
         {
             if (parcel->type == PARCEL_MSG)
             {
-                vs = parcel->content.virtualsegment;
+                vs = VirtualSegmentFind(parcel->content.msg);
+                
                 vs->owner = current;
             
-                VirtualFree (vs->base);
+                VirtualFree (parcel->content.msg);
             }
             else if (parcel->type == PARCEL_HANDLE);
             {

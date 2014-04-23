@@ -50,15 +50,15 @@ void Main (void)
 {
 //  GetOptions();
 
-    max_physseg = 32000;
-    max_virtseg = 32000;
+    max_pseg = 32000;
+    max_vseg = 32000;
     max_process = 128;
     max_timer   = 1024;
     max_isr_handler = 128;
     max_channel = 10000;
     max_notification = 4000;
     max_handle  = 10000;
-    max_parcel = max_handle + max_virtseg;
+    max_parcel = max_handle + max_vseg;
         
     free_process_cnt     = max_process;
     free_timer_cnt       = max_timer;
@@ -105,12 +105,6 @@ void Main (void)
 
 
 
-
-
-void IdleTask (void)
-{
-    while (1);
-}
 
 
 

@@ -31,7 +31,7 @@ OBJDUMP:= arm-eabi-objdump
 ARCHIVE:= arm-eabi-ar
 OFLAGS:=
 AFLAGS:= -r -I./h -mfpu=vfp
-CFLAGS:= -Wall -I./h -O2 -mfpu=vfp -mhard-float -std=c99
+CFLAGS:= -Wall -I./h -O2 -mfpu=vfp -mhard-float 
 LFLAGS:= -v
 DFLAGS:= -I/cheviot/arm-eabi/include -I./kernel/h \
 			-I/cheviot/lib/gcc/arm-eabi/4.8.1/include
@@ -65,7 +65,7 @@ everything : all
 # Include subdirectory makefiles here
 
 include kernel/makefile.in
-include executive/makefile.in
+include filesys/makefile.in
 include boot/makefile.in
 
 # ----------------------------------------------------------------------------
@@ -92,28 +92,28 @@ include boot/makefile.in
 # add targets for "make all" here.
         
 all:	kernel \
-		executive \
+		filesys \
 		boot
 
 
 # ----------------------------------------------------------------------------
 
 clean: 	kernel/clean \
-		executive/clean \
+		filesys/clean \
 		boot/clean
 	
 	
 # ----------------------------------------------------------------------------
 
 depend: kernel/depend \
-		executive/depend \
+		filesys/depend \
 		boot/depend 
 
 
 # ----------------------------------------------------------------------------
 
 strip: 	kernel/strip \
-		executive/strip \
+		filesys/strip \
 		boot/strip
 		
 

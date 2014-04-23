@@ -59,8 +59,12 @@
 .global exception_stack
 .global root_stack_top
 .global root_stack
-.global idle_stack_top
-.global idle_stack
+.global idle_task_stack_top
+.global idle_task_stack
+.global vm_task_stack_top
+.global vm_task_stack
+.global reaper_task_stack_top
+.global reaper_task_stack
 
 
 
@@ -89,12 +93,20 @@ root_stack:
 .skip 4096
 root_stack_top:
 
-.balign 4096
-idle_stack:
-.skip 4096
-idle_stack_top:
+.balign 2048
+idle_task_stack:
+.skip 2048
+idle_task_stack_top:
 
+.balign 2048
+reaper_task_stack:
+.skip 2048
+reaper_task_stack_top:
 
+.balign 2048
+vm_task_stack:
+.skip 2048
+vm_task_stack_top:
 
 
 

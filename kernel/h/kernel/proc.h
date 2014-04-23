@@ -22,22 +22,16 @@ struct Process;
  */
 
 
-#define SYSTEM_PORT         0
-#define EXCEPTION_PORT      1
-#define ROOT_DIR_PORT       2
-#define PROGRAM_DIR_PORT    3
-#define CURRENT_DIR_PORT    4
-#define STDIN_PORT          5
-#define STDOUT_PORT         6
-#define STDERR_PORT         7    
-
-
-/*
- * Spawn flags
- */
-
-#define PROCF_EXECUTIVE         (1<<0) 
-#define PROCF_ALLOW_IO          (1<<1)
+#define HROOT_DIR       0
+#define HPROGRAM_DIR    1
+#define HCURRENT_DIR    2
+#define HSTDIN          3
+#define HSTDOUT         4
+#define HSTDERR         5    
+#define HHANGUP         6
+#define HTERM           7
+#define HMEM_CHANGE     8
+#define HEXCEPTION      9
 
 
 /*
@@ -46,6 +40,15 @@ struct Process;
  
 #define NSPAWNSEGMENTS      32
 #define NSYSPORT            10
+
+
+/*
+ * Spawn flags
+ */
+
+#define PROCF_EXECUTIVE         (1<<0) 
+#define PROCF_ALLOW_IO          (1<<1)
+#define PROCF_DAEMON            (1<<2)
 
 
 /*

@@ -37,7 +37,8 @@
 
 
 /*
- * Coalesces free virtual memory areas and compacts the virtseg array.
+ * Coalesces free virtual memory areas and compacts the vseg array.
+ * Called periodically by the kernel's VM daemon.
  */
  
 SYSCALL int CoalesceVirtualMem (void)
@@ -48,37 +49,37 @@ SYSCALL int CoalesceVirtualMem (void)
 
     current = GetCurrentProcess();
     
-    if (!(current->flags & PROCF_EXECUTIVE))
+    if (!(current->flags & PROCF_DAEMON))
         return privilegeErr;
     
     DisablePreemption();
     
-    for (t = 0, s = 0; t < virtseg_cnt; t++)
+    for (t = 0, s = 0; t < vseg_cnt; t++)
     {
-        if (s > 0 && (MEM_TYPE(virtseg_table[s-1].flags) == MEM_FREE
-                                 && MEM_TYPE(virtseg_table[t].flags) == MEM_FREE))
+        if (s > 0 && (MEM_TYPE(vseg_table[s-1].flags) == MEM_FREE
+                                 && MEM_TYPE(vseg_table[t].flags) == MEM_FREE))
         {
-            virtseg_table[s-1].ceiling = virtseg_table[t].ceiling;
+            vseg_table[s-1].ceiling = vseg_table[t].ceiling;
         }
         else
         {
-            virtseg_table[s].base          = virtseg_table[t].base;
-            virtseg_table[s].ceiling       = virtseg_table[t].ceiling;
-            virtseg_table[s].physical_addr = virtseg_table[t].physical_addr;
-            virtseg_table[s].flags         = virtseg_table[t].flags;
-            virtseg_table[s].owner         = virtseg_table[t].owner;
-            virtseg_table[s].parcel        = virtseg_table[t].parcel;
-            virtseg_table[s].busy          = virtseg_table[t].busy;
-            virtseg_table[s].wired         = virtseg_table[t].wired;
+            vseg_table[s].base          = vseg_table[t].base;
+            vseg_table[s].ceiling       = vseg_table[t].ceiling;
+            vseg_table[s].physical_addr = vseg_table[t].physical_addr;
+            vseg_table[s].flags         = vseg_table[t].flags;
+            vseg_table[s].owner         = vseg_table[t].owner;
+            vseg_table[s].parcel        = vseg_table[t].parcel;
+            vseg_table[s].busy          = vseg_table[t].busy;
+            vseg_table[s].wired         = vseg_table[t].wired;
             
-            if ((virtseg_table[s].parcel) != NULL)
-                virtseg_table[s].parcel->content.virtualsegment = &virtseg_table[s];
+            if ((vseg_table[s].parcel) != NULL)
+                vseg_table[s].parcel->content.msg = vseg_table[s].base;
 
             s++;
         }
     }
 
-    virtseg_cnt = s;
+    vseg_cnt = s;
     return 0;
 }
 
@@ -95,7 +96,7 @@ struct VirtualSegment *VirtualSegmentCreate (vm_offset addr, vm_size size, bits3
     vm_addr base, ceiling;
     int t;
 
-    KASSERT (virtseg_cnt < (max_virtseg - 3));
+    KASSERT (vseg_cnt < (max_vseg - 3));
     
     if (flags & MAP_FIXED)
     {   
@@ -117,7 +118,7 @@ struct VirtualSegment *VirtualSegmentCreate (vm_offset addr, vm_size size, bits3
     KASSERT (MEM_TYPE(vs->flags) == MEM_FREE);
     KASSERT (vs->base <= addr && addr+size <= vs->ceiling);
     
-    t = vs - virtseg_table;
+    t = vs - vseg_table;
 
     if (vs->base == addr && vs->ceiling == addr + size)
     {
@@ -232,22 +233,22 @@ void VirtualSegmentInsert (int index, int cnt)
 {
     int t;
     
-    for (t = virtseg_cnt - 1 + cnt; t >= (index + cnt); t--)
+    for (t = vseg_cnt - 1 + cnt; t >= (index + cnt); t--)
     {
-        virtseg_table[t].base          = virtseg_table[t-cnt].base;
-        virtseg_table[t].ceiling       = virtseg_table[t-cnt].ceiling;
-        virtseg_table[t].physical_addr = virtseg_table[t-cnt].physical_addr;
-        virtseg_table[t].flags         = virtseg_table[t-cnt].flags;
-        virtseg_table[t].owner         = virtseg_table[t-cnt].owner;
-        virtseg_table[t].parcel        = virtseg_table[t-cnt].parcel;
-        virtseg_table[t].busy          = virtseg_table[t-cnt].busy;
-        virtseg_table[t].wired         = virtseg_table[t-cnt].wired;
+        vseg_table[t].base          = vseg_table[t-cnt].base;
+        vseg_table[t].ceiling       = vseg_table[t-cnt].ceiling;
+        vseg_table[t].physical_addr = vseg_table[t-cnt].physical_addr;
+        vseg_table[t].flags         = vseg_table[t-cnt].flags;
+        vseg_table[t].owner         = vseg_table[t-cnt].owner;
+        vseg_table[t].parcel        = vseg_table[t-cnt].parcel;
+        vseg_table[t].busy          = vseg_table[t-cnt].busy;
+        vseg_table[t].wired         = vseg_table[t-cnt].wired;
             
-        if ((virtseg_table[t].parcel) != NULL)
-              virtseg_table[t].parcel->content.virtualsegment = &virtseg_table[t];
+        if ((vseg_table[t].parcel) != NULL)
+              vseg_table[t].parcel->content.msg = vseg_table[t].base;
     }
     
-    virtseg_cnt += cnt;
+    vseg_cnt += cnt;
 }
 
 
@@ -260,7 +261,7 @@ void VirtualSegmentInsert (int index, int cnt)
 struct VirtualSegment *VirtualSegmentFind (vm_addr addr)
 {
     int low = 0;
-    int high = virtseg_cnt - 1;
+    int high = vseg_cnt - 1;
     int mid;    
         
         
@@ -268,12 +269,12 @@ struct VirtualSegment *VirtualSegmentFind (vm_addr addr)
     {
         mid = low + ((high - low) / 2);
         
-        if (addr >= virtseg_table[mid].ceiling)
+        if (addr >= vseg_table[mid].ceiling)
             low = mid + 1;
-        else if (addr < virtseg_table[mid].base)
+        else if (addr < vseg_table[mid].base)
             high = mid - 1;
         else
-            return &virtseg_table[mid];
+            return &vseg_table[mid];
     }
 
     return NULL;
@@ -285,6 +286,11 @@ struct VirtualSegment *VirtualSegmentFind (vm_addr addr)
 
 /*
  * Finds the best fitting VirtualSegment for the given size and flags.
+ *
+ * If the best fitting segment is large enough, this will attempt to align the
+ * allocation up to a LARGE_PAGE_SIZE (usually 64k) so that the page table code
+ * can attempt to use larger page sizes.  This requires physical mem to also be
+ * aligned on a large page table boundary.
  */
 
 struct VirtualSegment *VirtualSegmentBestFit (vm_size size, uint32 flags, vm_addr *ret_addr)
@@ -293,14 +299,16 @@ struct VirtualSegment *VirtualSegmentBestFit (vm_size size, uint32 flags, vm_add
     vm_size vs_size;
     vm_size best_size = VM_USER_CEILING - VM_USER_BASE;
     int best_idx = -1;
+    vm_size new_size;
+    vm_addr new_base;
     
-
-    for (i = 0; i < virtseg_cnt; i++)
+    
+    for (i = 0; i < vseg_cnt; i++)
     {
-        if (MEM_TYPE(virtseg_table[i].flags) == MEM_FREE)
+        if (MEM_TYPE(vseg_table[i].flags) == MEM_FREE)
         {
-            vs_size = virtseg_table[i].ceiling - virtseg_table[i].base;
-        
+            vs_size = vseg_table[i].ceiling - vseg_table[i].base;
+
             if (vs_size > size && vs_size < best_size)
             {
                 best_size = vs_size;
@@ -308,8 +316,8 @@ struct VirtualSegment *VirtualSegmentBestFit (vm_size size, uint32 flags, vm_add
             }
             else if (vs_size == size)
             {
-                *ret_addr = virtseg_table[i].base;
-                return &virtseg_table[i];
+                *ret_addr = vseg_table[i].base;
+                return &vseg_table[i];
             }
         }           
     }
@@ -317,8 +325,26 @@ struct VirtualSegment *VirtualSegmentBestFit (vm_size size, uint32 flags, vm_add
     if (best_idx == -1)
         return NULL;
 
-    *ret_addr = virtseg_table[best_idx].base;
-    return &virtseg_table[best_idx];
+
+    
+    if (best_size >= LARGE_PAGE_SIZE)
+    {
+        new_base = ALIGN_UP (vseg_table[i].base, LARGE_PAGE_SIZE);
+        
+        if (new_base < vseg_table[i].ceiling)
+        {
+            new_size = vseg_table[i].ceiling - new_base;
+        
+            if (new_size >= size)
+            {
+                *ret_addr = new_base;
+                return &vseg_table[best_idx];
+            }
+        }
+    }
+
+    *ret_addr = vseg_table[i].base;
+    return &vseg_table[best_idx];
 }
 
 
@@ -326,7 +352,7 @@ struct VirtualSegment *VirtualSegmentBestFit (vm_size size, uint32 flags, vm_add
 
 /*
  * Used by Spawn() to lookup multiple VirtualSegment structures
- * Initializes the virtseg array with pointers to the found areas.
+ * Initializes the vseg array with pointers to the found areas.
  * Ensures each VirtualSegment is unique otherwise returns an error.
  *
  * OPTIMIZE: For sizes greater than 64k, w should try to find a suitable
@@ -336,7 +362,7 @@ struct VirtualSegment *VirtualSegmentBestFit (vm_size size, uint32 flags, vm_add
  *
  */
  
-int VirtualSegmentFindMultiple (struct VirtualSegment **virtseg, void **mem_ptrs, int cnt)
+int VirtualSegmentFindMultiple (struct VirtualSegment **vseg, void **mem_ptrs, int cnt)
 {
     struct VirtualSegment *vs;
     struct Process *current;
@@ -360,11 +386,11 @@ int VirtualSegmentFindMultiple (struct VirtualSegment **virtseg, void **mem_ptrs
         
         for (u=0; u<t; u++)
         {
-            if (vs == virtseg[u])
+            if (vs == vseg[u])
                 return paramErr;
         }
         
-        virtseg[t] = vs;
+        vseg[t] = vs;
     }
     
     return 0;

@@ -23,7 +23,7 @@
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/lists.h>
-
+#include <kernel/globals.h>
 
 
 
@@ -99,9 +99,9 @@ int DoCloseProcess (int h)
         FreeHandle (h);
         return 0;
     }
-    else if (handle->owner != root_process)
+    else if (handle->owner != reaper_task)
     {
-        handle->owner = root_process;
+        handle->owner = reaper_task;
         return 0;
     }
     else

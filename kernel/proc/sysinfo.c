@@ -35,26 +35,49 @@
 /*
  * Return general information about the system
  *
- *
- *
+ * FIXME: finish SystemInfo(),  count total pages of processes
+ * waiting for memory
  */
 
 SYSCALL int SystemInfo (sysinfo_t *si_user)
 {
     sysinfo_t si;
+    struct Process *current;
+    
+    current = GetCurrentProcess();
     
     MemSet (&si, 0, sizeof si);
     si.flags = 0;
     si.cpu_cnt = max_cpu;
     si.process_cnt = max_process;
     si.total_pages = 0;       // fixme : count pages in initvm
+
+  
+
+    /*
+    for (t=0; t<max_process; t++)
+    {
+        if (proc = GetProcess(t) != NULL)
+        {
+            if (proc->state != PROC_STATE_FREE)
+            {
+                si.virtualalloc_requested = 0;
+            }
+        }
+    }
+    */
+    
     si.page_size = PAGE_SIZE;
     si.virtualalloc_alignment = PAGE_SIZE;
-    si.max_memareas = max_virtseg;
+    si.max_memareas = max_vseg;
     si.max_handles = max_handle;
     si.max_tickets = STRIDE_MAX_TICKETS;
 
-    CopyOut (si_user, &si, sizeof (sysinfo_t));
+    if (current->flags & PROCF_DAEMON)
+        MemCpy (si_user, &si, sizeof *si_user);
+    else
+        CopyOut (si_user, &si, sizeof *si_user);
+    
     return 0;
 }
 

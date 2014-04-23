@@ -54,16 +54,16 @@ void FreeAddressSpace (void)
     
     DisablePreemption();
         
-    for (t= 0; t < virtseg_cnt; t++)
+    for (t= 0; t < vseg_cnt; t++)
     {   
-        if (virtseg_table[t].owner == current
-            && MEM_TYPE (virtseg_table[t].flags) == MEM_ALLOC
-            && virtseg_table[t].busy == TRUE)
+        if (vseg_table[t].owner == current
+            && MEM_TYPE (vseg_table[t].flags) == MEM_ALLOC
+            && vseg_table[t].busy == TRUE)
         {
             Sleep (&vm_rendez);
         }
         
-        VirtualFree (virtseg_table[t].base);
+        VirtualFree (vseg_table[t].base);
             
     }
 }

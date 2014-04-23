@@ -96,7 +96,14 @@ void *process_table;
 void *idle_process_table;
 
 struct Process *root_process;
-struct Process *idle_process;
+struct Process *idle_task;
+struct Process *vm_task;
+struct Process *reaper_task;
+
+struct Process *memory_daemon;
+struct Process *reaper_daemon;
+
+
 
 bool reschedule_request;
 process_circleq_t realtime_queue[32];
@@ -163,13 +170,13 @@ uint32 *pagedirectory;
 uint32 *pagetable_pool;
 pagetable_list_t free_pagetable_list;
 
-int max_virtseg;
-struct VirtualSegment *virtseg_table;
-int virtseg_cnt;
+int max_vseg;
+struct VirtualSegment *vseg_table;
+int vseg_cnt;
 
-int max_physseg;
-struct PhysicalSegment *physseg_table;
-int physseg_cnt;
+int max_pseg;
+struct PhysicalSegment *pseg_table;
+int pseg_cnt;
 
 struct Rendez vm_rendez;
 

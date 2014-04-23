@@ -62,7 +62,6 @@ void InitVM (void)
     
     KLog ("InitVM()");
     
-//  Calculate table sizes
     
     user_base = bootinfo->user_base;
     user_ceiling = 0x80000000;
@@ -80,30 +79,30 @@ void InitVM (void)
     channel_table        = HeapAlloc (max_channel     * sizeof (struct Channel));
     notification_table   = HeapAlloc (max_notification * sizeof (struct Notification));    
     handle_table         = HeapAlloc (max_handle      * sizeof (struct Handle));
-    physseg_table        = HeapAlloc (max_physseg     * sizeof (struct PhysicalSegment));
-    virtseg_table        = HeapAlloc (max_virtseg     * sizeof (struct VirtualSegment));
+    pseg_table           = HeapAlloc (max_pseg        * sizeof (struct PhysicalSegment));
+    vseg_table           = HeapAlloc (max_vseg        * sizeof (struct VirtualSegment));
     parcel_table         = HeapAlloc (max_parcel      * sizeof (struct Parcel));
 
     for (u = 0, t = 0; t < bootinfo->segment_cnt; t++)
     {
         if (bootinfo->segment_table[t].base >= bootinfo->user_base)
         {
-            physseg_table[u].base    =  bootinfo->segment_table[t].base;
-            physseg_table[u].ceiling =  bootinfo->segment_table[t].ceiling;
-            physseg_table[u].type    =  bootinfo->segment_table[t].type;
+            pseg_table[u].base    =  bootinfo->segment_table[t].base;
+            pseg_table[u].ceiling =  bootinfo->segment_table[t].ceiling;
+            pseg_table[u].type    =  bootinfo->segment_table[t].type;
             
-            virtseg_table[u].base          = bootinfo->segment_table[t].base;
-            virtseg_table[u].ceiling       = bootinfo->segment_table[t].ceiling;
-            virtseg_table[u].physical_addr = bootinfo->segment_table[t].base;
-            virtseg_table[u].owner = NULL;
+            vseg_table[u].base          = bootinfo->segment_table[t].base;
+            vseg_table[u].ceiling       = bootinfo->segment_table[t].ceiling;
+            vseg_table[u].physical_addr = bootinfo->segment_table[t].base;
+            vseg_table[u].owner = NULL;
 
                 
-            if (physseg_table[u].type == SEG_TYPE_ALLOC)
-                virtseg_table[u].flags = MEM_ALLOC | bootinfo->segment_table[t].flags;
-            else if (physseg_table[u].type == SEG_TYPE_FREE)
-                virtseg_table[u].flags = MEM_FREE;
-            else if (physseg_table[u].type == SEG_TYPE_RESERVED)
-                virtseg_table[u].flags = MEM_RESERVED;
+            if (pseg_table[u].type == SEG_TYPE_ALLOC)
+                vseg_table[u].flags = MEM_ALLOC | bootinfo->segment_table[t].flags;
+            else if (pseg_table[u].type == SEG_TYPE_FREE)
+                vseg_table[u].flags = MEM_FREE;
+            else if (pseg_table[u].type == SEG_TYPE_RESERVED)
+                vseg_table[u].flags = MEM_RESERVED;
             else
                 KernelPanic ("Undefined bootinfo segment");
         
@@ -111,12 +110,10 @@ void InitVM (void)
         }
     }
 
-    virtseg_table[u-1].ceiling = user_ceiling;
-    physseg_cnt = u;
-    virtseg_cnt = u;
+    vseg_table[u-1].ceiling = user_ceiling;
+    pseg_cnt = u;
+    vseg_cnt = u;
     segment_version_counter = 0;
-    
-    KASSERT (virtseg_cnt > 0);
     
     
     // FIXME: Move up to beginning of function?

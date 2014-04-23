@@ -24,12 +24,6 @@ extern uint8 _bss_end;
 
 extern struct CPU cpu_table[MAX_CPU];
 
-extern uint8 kernel_stack;
-extern uint8 kernel_stack_top;
-
-extern uint8 idle_stack;
-extern uint8 idle_stack_top;
-
 
 extern bits32_t cpsr_dnm_state;
 
@@ -114,7 +108,19 @@ extern int64 global_pass;
 extern process_list_t free_process_list;
 
 extern struct Process *root_process;
-extern struct Process *idle_process;
+extern struct Process *idle_task;
+extern struct Process *vm_task;
+extern struct Process *reaper_task;
+
+extern uint8 reaper_task_stack_top;
+extern uint8 idle_task_stack_top;
+extern uint8 vm_task_stack_top;
+
+
+
+extern uint8 kernel_stack;
+extern uint8 kernel_stack_top;
+
 
 extern int max_process;
 
@@ -171,13 +177,13 @@ extern uint32 *pagedirectory;
 extern uint32 *pagetable_pool;
 extern pagetable_list_t free_pagetable_list;
 
-extern int max_virtseg;
-extern struct VirtualSegment *virtseg_table;
-extern int virtseg_cnt;
+extern int max_vseg;
+extern struct VirtualSegment *vseg_table;
+extern int vseg_cnt;
 
-extern int max_physseg;
-extern struct PhysicalSegment *physseg_table;
-extern int physseg_cnt;
+extern int max_pseg;
+extern struct PhysicalSegment *pseg_table;
+extern int pseg_cnt;
 
 extern struct Rendez vm_rendez;
 
