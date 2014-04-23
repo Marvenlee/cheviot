@@ -1,0 +1,45 @@
+FILESYS_OBJ:=   	$(patsubst %.c,%.o, $(wildcard filesys/*.c)) \
+					$(patsubst %.cc,%.o, $(wildcard filesys/*.cc)) \
+					$(patsubst %.s,%.o, $(wildcard filesys/*.s)) \
+					$(patsubst %.S,%.o, $(wildcard filesys/*.S))
+	
+# ----------------------------------------------------------------------------
+
+.PHONY:= filesys
+filesys : filesys/filesys
+filesys/filesys : $(FILESYS_OBJ)  filesys/armelf.x
+	$(CPP) $(CFLAGS) $(FILESYS_OBJ) -ltask -Tfilesys/armelf.x -o filesys/filesys
+
+	
+# ----------------------------------------------------------------------------
+
+.PHONY : filesys/depend
+filesys/depend : 
+	$(DEPEND) $(DFLAGS) -f filesys/makefile.in \
+					 $(wildcard filesys/*.cc) 
+					 
+# ----------------------------------------------------------------------------
+
+.PHONY : filesys/clean
+filesys/clean :
+	rm -f filesys/filesys
+	rm -f filesys/*.o
+	rm -f filesys/dump.txt
+	rm -f filesys/makefile.in.bak
+
+# ----------------------------------------------------------------------------
+
+.PHONY : filesys/dump
+filesys/dump :
+	$(OBJDUMP) -xshDt filesys/filesys >filesys/dump.txt
+
+
+# ----------------------------------------------------------------------------
+
+.PHONY : filesys/strip
+filesys/strip :
+	$(STRIP) -s --remove-section=.comment filesys/filesys
+
+# ----------------------------------------------------------------------------
+
+# DO NOT DELETE
