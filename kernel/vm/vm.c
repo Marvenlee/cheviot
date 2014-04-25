@@ -29,6 +29,7 @@
 #include <kernel/globals.h>
 
 
+void VirtualAllocContinuation (void);
 
 
 /*
@@ -36,13 +37,9 @@
  * returns a pointer to it.  Returns NULL if unsuccessful.  Will sleep
  * for other tasks to free memory.
  *
- * The timeout watchdog is currently unimplemented.  A way of notifying
- * the Executive to free cached file segments is currently unimplemented.
- *
  * The look up and creation of the vseg and pseg data structures
- * has preemption disabled.  Preemption is disabled for the duration of
- * cleaning the allocated memory.
- *
+ * has preemption disabled.
+ 
  * This could be optimized to allow preemption during the lookup/best fit
  * of suitable sized virtual and physical segments.  If the virtseg and
  * physseg arrays need to grow then there are two options:
@@ -51,10 +48,6 @@
  * 2) Double-buffer, create a new array, with any insertions added, then
  *    only disable preemption to update a pointer to the new array.
  *    This may need a time limit after which preemption is disabled.
- *
- * The cleaning of the allocated memory could be done with preemption
- * enabled in a continuation.  Progress could be saved every few kilobytes
- * within the process structure.
  */
 
 SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
@@ -62,13 +55,9 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 	struct PhysicalSegment *ps;
 	struct VirtualSegment *vs;
 	struct Process *current;
-    vm_addr va;
-
+  
 		
 	current = GetCurrentProcess();
-	
-	if (CheckWatchdog() == -1)
-	    return (vm_addr)NULL;
 	
 	if (vseg_cnt >= (max_vseg - 3) || pseg_cnt >= (max_pseg - 3))
         Sleep (&vm_rendez);
@@ -79,10 +68,7 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 	flags = (flags & ~VM_SYSTEM_MASK) | MEM_ALLOC;
 
 	if (PmapSupportsCachePolicy (flags) == -1)
-	{
-	    SetWatchdog (0);
 	    return (vm_addr)NULL;
-	}
 	
 	DisablePreemption();
 		
@@ -94,27 +80,67 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 		VirtualSegmentDelete (vs);
 	    Sleep(&vm_rendez);
 	}
-	
+
 	ps->virtual_addr = vs->base;
+	
+	vs->flags = (flags & ~PROT_MASK) | PROT_READWRITE;
 	vs->owner = current;
 	vs->physical_addr = ps->base;
 	vs->version = segment_version_counter;
 	segment_version_counter ++;
-	
-	vs->flags = (flags & ~PROT_MASK) | PROT_READWRITE;
-	PmapEnterRegion (&current->pmap, vs, vs->base);
-	
-	for (va = vs->ceiling - PAGE_SIZE; va >= vs->base; va -= PAGE_SIZE)
-		MemSet ((void *)va, 0, PAGE_SIZE);
-	
-	vs->flags = flags;
-	PmapRemoveRegion (&current->pmap, vs);
-	PmapEnterRegion (&current->pmap, vs, vs->base);
-	
-	SetWatchdog (0);
+    
+    current->continuation_function = &VirtualAllocContinuation;
+    current->continuation.virtualalloc.addr = vs->base;
+    current->continuation.virtualalloc.flags = flags;
+    
 	return vs->base;
-	
 }
+
+
+
+
+/*
+ *
+ */
+ 
+void VirtualAllocContinuation (void)
+{
+    struct Process *current;
+	struct VirtualSegment *vs;
+	vm_addr addr, va;
+	
+
+	current = GetCurrentProcess();
+	addr = current->continuation.virtualalloc.addr;
+	vs = VirtualSegmentFind (addr);
+	
+	KASSERT (vs != NULL &&  vs->owner == current);
+	
+	if (vs->busy == TRUE)
+		Sleep (&vm_rendez);
+	
+	DisablePreemption();	
+	PmapEnterRegion (&current->pmap, vs, vs->base);
+	EnablePreemption();
+	
+	for (va = addr; va < vs->ceiling; va += PAGE_SIZE)
+	{
+		MemSet ((void *)va, 0, PAGE_SIZE);
+		
+		DisablePreemption();
+		current->continuation.virtualalloc.addr = va + PAGE_SIZE;
+		EnablePreemption();
+	}	
+		
+	DisablePreemption();
+	PmapRemoveRegion (&current->pmap, vs);
+	vs->flags = current->continuation.virtualalloc.flags;	
+	current->continuation_function = NULL;
+	PmapEnterRegion (&current->pmap, vs, vs->base);
+	EnablePreemption();
+}
+
+
 
 
 
@@ -133,14 +159,8 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
 
 	current = GetCurrentProcess();
 
-	if (CheckWatchdog() == -1)
-	    return (vm_addr)NULL;
-
 	if (!(current->flags & PROCF_ALLOW_IO))
-	{
-	    SetWatchdog (0);
-		return (vm_addr)NULL;
-	}
+    	return (vm_addr)NULL;
 	
 	if (vseg_cnt >= (max_vseg - 3))
         Sleep (&vm_rendez);
@@ -152,17 +172,12 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
 	flags = (flags & ~VM_SYSTEM_MASK) | MEM_PHYS;
 
 	if (PmapSupportsCachePolicy (flags) == -1)
-	{
-	    SetWatchdog (0);
 	    return (vm_addr)NULL;
-    }
     
 	DisablePreemption();
 
 	if ((vs = VirtualSegmentCreate (addr, len, flags)) == NULL)
-	{
 	    Sleep(&vm_rendez);
-    }
     	
 	vs->owner = current;
 	vs->physical_addr = paddr;
@@ -170,9 +185,11 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_
 	vs->version = segment_version_counter;
     segment_version_counter ++;
 
+    // CHECKME:  Physmem can't be busy, but may still want a continuation
+    // so we can sleep on it.
+
 	PmapEnterRegion (&current->pmap, vs, vs->base);
 	
-	SetWatchdog (0);
 	return vs->base;
 }
 

@@ -218,6 +218,16 @@ struct Process
     
     void (*continuation_function)(void);
     
+    union
+    {
+        struct
+        {
+            vm_addr addr;
+            bits32_t flags;
+        } virtualalloc;
+        
+    } continuation;
+    
     CIRCLEQ_ENTRY (Process) sched_entry;    // real-time run-queue
     LIST_ENTRY (Process) stride_entry;     
 
