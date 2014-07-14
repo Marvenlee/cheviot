@@ -54,18 +54,24 @@ void FreeAddressSpace (void)
     
     DisablePreemption();
         
-    for (t= 0; t < vseg_cnt; t++)
+    for (t= 0; t < seg_cnt; t++)
     {   
-        if (vseg_table[t].owner == current
-            && MEM_TYPE (vseg_table[t].flags) == MEM_ALLOC
-            && vseg_table[t].busy == TRUE)
-        {
-            Sleep (&vm_rendez);
-        }
+        // FIXME:  If segment is cached and belongs to proces we need to free it.
+        // May have to go through separate search of pseg table?
         
-        VirtualFree (vseg_table[t].base);
-            
+        // FIXME: Store current position, to avoid sleep/wakeup starting
+        // from beginning.
+        
+        if (seg_table[t].owner == current
+            && MEM_TYPE (seg_table[t].flags) == MEM_ALLOC)
+        {
+            VirtualFree (seg_table[t].base);
+        }    
     }
 }
+
+
+
+
 
 

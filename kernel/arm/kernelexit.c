@@ -40,24 +40,6 @@
  * This performs deferred procedure calls of timer and interrupt bottom half
  * processing as well as exit detection.
  *
- * Notes:
- *
- * Unsure how SMP will affect the inkernel_now, inkernel_lock and interrupt
- * handling.
- *
- * Any continuation function needs to check TSF flags
- * in case CopyIn() or CopyOut() causes an exception and so avoid
- * an infinite loop.
- *
- * Continuation is useful for VirtualAlloc.  Memory can be mapped in supervisor
- * mode, wiped clean with preemption enabled in a continuation and then
- * finally set to user-mode protection.
- *
- * taskstate.flags may become Unix-like signals, such as SIGKILL, SIGTERM,
- * SIGHUP etc.  These could be delivered to user-mode from within this function.
- * However, Unix advances the program counter when a system call is interrupted.
- * The PC-lusering in this microkernel doesn't advance the program counter, so
- * the system call restarts.
  */
 
 void KernelExit (void)
@@ -84,19 +66,8 @@ void KernelExit (void)
     EnableInterrupts();
     EnablePreemption();
     
-    
     current = GetCurrentProcess();
 
-    if (current->continuation_function != NULL)
-    {
-        // May want to set task_state->r0
-        // May want to advance program counter (if syscall function didn't exit
-        // normally.
-        
-        current->continuation_function();
-        EnablePreemption();
-    }
-        
     if (current->task_state.flags != 0)
     {
         if (current->task_state.flags & TSF_EXIT)
@@ -108,6 +79,12 @@ void KernelExit (void)
     }
     
     ClosePendingHandles();
+    
+    EnablePreemption();
+    
+    while (current->continuation_function != NULL)
+        current->continuation_function();
+    
 }
 
 

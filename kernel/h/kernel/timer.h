@@ -22,7 +22,6 @@
 
 
 
-
 /*
  *
  */
@@ -45,7 +44,6 @@ struct Timer
     int type;
     long long expiration_seconds;
     long expiration_jiffies;
-    struct Process *process;
     int handle;
 };
 
@@ -65,6 +63,9 @@ LIST_TYPE (Timer) timer_list_t;
 
 void SetWatchdog (int seconds);
 int CheckWatchdog (void);
+
+
+
 
 
 SYSCALL int CreateTimer (void);

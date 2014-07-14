@@ -53,35 +53,24 @@
 
 
 
-
-
 /*
  * Returns the system time in seconds and microseconds.
  *
- * FIXME: CHECKME:  
- * Perhaps we need to disable interrupts to get a consistent
- * state of the timer.
+ * Acquire timer spinlock to read the current value of hardclock
  */
 
 SYSCALL int GetSystemTime (struct TimeVal *tv_user)
 {
     struct TimeVal tv;
 
-    volatile uint32 prev_seconds, prev_jiffies;
-    volatile uint32 new_seconds, new_jiffies;
-    
-    do
-    {
-        prev_seconds = hardclock_seconds;
-        prev_jiffies = hardclock_jiffies;
 
-        new_seconds = hardclock_seconds;
-        new_jiffies = hardclock_jiffies;
-    } while (new_seconds != prev_seconds && new_jiffies != prev_jiffies);
+    DisableInterrupts();
+    SpinLock (&timer_slock);
+    tv.seconds = hardclock_seconds;
+    tv.microseconds = hardclock_jiffies * 1000000 / JIFFIES_PER_SECOND;
+    SpinUnlock (&timer_slock);
+    EnableInterrupts();
 
-    tv.seconds = new_seconds;
-    tv.microseconds = new_jiffies * 1000000 / JIFFIES_PER_SECOND;
-    
     CopyOut (tv_user, &tv, sizeof (struct TimeVal));
     return 0;
 }
@@ -117,7 +106,6 @@ SYSCALL int CreateTimer(void)
     timer->type = 0;
     timer->expiration_seconds = 0;
     timer->expiration_jiffies = 0;
-    timer->process = current;
     timer->handle = handle;
     
     SetObject (current, handle, HANDLE_TYPE_TIMER, timer);
@@ -235,38 +223,6 @@ SYSCALL int SetTimer (int handle, int type, struct TimeVal *tv_user)
 
 
 
-
-/*
- * Arms the current process's watchdog timer which should wake up this
- * process if it is blocked Sleeping on a rendez.  The intention is
- * to use this in VirtualAlloc to wait several seconds for other tasks
- * to free up enough memory to let VirtualAlloc complete. If the timeout
- * occurs then VirtualAlloc fails.
- *
- * Setting the watchdog to zero seconds cancels the current watchdog.
- */
-
-void SetWatchdog (int seconds)
-{
-}
-
-
-
-
-/*
- *
- */
-
-int CheckWatchdog (void)
-{
-    return 0;
-}
-
-
-
-
-
-
 /*
  * Top half of timer handling.
  * Called from within timer interrupt.  Updates the quanta used of all running
@@ -284,6 +240,9 @@ void TimerTopHalf (void)
 
     reschedule_request = TRUE;
 
+    DisableInterrupts();
+    SpinLock (&timer_slock);
+ 
     hardclock_jiffies ++;
     
     if (hardclock_jiffies == JIFFIES_PER_SECOND)
@@ -291,6 +250,9 @@ void TimerTopHalf (void)
         hardclock_jiffies = 0;
         hardclock_seconds ++;
     }
+    
+    SpinUnlock (&timer_slock);
+    EnableInterrupts();
 }
 
 
@@ -298,11 +260,7 @@ void TimerTopHalf (void)
 
 /*
  * Bottom half of timer handling.
- * Called within the KernelExit() code.
- *
- * CHECKME: We don't convert relative timers to an absolute expiration is so that we
- * can allow timeofday (hardclock) to be changed,  either forward or backward
- * without affecting relative timers.
+ * Called within the KernelExit() code with preemption disabled.
  */
 
 void TimerBottomHalf (void)
@@ -314,9 +272,11 @@ void TimerBottomHalf (void)
     
 
     DisableInterrupts();
-            
+    SpinLock (&timer_slock);            
+
     while (softclock_seconds < hardclock_seconds || softclock_jiffies < hardclock_jiffies)
     {
+        SpinUnlock (&timer_slock);
         EnableInterrupts();
     
         timer = LIST_HEAD (&timing_wheel[softclock_jiffies]);
@@ -357,7 +317,7 @@ void TimerBottomHalf (void)
                     }
                                         
                     break;
-                    
+                
                 default:
                     break;
             }
@@ -375,8 +335,10 @@ void TimerBottomHalf (void)
         }
         
         DisableInterrupts();
+        SpinLock (&timer_slock);
     }
-    
+
+    SpinUnlock (&timer_slock);    
     EnableInterrupts(); 
 }
 

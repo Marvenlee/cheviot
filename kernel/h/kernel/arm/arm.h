@@ -20,7 +20,7 @@
  */
 
 
-typedef int         spinlock_t;
+typedef volatile int         spinlock_t;
 typedef uint32      vm_addr;
 typedef uint32      vm_offset;
 typedef uint32      vm_size;
@@ -171,6 +171,9 @@ typedef uint32      iflag_t;
 #define VM_KERNEL_CEILING           0x00800000
 #define VM_USER_BASE                0x00800000
 #define VM_USER_CEILING             0xFFFF0000
+
+
+#define NPMAP                       64
 #define NPDE                        16         /* Pagetables per process */
 #define PMAP_SIZE                   (L2_TABLE_SIZE * NPDE)
 
@@ -195,42 +198,58 @@ typedef uint32      iflag_t;
  * On a task switch the current 16 entries in the page directory are
  * marked as invalid and the 16 page tables of the new process are
  * entered into the page directory.
- 
  */
+
+#define PMAP_MAP_VIRTUAL            0
+#define PMAP_MAP_PHYSICAL           1
+
+
+struct Process;
+
 
 struct Pmap
 {
-    int index;
+    LIST_ENTRY (Pmap) lru_link;
+    struct Process *owner;
+    
     void *addr;             // Point to 16k  16 * 1k page tables
     int32 lru;              // Least recent set PDE. (circular buffer).
-
+    int map_type;           // Set to 1 if mapping physical memory in address space..
+    
+    
+    // Need compaction if an page table index is freed during IPC.
+    // Or keep idx non-zero, valid BUT value would be a non-present page table.
+    
+    
     struct
     {
-        int idx;
-        bits32_t val;
-    } pde[NPDE];    // Specifies their index in the mast page directory
+        int idx;            // page directory index of entry
+        bits32_t val;       // value pof page directory entry
+    } pde[NPDE]; 
 
 };
 
 
 
-
-/*
- * PmapMem is used to create a free list of the 16k of pagetable memory that
- * gets allocated to each process.
- */
-
-struct PmapMem
-{
-    LIST_ENTRY (PmapMem) free_link;
-};
-
-LIST_TYPE (PmapMem) pagetable_list_t;
+LIST_TYPE (Pmap) pmap_list_t;
 
 
 
 
 
+
+
+#define AtomicSet(var_name, val)           \
+                *var_name = val;
+
+
+#define AtomicGet(var_name)                 \
+                    var_name                 
+
+
+
+void SpinLock (spinlock_t *spinlock);
+void SpinUnlock (spinlock_t *spinlock);
 
 
 

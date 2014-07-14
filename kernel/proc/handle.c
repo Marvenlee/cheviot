@@ -56,6 +56,8 @@ SYSCALL int CloseHandle(int h)
  * Closes any handles placed on the process's close_handle_list when a
  * Channel is closed.  As Channels are closed any embedded handles in
  * the message segments are appended to this list.
+ *
+ * FIXME: Add preemption to this loop.
  */
  
 void ClosePendingHandles (void)
@@ -91,11 +93,11 @@ void ClosePendingHandles (void)
             case HANDLE_TYPE_TIMER:
                 DoCloseTimer (h);
                 break;
-                
-            case HANDLE_TYPE_NOTIFICATION:
-                DoCloseNotification (h);
-                break;
     
+            case HANDLE_TYPE_SYSTEMEVENT:
+                DoCloseSystemEvent(h);
+                break;
+                
             default:
                 break;
         }
@@ -105,59 +107,24 @@ void ClosePendingHandles (void)
 
 
 
-
-
-
-
 /*
- * CloseHandle() is the single system call used to close any kernel resource.
+ * Closes sighangup, sigterm and sigresource events
  */
 
-/*
-SYSCALL int CloseHandle (int h)
+void DoCloseSystemEvent (int h)
 {
     struct Process *current;
-    int result;
-    
     
     current = GetCurrentProcess();
-        
-    if (h <= 0 || h >= max_handle)
-        return paramErr;
     
-    if (handle_table[h].owner != current)
-        return paramErr;
+    if (h == current->sighangup_handle)
+        current->sighangup_handle = -1;
+    else if (h == current->sigterm_handle)
+        current->sigterm_handle = -1;
     
-    switch (handle_table[h].type)
-    {
-        case HANDLE_TYPE_PROCESS:
-            result = DoCloseProcess (h);
-            break;
-            
-        case HANDLE_TYPE_ISR:
-            result = DoCloseInterruptHandler (h);
-            break;
-                        
-        case HANDLE_TYPE_CHANNEL:
-            result = DoCloseChannel (h);
-            break;
-            
-        case HANDLE_TYPE_TIMER:
-            result = DoCloseTimer (h);
-            break;
-            
-        case HANDLE_TYPE_CONDITION:
-            result = DoCloseCondition (h);
-            break;
-
-        default:
-            result = paramErr;
-            break;
-    }
-    
-    return result;
+    FreeHandle (h);
 }
-*/
+
 
 
 

@@ -33,12 +33,17 @@
  * Create a new process, Only Executive.has permission to create a new process.
  * Takes a table of pointers to segments and a table of handles to pass to the
  * child process.
+ *
+ * If removing page table entries in PmapRemove operations are atomic we can
+ * move it before disabling preemption.
+ *
  */
 
-SYSCALL int Spawn (struct SpawnArgs *user_sa)
+SYSCALL int Spawn (struct SpawnArgs *user_sa, void **user_segments, int segment_cnt)
 {
     struct Process *proc, *current;
-    struct VirtualSegment *vs_ptrs[NSPAWNSEGMENTS];
+    void *segments[NSPAWNSEGMENTS];
+    struct Segment *vs_ptrs[NSPAWNSEGMENTS];
     int h;  
     int t;
     struct SpawnArgs sa;
@@ -46,21 +51,26 @@ SYSCALL int Spawn (struct SpawnArgs *user_sa)
     
     current = GetCurrentProcess();
     
-    if (!(current->flags & PROCF_EXECUTIVE))
+    if (!(current->flags & PROCF_FILESYS))
         return privilegeErr;
     
-    CopyIn (&sa, user_sa, sizeof sa);
             
-    if (sa.segment_cnt < 1 || sa.segment_cnt > NSPAWNSEGMENTS)
+    if (segment_cnt < 1 || segment_cnt > NSPAWNSEGMENTS)
         return paramErr;
 
-    if (free_handle_cnt < 1 || free_process_cnt < 1)
+    CopyIn (&sa, user_sa, sizeof sa);
+    CopyIn (segments, user_segments, sizeof (void *) * segment_cnt);
+
+    if (free_handle_cnt < (1 + 3 + 1) || free_process_cnt < 1)
         return resourceErr;
-            
-    if (ValidateSystemPorts (sa.handle, sa.handle_cnt) < 0)
+    
+    if (sa.namespace_handle == -1)
+        return paramErr;
+
+    if (FindHandle (current, sa.namespace_handle) == NULL)
         return paramErr;
     
-    if (VirtualSegmentFindMultiple (vs_ptrs, sa.segment, sa.segment_cnt) < 0)
+    if (SegmentFindMultiple (vs_ptrs, segments, segment_cnt) < 0)
         return paramErr;
     
     DisablePreemption();
@@ -68,114 +78,39 @@ SYSCALL int Spawn (struct SpawnArgs *user_sa)
     h = AllocHandle();
     proc = AllocProcess();
     proc->handle = h;
-    proc->flags = sa.flags;
-    SetObject (current, h, HANDLE_TYPE_PROCESS, proc);
-    ArchAllocProcess(proc, sa.entry, sa.stack_top);
-    TransferSystemPorts (proc, sa.handle);
+    proc->flags = sa.flags & ~PROCF_SYSTEMMASK;
+
+
+    proc->namespace_handle = sa.namespace_handle;
+    handle_table[sa.namespace_handle].owner = proc;
+    handle_table[sa.namespace_handle].flags |= HANDLEF_GRANTED_ONCE;
     
-    for (t=0; t < sa.segment_cnt; t++)
+    proc->sighangup_handle = AllocHandle();
+    SetObject (proc, proc->sighangup_handle, HANDLE_TYPE_SYSTEMEVENT, NULL);
+    handle_table[proc->sighangup_handle].flags |= HANDLEF_GRANTED_ONCE;
+    
+    proc->sigterm_handle = AllocHandle();
+    SetObject (proc, proc->sigterm_handle, HANDLE_TYPE_PROCESS, NULL);
+    handle_table[proc->sigterm_handle].flags |= HANDLEF_GRANTED_ONCE;
+    
+    current->argv = sa.argv;
+    current->argc = sa.argc;
+    current->envv = sa.envv;
+    current->envc = sa.envc;
+
+    ArchAllocProcess(proc, sa.entry, sa.stack_top);
+    
+    SetObject (current, h, HANDLE_TYPE_PROCESS, proc);
+    
+    for (t=0; t < segment_cnt; t++)
     {
-        PmapRemoveRegion (&current->pmap, vs_ptrs[t]);
+        PmapRemoveRegion (current->pmap, vs_ptrs[t]);
         vs_ptrs[t]->owner = proc;
     }
     
     proc->state = PROC_STATE_READY;
     SchedReady(proc);
     return h;
-}
-
-
-
-
-
-/*
- * Returns information about the system handles (and channels) that were
- * passed to the process by Spawn().
- */
-
-SYSCALL int GetSystemPorts (int *sysports, int cnt)
-{
-    struct Process *current;
-    
-    current = GetCurrentProcess();
-    
-    if (cnt < 1)
-        return paramErr;
-    
-    if (cnt > NSYSPORT)
-        cnt = NSYSPORT;
-    
-    CopyOut (sysports, current->system_port, sizeof (int) * cnt);
-    return 0;
-}
-
-
-
-
-/*
- * Checks the handles passed by Spawn() belong to the process (Executive)
- * calling Spawn().  Makes sure there are no duplicates.
- */
- 
-int ValidateSystemPorts (int *sysports, int handle_cnt)
-{
-    int s, t;
-    struct Process *current;
-    
-    
-    current = GetCurrentProcess();
-    
-    if (handle_cnt > NSYSPORT)
-        return paramErr;
-    
-    for (t=0; t< NSYSPORT; t++)
-    {
-        if (t < handle_cnt)
-        {
-            if (sysports[t] != -1)
-            {
-                for (s=0; s<t; s++)
-                {
-                    if (sysports[t] == sysports[s])
-                        return paramErr;
-                }
-    
-                if (FindHandle (current, sysports[t]) == NULL)
-                    return paramErr;
-            }
-        }
-        else
-        {
-            sysports[t] = -1;
-        }
-    }
-    
-    return 0;
-}
-
-
-
-
-/*
- * Transfers ownership of the handles passed by Spawn() to the
- * child process.  Marks the system handles as GRANT_ONCE so 
- * they cannot be passed to other processes
- */
-
-void TransferSystemPorts (struct Process *proc, int *sysports)
-{
-    int t;
-    
-    for (t=0; t< NSYSPORT; t++)
-    {    
-        proc->system_port[t] = sysports[t]; 
-        
-        if (sysports[t] != -1)
-        {
-            handle_table[sysports[t]].owner = proc;
-            handle_table[sysports[t]].flags |= HANDLEF_GRANTED_ONCE;
-        }
-    }
 }
 
 
@@ -207,7 +142,7 @@ struct Process *AllocProcess (void)
     proc->remaining = 0;
     proc->pass = global_pass;
     proc->continuation_function = NULL;
-    proc->virtualalloc_sz = 0;
+//    proc->virtualalloc_sz = 0;
     
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);
@@ -236,3 +171,9 @@ void FreeProcess (struct Process *proc)
 
 
 
+struct Process *GetProcess (int idx)
+{
+    KASSERT (idx >= 0 && idx < max_process);
+    
+    return (struct Process *)((vm_addr)process_table + idx * PROCESS_SZ);
+}

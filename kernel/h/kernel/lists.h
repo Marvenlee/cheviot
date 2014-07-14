@@ -161,11 +161,16 @@
         (new_entry)->field.prev = (next_entry)->field.prev;                 \
         (new_entry)->field.next = next_entry;                               \
         (next_entry)->field.prev = new_entry;                               \
-        if ((new_entry)->field.prev != NULL)                                \
+        if (((new_entry)->field.prev) != NULL)                              \
+        {                                                                   \
             (new_entry)->field.prev->field.next = new_entry;                \
+        }                                                                   \
         else                                                                \
+        {                                                                   \
             (header)->head = new_entry;                                     \
-    }
+        }                                                                   \
+    }                                                                       
+    
     
 
 #define LIST_REM_ENTRY( header, entry, field)                               \
@@ -178,7 +183,7 @@
             (entry)->field.next->field.prev = (entry)->field.prev;          \
         else                                                                \
             (header)->tail = (entry)->field.prev;                               \
-    }
+    };
 
 
 

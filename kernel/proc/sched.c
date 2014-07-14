@@ -110,7 +110,7 @@ void Reschedule (void)
     
     current->state = PROC_STATE_READY;
     next->state = PROC_STATE_RUNNING;
-    PmapSwitch (&next->pmap, &current->pmap);
+    PmapSwitch (next, current);
     cpu->current_process = next;
 }
 
@@ -196,41 +196,29 @@ void SchedUnready (struct Process *proc)
 
 /*
  * Sets the scheduling policy, either round-robin or stride scheduler
- * and the priority/tickets of the child process 'h'.  If 'h' is -1
- * then the current process (the Executive) has its scheduling state
- * modified.
- *
- * This can only be called by the Executive process.
  */
 
-SYSCALL int SetSchedParams (int h, int policy, int tickets)
+SYSCALL int SetSchedParams (int policy, int tickets)
 {
     struct Process *current;
-    struct Process *child;
     
     
     current = GetCurrentProcess();
-
-    if (!(current->flags & PROCF_EXECUTIVE))
-        return privilegeErr;
-
-    if (h == -1)
-        child = current;
-    else if ((child = GetObject (current, h, HANDLE_TYPE_PROCESS)) == NULL)
-        return paramErr;
-
 
     DisablePreemption();
         
     if (policy == SCHED_RR || policy == SCHED_FIFO)
     {
+        if (!(current->flags & PROCF_ALLOW_IO))
+            return privilegeErr;
+        
         if (tickets < 0 || tickets > 31)
             return paramErr;
     
-        SchedUnready (child);
-        child->sched_policy = policy;
-        child->tickets = tickets;
-        SchedReady (child);
+        SchedUnready (current);
+        current->sched_policy = policy;
+        current->tickets = tickets;
+        SchedReady (current);
         return 0;
     }
     else if (policy == SCHED_OTHER)
@@ -238,13 +226,13 @@ SYSCALL int SetSchedParams (int h, int policy, int tickets)
         if (tickets < 0 || tickets > STRIDE_MAX_TICKETS)
             return paramErr;
     
-        SchedUnready (child);
-        child->sched_policy = policy;
-        child->tickets = tickets;
-        child->stride = STRIDE1 / child->tickets;
-        child->remaining = child->stride;
-        child->pass = global_pass;
-        SchedReady (child);
+        SchedUnready (current);
+        current->sched_policy = policy;
+        current->tickets = tickets;
+        current->stride = STRIDE1 / current->tickets;
+        current->remaining = current->stride;
+        current->pass = global_pass;
+        SchedReady (current);
         return 0;
     }
     else

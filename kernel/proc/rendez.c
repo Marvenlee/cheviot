@@ -74,11 +74,33 @@ void Sleep (struct Rendez *rendez)
 
 
 /*
- * Wakes up all processes sleeping on the rendez condition variable.
+ *
+ */
+ 
+void Wakeup (struct Rendez *rendez)
+{
+    struct Process *proc;
+    
+    DisablePreemption();
+    
+    if ((proc = LIST_HEAD(&rendez->process_list)) == NULL)
+        return;
+        
+    LIST_REM_HEAD (&rendez->process_list, rendez_link);
+    proc->sleeping_on = NULL;
+    proc->state = PROC_STATE_READY;
+    SchedReady(proc);
+}
+
+
+
+
+/*
+ * Wakes up ALL processes sleeping on the rendez condition variable.
  * System calls will restart from the beginning once woken up.
  */
 
-void Wakeup (struct Rendez *rendez)
+void WakeupAll (struct Rendez *rendez)
 {
     struct Process *proc;
     
@@ -98,7 +120,6 @@ void Wakeup (struct Rendez *rendez)
 
 /*
  * Wakes up a single specified process that is sleeping on a rendez.
- * Removes said process from the rendez list of sleeping processes.
  */
 
 void WakeupProcess (struct Process *proc)

@@ -130,19 +130,17 @@ syscall_table:
     .long CreateChannel             // 25
     .long PutMsg                    // 26 
     .long GetMsg                    // 27
-    .long PutNotification           // 28
-    .long GetNotification           // 29
-    .long IsAChannel                // 30
-    .long CoalesceVirtualMem        // 31     Privileged, Executive-only
-    .long CoalescePhysicalMem       // 32     Privileged, Executive-only
-    .long CompactPhysicalMem        // 33     Privileged, Executive-only
-    .long PutHandle                 // 34
-    .long GetHandle                 // 35
-    .long GetNextMsgType            // 36
-    
-    
+    .long IsAChannel                // 28
+    .long PutHandle                 // 29
+    .long GetHandle                 // 30
+    .long GetNextMsgType            // 31
+    .long ProcessInfo               // 32
+    .long PutCachedSegment          // 32
+    .long GetCachedSegment          // 33
+    .long ExpungeCachedSegment      // 34
+        
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 36
+#define MAX_SYSCALL                 34
 
 
 .balign 16

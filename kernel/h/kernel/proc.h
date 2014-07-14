@@ -22,33 +22,22 @@ struct Process;
  */
 
 
-#define HROOT_DIR       0
-#define HPROGRAM_DIR    1
-#define HCURRENT_DIR    2
-#define HSTDIN          3
-#define HSTDOUT         4
-#define HSTDERR         5    
-#define HHANGUP         6
-#define HTERM           7
-#define HMEM_CHANGE     8
-#define HEXCEPTION      9
+#define NSPAWNSEGMENTS     32       // Maximum segments to pass to Spawn
 
 
-/*
- *
- */
- 
-#define NSPAWNSEGMENTS      32
-#define NSYSPORT            10
 
 
 /*
  * Spawn flags
  */
 
-#define PROCF_EXECUTIVE         (1<<0) 
-#define PROCF_ALLOW_IO          (1<<1)
-#define PROCF_DAEMON            (1<<2)
+#define PROCF_ALLOW_IO          (1<<0)      // Device driver IO
+#define PROCF_FILESYS           (1<<1)      // Root / file system process
+#define PROCF_DAEMON            (1<<2)      // Kernel Use: For kernel daemons
+
+#define PROCF_SYSTEMMASK        (PROCF_FILESYS | PROCF_DAEMON)
+
+
 
 
 /*
@@ -64,11 +53,70 @@ struct SpawnArgs
     char **envv;
     int envc;
     bits32_t flags;
-    void *segment[NSPAWNSEGMENTS];
-    int segment_cnt;
-    int handle[NSYSPORT];
-    int handle_cnt;
+    int namespace_handle;
 };
+
+
+
+
+/*
+ *
+ */
+
+typedef struct ProcessInfo
+{
+    int sighangup_handle;
+    int sigterm_handle;
+    int siglowmem_handle;
+    int namespace_handle;
+    
+    char **argv;
+    int argc;
+    char **envv;
+    int envc;
+
+} processinfo_t;
+
+
+
+
+/*
+ *
+ */
+
+typedef struct  SysInfo
+{
+    bits32_t flags;
+  
+    size_t page_size;
+    size_t mem_alignment;
+    
+    int max_pseg;
+    int pseg_cnt;
+    int max_vseg;
+    int vseg_cnt;
+
+    size_t avail_mem_sz;
+    size_t total_mem_sz;
+    
+    int max_process;
+    int max_handle;
+    int free_process_cnt;
+    int free_handle_cnt;
+    
+    int cpu_cnt;
+    int cpu_usage[MAX_CPU];  
+  
+    int power_state;
+
+    int max_ticket;
+    int default_ticket;
+    
+} sysinfo_t;
+
+
+
+
 
 
 
@@ -78,8 +126,8 @@ struct SpawnArgs
  */
 
 
-#define MSG_GRANT_ONCE               (1<<0)
-#define MSG_SILENT                   (1<<1)
+#define MSG_GRANT_ONCE               (1<<0)         // Prevent forwarding handle
+#define MSG_SILENT                   (1<<1)         // Do not raise event on this PutMsg()
 
 
 
@@ -105,7 +153,7 @@ struct SpawnArgs
 #define PROC_STATE_ZOMBIE               200
 #define PROC_STATE_RUNNING              300
 #define PROC_STATE_READY                500
-#define PROC_STATE_SLEEP                3000
+#define PROC_STATE_SLEEP                800
 
 
 
@@ -163,9 +211,10 @@ struct ISRHandler
 #define HANDLE_TYPE_ISR                 2
 #define HANDLE_TYPE_CHANNEL             4
 #define HANDLE_TYPE_TIMER               5
-#define HANDLE_TYPE_NOTIFICATION        6
+#define HANDLE_TYPE_SYSTEMEVENT         6   // sighangup, sigterm, sigresource events
 
-#define HANDLEF_GRANTED_ONCE            (1<<0)
+
+#define HANDLEF_GRANTED_ONCE            (1<<0)  // Handle has been granted once
 
 
 
@@ -176,14 +225,14 @@ struct ISRHandler
 
 struct Handle
 {
-    int type;
-    int pending;
-    struct Process *owner;
-    void *object;
-    bits32_t flags;
-    LIST_ENTRY (Handle) link;
+    int type;                       // Type of kernel object handle points to
+    int pending;                    // Event is pending
+    struct Process *owner;          // Owner process or NULL if in message
+    void *object;                   // Pointer to kernel object
+    bits32_t flags;                 
+    LIST_ENTRY (Handle) link;       // On free or process's pending list
     
-    struct Parcel *parcel;
+    struct Parcel *parcel;          // Pointer to Parcel if being sent as message
 };
 
 
@@ -197,46 +246,53 @@ struct Handle
 struct Process
 {
     struct TaskState task_state;        // Arch-specific state
-
     int handle;                         // Handle ID for this process
+    
+    
+    CIRCLEQ_ENTRY (Process) sched_entry; // real-time run-queue
+    LIST_ENTRY (Process) stride_entry;     
     
     int sched_policy;                   
     int state;                          // Process state
-    
     int priority;                       // real-time task priority
     int quanta_used;                    
-
     int tickets;                        // Stride scheduler state
     int stride;
     int remaining;
     int64 pass;
     
+    struct Pmap *pmap;                  // Arch-Specific page tables
+    
     bits32_t flags;                     // Spawn() flags
     
-    struct Timer watchdog;              // Timeout for sleeping system calls
-    size_t virtualalloc_sz;             // Size of memory requested by virtualalloc
+    struct TimeVal syscall_start_time;  // Time of start of syscall for VM watchdog purposes.
+    int watchdog_state;
     
-    void (*continuation_function)(void);
     
-    union
+    size_t virtualalloc_size;             // Size of memory requested by virtualalloc
+    bits32_t virtualalloc_flags;
+    struct Segment *virtualalloc_segment;
+    int virtualalloc_state;
+    
+    
+    void (*continuation_function)(void); // Deferred procedure called from
+                                         // KernelExit().
+    
+    union                               // Continuation/deferred procedure state
     {
-        struct
+        struct                          // VirtualAlloc memory cleansing state
         {
             vm_addr addr;
             bits32_t flags;
         } virtualalloc;
-        
     } continuation;
     
-    CIRCLEQ_ENTRY (Process) sched_entry;    // real-time run-queue
-    LIST_ENTRY (Process) stride_entry;     
-
     
-    struct Pmap pmap;                   // Arch-Specific page tables
+    LIST_ENTRY (Process) alloc_link;
     
     LIST_ENTRY (Process) free_entry;
     
-    int exit_status;                    // Exit() error code
+    int exit_status;                     // Exit() error code
 
     struct Rendez *sleeping_on;
     LIST_ENTRY (Process) rendez_link;
@@ -244,26 +300,27 @@ struct Process
     struct Rendez waitfor_rendez;
     int waiting_for;
     LIST (Handle) pending_handle_list;
-    LIST (Handle) close_handle_list;
-        
-    int system_port[NSYSPORT];
+    LIST (Handle) close_handle_list;     // To be closed in KernelExit()
+    
+    int sighangup_handle;
+    int sigterm_handle;
+
+    int namespace_handle;
+    
+    char **argv;
+    int argc;
+    char **envv;
+    int envc;
+    
+    int vm_retries;
 };
 
 
 
 
-/*
- * State notification shared between two handles
- */
- 
-struct Notification
-{
-    LIST_ENTRY (Notification) link;    // Free list link
-    int handle[2];                  // Handles for both endpoints
-    int state;                      // Single state variable shared between
-                                    // both endpoints
-};
-
+#define VIRTUALALLOC_STATE_READY      0
+#define VIRTUALALLOC_STATE_SEND       1
+#define VIRTUALALLOC_STATE_REPLY      2
 
 
 
@@ -281,13 +338,11 @@ struct Channel
 
 
 
-
 /*
  * Typedefs for linked lists
  */
 
 LIST_TYPE (Channel) channel_list_t;
-LIST_TYPE (Notification) notification_list_t;
 LIST_TYPE (Handle) handle_list_t;
 LIST_TYPE (ISRHandler) isrhandler_list_t;
 LIST_TYPE (Process) process_list_t;
@@ -299,6 +354,7 @@ CIRCLEQ_TYPE (Process) process_circleq_t;
 /*
  * Function Prototypes
  */
+
 
 // event.c
 
@@ -312,6 +368,7 @@ void DoClearEvent (struct Process *proc, int handle);
 
 SYSCALL int CloseHandle (int handle);
 void ClosePendingHandles (void);
+void DoCloseSystemEvent (int h);
 void *GetObject (struct Process *proc, int handle, int type);
 void SetObject (struct Process *proc, int handle, int type, void *object);
 struct Handle *FindHandle (struct Process *proc, int h);
@@ -319,6 +376,11 @@ int PeekHandle (int index);
 int AllocHandle (void);
 void FreeHandle (int handle);
 
+
+// info.c
+ 
+SYSCALL int SystemInfo (sysinfo_t *si);
+SYSCALL int ProcessInfo (processinfo_t *pi);
 
 
 // interrupt.c
@@ -329,25 +391,15 @@ struct ISRHandler *AllocISRHandler(void);
 void FreeISRHandler (struct ISRHandler *isr_handler);
 
 
-
 // proc.c
 
-
-SYSCALL int Spawn (struct SpawnArgs *sa);
-SYSCALL int GetSystemPorts (int *sysports, int cnt);
-int ValidateSystemPorts (int *sysports, int handle_cnt);
-void TransferSystemPorts (struct Process *proc, int *sysports);
-        
-   
-bool IsPrivileged (struct Process *proc);
-
-
+SYSCALL int Spawn (struct SpawnArgs *user_sa, void **user_segments, int segment_cnt);
 struct Process *AllocProcess (void);
 void FreeProcess (struct Process *proc);
+struct Process *GetProcess (int idx);
 
 
 // join.c
-
 
 SYSCALL int Join (int pid, int *status);
 int DoCloseProcess (int handle);
@@ -370,6 +422,7 @@ void EnablePreemption(void);
 void InitRendez (struct Rendez *rendez);
 void Sleep (struct Rendez *rendez);
 void Wakeup (struct Rendez *rendez);
+void WakeupAll (struct Rendez *rendez);
 void WakeupProcess (struct Process *proc);
 
 
@@ -378,7 +431,7 @@ void WakeupProcess (struct Process *proc);
 // proc/msg.c
 
 SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags);
-SYSCALL ssize_t GetMsg (int handle, void **rcv_msg, bits32_t access);
+SYSCALL ssize_t GetMsg (int handle, void **rcv_msg);
 int CreateChannel (int result[2]);
 int DoCloseChannel (int h);
 SYSCALL int IsAChannel (int handle1, int handle2);
@@ -388,11 +441,6 @@ SYSCALL int GetHandle (int port_h);
 
 
 // proc/notification.c
-
-int PutNotification (int handle, int value);
-int GetNotification (int handle);
-int CreateNotification (int result[2]);
-int DoCloseNotification (int handle);
 
 
 // Architecture-specific 

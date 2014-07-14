@@ -86,8 +86,6 @@ int DoCloseProcess (int h)
 	if ((child = GetObject (current, h, HANDLE_TYPE_PROCESS)) == NULL)
 	    return paramErr;
 	
-	KASSERT (child != current);
-		
 	DisablePreemption();
 
     handle = FindHandle (current, h);
@@ -101,6 +99,7 @@ int DoCloseProcess (int h)
     }
     else if (handle->owner != reaper_task)
     {
+        DoRaiseEvent (child->sighangup_handle);
         handle->owner = reaper_task;
         return 0;
     }
@@ -109,5 +108,35 @@ int DoCloseProcess (int h)
         return handleErr;
     }
 }
+
+
+
+/*
+ *
+ */
+
+int TerminateProcess (int h)
+{
+	struct Process *child;
+	struct Process *current;
+
+	
+	current = GetCurrentProcess();
+	
+	if ((child = GetObject (current, h, HANDLE_TYPE_PROCESS)) == NULL)
+	    return paramErr;
+			
+	DisablePreemption();
+    
+    DoRaiseEvent (child->sigterm_handle);
+
+    return 0;
+}
+
+
+
+
+
+
 
 

@@ -30,8 +30,8 @@ OBJCOPY:= arm-eabi-objcopy
 OBJDUMP:= arm-eabi-objdump
 ARCHIVE:= arm-eabi-ar
 OFLAGS:=
-AFLAGS:= -r -I./h -mfpu=vfp
-CFLAGS:= -Wall -I./h -O2 -mfpu=vfp -mhard-float 
+AFLAGS:= -r -I./h 
+CFLAGS:= -Wall -I./h -O2 
 LFLAGS:= -v
 DFLAGS:= -I/cheviot/arm-eabi/include -I./kernel/h \
 			-I/cheviot/lib/gcc/arm-eabi/4.8.1/include

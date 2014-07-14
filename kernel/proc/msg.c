@@ -43,9 +43,9 @@
  * {
  *     // initialize message segment
  *     iov[0] = message_segment;
- *     PutMsg (handle, msg);
+ *     PutMsg (handle, msg, flags);
  *     WaitFor (handle);
- *     reply_sz = GetMsg (handle, &reply, PROT_READWRITE);
+ *     reply_sz = GetMsg (handle, &reply_addr);
  *     // process reply
  * }
  */
@@ -53,7 +53,7 @@
 SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
 {
     struct Process *current;
-    struct VirtualSegment *vs;
+    struct Segment *seg;
     struct Channel *channel;
     struct Parcel *parcel;
     int rq;
@@ -61,9 +61,9 @@ SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
 
     current = GetCurrentProcess();
         
-    vs = VirtualSegmentFind ((vm_addr)msg);
+    seg = SegmentFind ((vm_addr)msg);
     
-    if (vs == NULL || vs->owner != current || (vs->flags & MEM_MASK) != MEM_ALLOC)
+    if (seg == NULL || seg->owner != current || (seg->flags & MEM_MASK) != MEM_ALLOC)
         return memoryErr;
     
     if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
@@ -84,14 +84,13 @@ SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
     
     KASSERT (parcel != NULL);
     
-    PmapRemoveRegion(&current->pmap, vs);
+    PmapRemoveRegion(current->pmap, seg);
     
     parcel->type = PARCEL_MSG;
-    parcel->content.msg = vs->base;
+    parcel->content.msg = seg;
     LIST_ADD_TAIL (&channel->msg_list[rq], parcel, link);
     
-    vs->parcel = parcel;
-    vs->owner = NULL;
+    seg->owner = NULL;
 
     if (!(flags & MSG_SILENT))
         DoRaiseEvent (channel->handle[rq]);
@@ -107,31 +106,28 @@ SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
  * send memory segments to one another.
  *
  * Gets a message from the receiving queue of the channel and returns
- * a pointer to the segment and its size.  Ensures that the correct access
- * permissions are available for this message.   If the permissions
- * are not correct GetMsg() returns messageErr and leaves the message in
- * queue so that the process can either call GetMsg() again with the correct
- * access permissions or call CloseHandle() to free the port and messages.
+ * a pointer to the segment and its size.  Ensures message is readable and
+ * writable.
  *
- * 0 is returned with no errno if there are no messages in the queue.  If
- * the channel receive queue is empty has been closed on the other end then
- * it returns connectionErr.
+ * Returns the size of the received message. If there is no message in the 
+ * queue then 0 is returned otherwise an error code is returned.
  *
  * If the segment is currently marked as busy, we don't update the page tables.
  * We let it be caught by the page fault handler which will sleep until it
  * is unbusied.
  */
 
-SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg, bits32_t access)
+SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg)
 {
     struct Channel *channel;
     struct Process *current;
-    struct VirtualSegment *vs;
+    struct Segment *seg;
     struct Parcel *parcel;
     int rq;
     
     
     current = GetCurrentProcess();
+    
     
     if ((channel = GetObject(current, port_h, HANDLE_TYPE_CHANNEL)) == NULL)
         return paramErr;
@@ -152,26 +148,23 @@ SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg, bits32_t access)
     if (parcel->type != PARCEL_MSG)
         return messageErr;
     
-    vs = VirtualSegmentFind (parcel->content.msg);
+    seg = parcel->content.msg;
         
-    if ((vs->flags & access & PROT_MASK) != (access & PROT_MASK))
-        return privilegeErr;
-    
-    CopyOut (rcv_msg, &vs->base, sizeof (void *));
+    CopyOut (rcv_msg, &seg->base, sizeof (void *));
     
     DisablePreemption();
     
     LIST_REM_HEAD (&channel->msg_list[rq], link);
-    
     LIST_ADD_HEAD (&free_parcel_list, parcel, link);
         
-    vs->parcel = NULL;
-    vs->owner = current;
+    seg->owner = current;
+
+    seg->flags = (seg->flags & ~PROT_MASK) | PROT_READWRITE;
+
+    if ((seg->flags & SEG_COMPACT) == 0)
+        PmapEnterRegion (current->pmap, seg, seg->base);
     
-    if (vs->busy == FALSE)
-        PmapEnterRegion (&current->pmap, vs, vs->base);
-    
-    return vs->ceiling - vs->base;
+    return (ssize_t)seg->size;
 }
 
 
@@ -273,7 +266,7 @@ int DoCloseChannel (int h)
 {
     struct Channel *ch;
     struct Process *current;
-    struct VirtualSegment *vs;
+    struct Segment *seg;
     struct Parcel *parcel;
     int t, t2;
     
@@ -291,11 +284,11 @@ int DoCloseChannel (int h)
         {
             if (parcel->type == PARCEL_MSG)
             {
-                vs = VirtualSegmentFind(parcel->content.msg);
+                seg = parcel->content.msg;
                 
-                vs->owner = current;
+                seg->owner = current;
             
-                VirtualFree (parcel->content.msg);
+                VirtualFree (seg->base);
             }
             else if (parcel->type == PARCEL_HANDLE);
             {
@@ -410,7 +403,6 @@ SYSCALL int PutHandle (int port_h, int h, bits32_t flags)
     
     LIST_ADD_TAIL (&channel->msg_list[rq], parcel, link);
     
-    handle->parcel = parcel;
     handle->owner = NULL;
     
     if (flags & MSG_GRANT_ONCE)
@@ -468,7 +460,6 @@ SYSCALL int GetHandle (int port_h)
     
     LIST_ADD_HEAD (&free_parcel_list, parcel, link);
 
-    handle_table[h].parcel = NULL;
     handle_table[h].owner = current;
 
     return h;

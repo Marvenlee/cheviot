@@ -9,7 +9,7 @@
 /*
  * Forward declarations
  */
-struct MemArea;
+struct VirtualSegment;
 
 
 
@@ -32,7 +32,7 @@ struct Parcel
     union
     {
         int handle;
-        vm_addr msg;
+        struct Segment *msg;
     } content;
 };
 

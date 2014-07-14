@@ -181,7 +181,7 @@ void DataAbortHandler (void)
 void DoPageFault (void)
 {
     struct Process *current;
-    struct VirtualSegment *vs;
+    struct Segment *seg;
     vm_addr addr;
     bits32_t access;
     
@@ -192,34 +192,41 @@ void DoPageFault (void)
     addr = current->task_state.fault_addr;
     access = current->task_state.fault_access;
     addr = ALIGN_DOWN (addr, PAGE_SIZE);
-    vs = VirtualSegmentFind (addr);
-    
-    if (addr < user_base || addr >= user_ceiling
-            || vs == NULL
-            || vs->owner != current
-            || MEM_TYPE(vs->flags) == MEM_FREE
-            || MEM_TYPE(vs->flags) == MEM_RESERVED
-            || (access & vs->flags) != access)
+
+    if (current == vm_task)
     {
-        current->task_state.flags |= TSF_EXCEPTION;
-        DoExit(EXIT_FATAL);
+         PmapEnterPhysicalSpace (current->pmap, addr);
     }
-
-
-    DisablePreemption();
-
-    if (vs->busy == TRUE)
-        Sleep (&vm_rendez);
+    else
+    {
+        seg = SegmentFind (addr);
+        
+        if (addr < user_base || addr >= user_ceiling
+            || seg == NULL || seg->owner != current
+            || MEM_TYPE(seg->flags) == MEM_FREE
+            || MEM_TYPE(seg->flags) == MEM_RESERVED
+            || (access & seg->flags) != access)
+        {
+            current->task_state.flags |= TSF_EXCEPTION;
+            DoExit(EXIT_FATAL);
+        }
+    
+    
+        DisablePreemption();
+        
+        if (seg->flags & SEG_COMPACT)
+            Sleep (&compact_rendez);
+                
+        if (seg->flags & MAP_VERSION && access & PROT_WRITE)
+        {
+            seg->flags &= ~MAP_VERSION;
+            seg->segment_id = next_unique_segment_id ++;
+        }
+        
+        PmapEnterRegion(current->pmap, seg, addr);
+    }
+    
             
-    if (vs->flags & MAP_VERSION && access & PROT_WRITE)
-    {
-        vs->flags &= ~MAP_VERSION;
-        vs->version = segment_version_counter;
-        segment_version_counter ++;
-    }
-    
-    PmapEnterRegion(&current->pmap, vs, addr);
-    
     current->task_state.flags &= ~TSF_PAGEFAULT;
     KLog ("Returning from fault");
 }

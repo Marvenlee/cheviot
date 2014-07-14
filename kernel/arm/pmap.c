@@ -30,6 +30,10 @@
 
 
 
+uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx);
+
+
+
 
 /*
  * Checks if the flags argument of VirtualAlloc() and VirtualAllocPhys() is
@@ -55,28 +59,10 @@ int PmapSupportsCachePolicy (bits32_t flags)
  * page table on task switches.
  */
 
-int PmapInit (struct Pmap *pmap)
+int PmapInit (struct Process *proc)
 {
-    int t;
-    struct PmapMem *pmap_mem;
+    proc->pmap = NULL;
     
-    KASSERT (pmap != NULL);
-    
-    pmap_mem = LIST_HEAD (&free_pagetable_list);
-        
-    KASSERT (pmap_mem != NULL);
-    
-    LIST_REM_HEAD (&free_pagetable_list, free_link);
-    
-    pmap->addr = (uint32 *)pmap_mem;
-    pmap->lru = 0;
-    
-    for (t=0; t< NPDE; t++)
-    {
-        pmap->pde[t].idx = -1;
-        pmap->pde[t].val = 0;
-    }
-
     PmapFlushTLBs();
     return 0;
 }   
@@ -85,19 +71,21 @@ int PmapInit (struct Pmap *pmap)
 
 
 /*
- * Frees and CPU dependent virtual memory management structures.
+ * Frees CPU dependent virtual memory management structures.
  */
 
-void PmapDestroy (struct Pmap *pmap)
+void PmapDestroy (struct Process *proc)
 {
-    struct PmapMem *pmap_mem;
- 
-    KASSERT (pmap != NULL);
+    struct Pmap *pmap;
     
-    pmap_mem = (struct PmapMem *)pmap->addr;
-    KASSERT (pmap_mem != NULL);    
-    LIST_ADD_HEAD (&free_pagetable_list, pmap_mem, free_link);
-    
+    pmap = proc->pmap;
+
+    if (pmap != NULL)
+    {
+        LIST_ADD_TAIL (&pmap_lru_list, pmap, lru_link);
+        proc->pmap = NULL;
+    }
+        
     PmapFlushTLBs();
 }
 
@@ -117,9 +105,15 @@ void PmapDestroy (struct Pmap *pmap)
  * Maps upto 256k on each call to PmapEnterRegion(), using the addr
  * argument as a starting point.  Supports ARM's large 64k page size
  * if the virtual and physical address of a segment are 64k aligned.
+ *
+ *
+ * FIXME: Add support for 1MB ARM sections.
+ *
+ * AWOOGA FIXME: PmapEnter assumes we are updating pmap of current process
+ * and modifying the page directory.
  */
 
-void PmapEnterRegion (struct Pmap *pmap, struct VirtualSegment *vs, vm_addr addr)
+void PmapEnterRegion (struct Pmap *pmap, struct Segment *seg, vm_addr addr)
 {
     uint32 *pt;
     int pde_idx, pte_idx;
@@ -129,17 +123,134 @@ void PmapEnterRegion (struct Pmap *pmap, struct VirtualSegment *vs, vm_addr addr
     vm_addr ceiling;
     int t;
     
-  
+    KASSERT (pmap != NULL);  
+    KASSERT (seg != NULL);
     KASSERT ((addr & 0x00000fff) == 0);
     KASSERT (addr >= 0x00800000);
-    KASSERT (vs != NULL);
-    KASSERT (vs->base <= addr && addr < vs->ceiling);
-    KASSERT (pmap != NULL);
-    KASSERT ((vs->flags & MEM_MASK) == MEM_ALLOC || (vs->flags & MEM_MASK) == MEM_PHYS);
-    
-    
-    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+    KASSERT (seg->base <= addr && addr < seg->base + seg->size);
+    KASSERT ((seg->flags & MEM_MASK) == MEM_ALLOC || (seg->flags & MEM_MASK) == MEM_PHYS);
         
+    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+    
+    pt = PmapGetPageTable (pmap, pde_idx);
+    
+    
+    if ((seg->flags & SEG_KERNEL) == 0)
+        pa_bits = L2_AP(AP_W);
+    else if ((seg->flags & (PROT_WRITE | MAP_VERSION)) == PROT_WRITE)
+        pa_bits = L2_AP(AP_U | AP_W);
+    else
+        pa_bits = L2_AP(AP_U);
+     
+    if ((seg->flags & MEM_MASK) == MEM_ALLOC)
+        pa_bits |= L2_B | L2_C;
+    
+    if ((seg->base & 0x0ffff) == 0 && (seg->physical_addr & 0x0ffff) == 0)
+    {
+        addr = ALIGN_DOWN (addr, 0x10000);
+
+        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+        
+        pa = seg->physical_addr + (addr - seg->base);
+        pa_bits |= L2_TYPE_L;
+        
+        ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
+        
+        if (ceiling >= seg->base + seg->size)
+            ceiling = seg->base + seg->size;
+        
+        if ((addr + 0x00040000) < ceiling)
+            ceiling = addr + 0x00040000;
+        
+        for (va = addr;
+            va < ceiling && ceiling - va >= 0x10000;
+            pa += 0x10000, pte_idx += 16)
+        {
+            for (t=0; t<16; t++)
+               pt[pte_idx+t] = pa | pa_bits;
+        }
+        
+        for (va = addr; va < ceiling; va += PAGE_SIZE, pa += PAGE_SIZE, pte_idx++)
+            pt[pte_idx] = pa | pa_bits;
+    }
+    else
+    {
+        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+    
+        pa = seg->physical_addr + (addr - seg->base);
+        pa_bits |= L2_TYPE_S;
+        
+        ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
+        
+        if (ceiling >= seg->base + seg->size)
+            ceiling = seg->base + seg->size;
+        
+        if ((addr + 0x00040000) < ceiling)
+            ceiling = addr + 0x00040000;
+    
+        for (va = addr; va < ceiling; va += PAGE_SIZE, pa += PAGE_SIZE, pte_idx++)
+            pt[pte_idx] = pa | pa_bits;
+    }    
+        
+    PmapFlushTLBs();
+}
+
+
+
+
+
+/*
+ * Maps physical memory into address space of VM Task.
+ */
+ 
+void PmapEnterPhysicalSpace (struct Pmap *pmap, vm_addr addr)
+{
+    uint32 *pt;
+    int pde_idx, pte_idx;
+    uint32 pa_bits;
+    vm_addr pa;
+    vm_addr ceiling;
+    int t;
+    
+    KASSERT (pmap != NULL);  
+    KASSERT ((addr & 0x00000fff) == 0);
+    KASSERT (addr >= 0x00800000);
+        
+    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+    
+    pt = PmapGetPageTable (pmap, pde_idx);
+        
+    addr = ALIGN_DOWN (addr, 0x10000);
+    ceiling = addr + 0x100000;
+    
+    pte_idx = 0;
+    
+    pa = addr;
+    pa_bits = L2_AP(AP_W);
+    pa_bits |= L2_B | L2_C;
+    pa_bits |= L2_TYPE_L;
+        
+    for (pa = addr; pa < ceiling; pa += 0x10000, pte_idx += 16)
+    {
+        for (t=0; t<16; t++)
+           pt[pte_idx+t] = pa | pa_bits;
+    }
+    
+    PmapFlushTLBs();
+}
+
+
+
+
+/*
+ *
+ */
+ 
+uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx)
+{
+    uint32 *pt;
+    int t;
+
     if ((pagedirectory[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
     {
         KASSERT (pmap->pde[pmap->lru].idx >= -1 && pmap->pde[pmap->lru].idx < 4096);
@@ -160,7 +271,7 @@ void PmapEnterRegion (struct Pmap *pmap, struct VirtualSegment *vs, vm_addr addr
         pmap->lru++;
         pmap->lru %= NPDE;
 
-        for (t=0; t<1024; t++)
+        for (t=0; t<256; t++)
             *(pt + t) = L2_TYPE_INV;
     }
     else
@@ -168,67 +279,9 @@ void PmapEnterRegion (struct Pmap *pmap, struct VirtualSegment *vs, vm_addr addr
         pt = (uint32 *)(pagedirectory[pde_idx] & L1_C_ADDR_MASK);
         KASSERT ((vm_addr)pt >= 0x00404000 && (vm_addr)pt < 0x00800000);
     }
-    
-    if ((vs->flags & (PROT_WRITE | MAP_VERSION)) == PROT_WRITE)
-        pa_bits = L2_AP(AP_U | AP_W);
-    else
-        pa_bits = L2_AP(AP_U);
-     
-    if ((vs->flags & MEM_MASK) == MEM_ALLOC)
-        pa_bits |= L2_B | L2_C;
 
-
-    
-    if ((vs->base & 0x0ffff) == 0 && (vs->physical_addr & 0x0ffff) == 0)
-    {
-        addr = ALIGN_DOWN (addr, 0x10000);
-
-        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-        
-        pa = vs->physical_addr + (addr - vs->base);
-        pa_bits |= L2_TYPE_L;
-        
-        ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
-        
-        if (ceiling >= vs->ceiling)
-            ceiling = vs->ceiling;
-        
-        if ((addr + 0x00040000) < ceiling)
-            ceiling = addr + 0x00040000;
-        
-        for (va = addr;
-            va < ceiling && ceiling - va >= 0x10000;
-            pa += 0x10000, pte_idx += 16)
-        {
-            for (t=0; t<16; t++)
-               pt[pte_idx+t] = pa | pa_bits;
-        }
-        
-        for (va = addr; va < ceiling; va += PAGE_SIZE, pa += PAGE_SIZE, pte_idx++)
-            pt[pte_idx] = pa | pa_bits;
-    }
-    else
-    {
-        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-    
-        pa = vs->physical_addr + (addr - vs->base);
-        pa_bits |= L2_TYPE_S;
-        
-        ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
-        
-        if (ceiling >= vs->ceiling)
-            ceiling = vs->ceiling;
-        
-        if ((addr + 0x00040000) < ceiling)
-            ceiling = addr + 0x00040000;
-    
-        for (va = addr; va < ceiling; va += PAGE_SIZE, pa += PAGE_SIZE, pte_idx++)
-            pt[pte_idx] = pa | pa_bits;
-    }    
-        
-    PmapFlushTLBs();
+    return pt;
 }
-
 
 
 
@@ -238,9 +291,13 @@ void PmapEnterRegion (struct Pmap *pmap, struct VirtualSegment *vs, vm_addr addr
  * Removes page table entries of the first and last page tables that
  * partially intersect with the segment.  Checks the pmap's 16 page tables
  * to see if they are eclipsed and removes the page directory entry instead. 
+ *
+ *
+ * AWOOGA FIXME:  May need some form of interprocessor interrupt for pagetable
+ * teardown.
  */
 
-void PmapRemoveRegion (struct Pmap *pmap, struct VirtualSegment *vs)
+void PmapRemoveRegion (struct Pmap *pmap, struct Segment *seg)
 {
     uint32 *pt;
     uint32 pde_idx, pte_idx;
@@ -250,18 +307,20 @@ void PmapRemoveRegion (struct Pmap *pmap, struct VirtualSegment *vs)
     vm_addr temp_ceiling;
     int t; 
     
-    KASSERT (pmap != NULL);
-    KASSERT (vs != NULL);
-    KASSERT ((vs->flags & MEM_MASK) == MEM_ALLOC || (vs->flags & MEM_MASK) == MEM_PHYS);
+    
+    KASSERT (seg != NULL);
+    KASSERT ((seg->flags & MEM_MASK) == MEM_ALLOC || (seg->flags & MEM_MASK) == MEM_PHYS);
 
+    if (pmap == NULL)
+        return;
     
-    first_pagetable_ceiling = ALIGN_UP (vs->base, 0x100000);
-    last_pagetable_base = ALIGN_DOWN (vs->ceiling, 0x100000);
+    first_pagetable_ceiling = ALIGN_UP (seg->base, 0x100000);
+    last_pagetable_base = ALIGN_DOWN (seg->base + seg->size, 0x100000);
     
-    va = vs->base;
+    va = seg->base;
     
-    if (vs->ceiling < first_pagetable_ceiling)
-        temp_ceiling = vs->ceiling;
+    if (seg->base + seg->size < first_pagetable_ceiling)
+        temp_ceiling = seg->base + seg->size;
     else
         temp_ceiling = first_pagetable_ceiling;    
     
@@ -276,10 +335,10 @@ void PmapRemoveRegion (struct Pmap *pmap, struct VirtualSegment *vs)
         pte_idx ++;
     }
     
-    if (va == vs->ceiling)
+    if (va == seg->base + seg->size)
         return;
     
-    if ((vs->ceiling - va) >= 0x100000)
+    if ((seg->base + seg->size - va) >= 0x100000)
     {
         for (t=0; t<NPDE; t++)
         {   
@@ -296,14 +355,14 @@ void PmapRemoveRegion (struct Pmap *pmap, struct VirtualSegment *vs)
     
     va = last_pagetable_base;
     
-    if (va == vs->ceiling)
+    if (va == seg->base + seg->size)
         return;
     
     pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;    
     pt = (uint32 *)(pagedirectory[pde_idx] & L1_C_ADDR_MASK);
     pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
     
-    while (va < vs->ceiling)
+    while (va < seg->base + seg->size)
     {
         pt[pte_idx] = L2_TYPE_INV;
         va += PAGE_SIZE;
@@ -328,6 +387,25 @@ void PmapFlushTLBs (void)
 
 
 
+/*
+ *
+ */
+ 
+void PmapInvalidateAll (void)
+{
+    int t;
+    
+    
+    for (t=0; t < max_process; t++)
+    {
+        // FIXME: For each alive process,  set the 16 pmap entries to -1
+    }
+    
+    InvalidateTLB();
+}
+
+
+
 
 /*
  * Switches the address space from the current process to the next process.
@@ -335,28 +413,48 @@ void PmapFlushTLBs (void)
  * in a single page directory shared between all processes.
  */
 
-void PmapSwitch (struct Pmap *next_pmap, struct Pmap *current_pmap)
+void PmapSwitch (struct Process *next, struct Process *current)
 {
     int t;
+    
 
-    KASSERT (next_pmap != NULL && current_pmap != NULL);
-    
-    for (t=0; t< NPDE; t++)
+    if (current->pmap != NULL)
     {
-        if (current_pmap->pde[t].idx == -1)
-            continue;
+        for (t=0; t< NPDE; t++)
+        {
             
-        pagedirectory[current_pmap->pde[t].idx] = L1_TYPE_INV;
+            if (current->pmap->pde[t].idx == -1)
+                continue;
+                
+            pagedirectory[current->pmap->pde[t].idx] = L1_TYPE_INV;
+        }
+        
+        LIST_REM_ENTRY (&pmap_lru_list, current->pmap, lru_link);
     }
     
-    for (t=0; t< NPDE; t++)
-    {
-        if (next_pmap->pde[t].idx == -1)
-            continue;
-            
-        pagedirectory[next_pmap->pde[t].idx] = next_pmap->pde[t].val;
-    }
     
+    if (next->pmap == NULL)
+    {
+        next->pmap = LIST_TAIL (&pmap_lru_list);
+        LIST_REM_TAIL (&pmap_lru_list, lru_link);
+        LIST_ADD_HEAD (&pmap_lru_list, next->pmap, lru_link);
+    
+        for (t=0; t < NPDE; t++)
+        {
+            next->pmap->pde[t].idx = -1;
+            next->pmap->pde[t].val = L1_TYPE_INV;            
+        } 
+    }
+    else
+    {        
+        for (t=0; t< NPDE; t++)
+        {
+            if (next->pmap->pde[t].idx == -1)
+                continue;
+                
+            pagedirectory[next->pmap->pde[t].idx] = next->pmap->pde[t].val;
+        }
+    }
     PmapFlushTLBs();
 }
 

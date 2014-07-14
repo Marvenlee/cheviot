@@ -10,22 +10,7 @@
 #include <kernel/arm/task.h>
 
 
-extern volatile struct bcm2835_system_timer_registers *timer_regs;
-extern volatile struct bcm2835_gpio_registers *gpio_regs;
-extern volatile struct bcm2835_interrupt_registers *interrupt_regs;
 
-extern uint8 _text_start;
-extern uint8 _text_end;
-extern uint8 _data_start;
-extern uint8 _data_end;
-extern uint8 _bss_start;
-extern uint8 _bss_end;
-
-
-extern struct CPU cpu_table[MAX_CPU];
-
-
-extern bits32_t cpsr_dnm_state;
 
 
 
@@ -43,13 +28,20 @@ extern int free_process_cnt;
 extern int free_channel_cnt;
 extern int free_timer_cnt;
 extern int free_isr_handler_cnt;
-extern int free_notification_cnt;
+// extern int free_notification_cnt;
 
 
 
 /*
  *
  */
+ 
+extern uint8 _text_start;
+extern uint8 _text_end;
+extern uint8 _data_start;
+extern uint8 _data_end;
+extern uint8 _bss_start;
+extern uint8 _bss_end;
 
 extern struct BootInfo *bootinfo;
 extern char *cfg_boot_prefix;
@@ -62,6 +54,10 @@ extern uint32 data_ceiling;
 extern uint32 heap_base;
 extern uint32 heap_ceiling;
 extern uint32 heap_ptr;
+
+extern vm_addr user_base;
+extern vm_addr user_ceiling;
+
 
 
 
@@ -80,9 +76,15 @@ extern uint32 videocore_phys;
 extern uint32 peripheral_base;
 extern uint32 peripheral_ceiling;
 extern uint32 peripheral_phys;
+
+extern volatile uint32 *gpio;
  
-extern vm_addr user_base;
-extern vm_addr user_ceiling;
+extern volatile struct bcm2835_system_timer_registers *timer_regs;
+extern volatile struct bcm2835_gpio_registers *gpio_regs;
+extern volatile struct bcm2835_interrupt_registers *interrupt_regs;
+
+extern bits32_t cpsr_dnm_state;
+
 
 
 /*
@@ -92,8 +94,11 @@ extern vm_addr user_ceiling;
 
 extern void *idle_process_table;
 extern void *process_table;
+extern int max_process;
 
+extern struct CPU cpu_table[MAX_CPU];
 extern int max_cpu;
+extern int cpu_cnt;
 
 extern bool reschedule_request;
 
@@ -110,20 +115,15 @@ extern process_list_t free_process_list;
 extern struct Process *root_process;
 extern struct Process *idle_task;
 extern struct Process *vm_task;
+
 extern struct Process *reaper_task;
 
-extern uint8 reaper_task_stack_top;
+// extern uint8 reaper_task_stack_top;
 extern uint8 idle_task_stack_top;
 extern uint8 vm_task_stack_top;
 
-
-
-extern uint8 kernel_stack;
-extern uint8 kernel_stack_top;
-
-
-extern int max_process;
-
+// extern uint8 kernel_stack;
+// extern uint8 kernel_stack_top;
 
 
 
@@ -131,7 +131,6 @@ extern int max_process;
  * Debugger
  */
 
-extern volatile uint32 *gpio;
 extern uint32 screen_width;
 extern uint32 screen_height;
 extern uint32 screen_buf;
@@ -172,22 +171,50 @@ extern handle_list_t free_handle_list;
 /*
  *
  */
+
  
+extern struct Pmap pmap_table[NPMAP];
+extern pmap_list_t pmap_lru_list;
 extern uint32 *pagedirectory;
-extern uint32 *pagetable_pool;
-extern pagetable_list_t free_pagetable_list;
+extern vm_addr pagetable_base;
 
-extern int max_vseg;
-extern struct VirtualSegment *vseg_table;
-extern int vseg_cnt;
+extern vm_size free_segment_size[NSEGBUCKET];
 
-extern int max_pseg;
-extern struct PhysicalSegment *pseg_table;
-extern int pseg_cnt;
+extern seg_list_t free_segment_list[NSEGBUCKET];
+extern seg_list_t segment_heap;
 
-extern struct Rendez vm_rendez;
+extern struct Segment *last_aged_seg;
+extern seg_list_t cache_lru_list;
+extern seg_list_t cache_hash[CACHE_HASH_SZ];
 
-extern int64 segment_version_counter;
+
+extern int max_seg;                            // Maximum size of vseg_table
+extern struct Segment *seg_table;              // Virtual memory map of single address space
+extern int seg_cnt;                            // Current size of vseg_table
+
+extern int64 next_unique_segment_id;           // Next unique identifier for segments
+
+
+extern struct Segment *compact_seg;
+extern vm_size compact_offset;
+
+extern struct Rendez compact_rendez;        // Sleep on rendez if segment is being compacted
+extern struct Rendez alloc_rendez;          // Sleep when sending alloc requests to vm_task
+extern struct Rendez vm_task_rendez;        // Sleep waiting for alloc requests.
+
+extern vm_addr memory_ceiling;
+
+extern vm_size requested_alloc_size;
+extern vm_size garbage_size;
+extern vm_size cache_size;
+extern vm_size min_cache_size;
+extern vm_size max_cache_size;
+
+
+
+
+
+
 
 /*
  *
@@ -201,9 +228,9 @@ extern struct Channel *channel_table;
  *
  */
  
-extern int max_notification;
-extern notification_list_t free_notification_list;
-extern struct Notification *notification_table;
+// extern int max_notification;
+// extern notification_list_t free_notification_list;
+// extern struct Notification *notification_table;
 
 
 
@@ -225,7 +252,7 @@ extern timer_list_t free_timer_list;
 extern int max_timer;
 extern struct Timer *timer_table;
 
-
+extern spinlock_t timer_slock;
 
 
 

@@ -41,7 +41,7 @@ void ArchAllocProcess (struct Process *proc, void *entry, void *stack)
     proc->task_state.cpu = &cpu_table[0];
     proc->task_state.flags = 0;
 
-    PmapInit (&proc->pmap);
+    PmapInit (proc);
 
     proc->task_state.pc = (uint32)entry;
     proc->task_state.r0 = 0;

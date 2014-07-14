@@ -32,6 +32,9 @@
 extern void start_mmu ( unsigned int, unsigned int );
 void GetVideoCoreMem (uint32 *phys_base, uint32 *size);
 
+int AllocateSeg (int i, vm_addr base, vm_size size, bits32_t flags);
+int InitSegBucket (int i, int q, vm_addr base, vm_addr ceiling, vm_size size);
+
 
 
 
@@ -54,11 +57,13 @@ void GetVideoCoreMem (uint32 *phys_base, uint32 *size);
 
 void InitVM (void)
 {
-    uint32 t, u;
+    uint32 t, i, u;
     vm_addr paddr, vaddr;
     uint32 videocore_size;
-    struct PmapMem *pmap_mem;
     bits32_t ctrl;   
+    
+    vm_addr segment_heap_start;
+    
     
     KLog ("InitVM()");
     
@@ -77,46 +82,55 @@ void InitVM (void)
     timer_table          = HeapAlloc (max_timer       * sizeof (struct Timer));
     isr_handler_table    = HeapAlloc (max_isr_handler * sizeof (struct ISRHandler));
     channel_table        = HeapAlloc (max_channel     * sizeof (struct Channel));
-    notification_table   = HeapAlloc (max_notification * sizeof (struct Notification));    
     handle_table         = HeapAlloc (max_handle      * sizeof (struct Handle));
-    pseg_table           = HeapAlloc (max_pseg        * sizeof (struct PhysicalSegment));
-    vseg_table           = HeapAlloc (max_vseg        * sizeof (struct VirtualSegment));
+    seg_table            = HeapAlloc (max_seg         * sizeof (struct Segment));
     parcel_table         = HeapAlloc (max_parcel      * sizeof (struct Parcel));
 
-    for (u = 0, t = 0; t < bootinfo->segment_cnt; t++)
+    memory_ceiling = 0;
+
+
+    i = 0;
+//    top_of_heap = user_base;
+    next_unique_segment_id = 0;
+     
+    for (t = 0; t < bootinfo->segment_cnt; t++)
     {
-        if (bootinfo->segment_table[t].base >= bootinfo->user_base)
+        if (bootinfo->segment_table[t].base >= bootinfo->user_base
+            && bootinfo->segment_table[t].type == BSEG_ALLOC)
         {
-            pseg_table[u].base    =  bootinfo->segment_table[t].base;
-            pseg_table[u].ceiling =  bootinfo->segment_table[t].ceiling;
-            pseg_table[u].type    =  bootinfo->segment_table[t].type;
             
-            vseg_table[u].base          = bootinfo->segment_table[t].base;
-            vseg_table[u].ceiling       = bootinfo->segment_table[t].ceiling;
-            vseg_table[u].physical_addr = bootinfo->segment_table[t].base;
-            vseg_table[u].owner = NULL;
-
+/*            pseg = LIST_HEAD (&free_pseg_list);
+            LIST_REM_HEAD (&free_pseg_list, link);
+            LIST_ADD_TAIL (&heap_pseg_list, pseg, link);
+            
+            pseg->base = bootinfo->segment_table[t].base;
+            pseg->size = bootinfo->segment_table[t].ceiling - bootinfo->segment_table[t].base;
+            pseg->virtual_addr = pseg->base;
+            
+            i = AllocateVSeg (i, pseg, bootinfo->segment_table[t].flags);
+*/
                 
-            if (pseg_table[u].type == SEG_TYPE_ALLOC)
-                vseg_table[u].flags = MEM_ALLOC | bootinfo->segment_table[t].flags;
-            else if (pseg_table[u].type == SEG_TYPE_FREE)
-                vseg_table[u].flags = MEM_FREE;
-            else if (pseg_table[u].type == SEG_TYPE_RESERVED)
-                vseg_table[u].flags = MEM_RESERVED;
-            else
-                KernelPanic ("Undefined bootinfo segment");
-        
-            u++;
-        }
-    }
+//            total_mem_sz += pseg->size;
+//            top_of_heap = pseg->base + pseg->size;
 
-    vseg_table[u-1].ceiling = user_ceiling;
-    pseg_cnt = u;
-    vseg_cnt = u;
-    segment_version_counter = 0;
+
+            memory_ceiling = bootinfo->segment_table[t].ceiling;
+        }                
+    }
+        
+    segment_heap_start = user_base;         // FIXME: Set above user segments passed in bootinfo.
     
-    
-    // FIXME: Move up to beginning of function?
+        
+    i = InitSegBucket (i, 0, segment_heap_start,   0x08000000, 0x00001000);   // 4k    * 32768   128MB
+    i = InitSegBucket (i, 1, 0x08000000,  0x28000000, 0x00010000);   // 64k   * 8192    512MB
+    i = InitSegBucket (i, 2, 0x28000000,  0x48000000, 0x00040000);   // 256k  * 2048    512MB
+    i = InitSegBucket (i, 3, 0x48000000,  0x50000000, 0x00100000);   // 1MB   * 128     128MB
+    i = InitSegBucket (i, 4, 0x50000000,  0x60000000, 0x00400000);   // 4MB   * 64      256MB
+    i = InitSegBucket (i, 5, 0x60000000,  0x80000000, 0x01000000);   // 16MB  * 32      512MB
+        
+    seg_cnt = i;
+   
+
     
     videocore_base = 0x80000000;
     GetVideoCoreMem(&videocore_phys, &videocore_size);
@@ -129,49 +143,69 @@ void InitVM (void)
     KLOG ("heap_ptr = %#010x", heap_ptr);
     KASSERT (heap_ptr <= 0x00400000);
     
-    pagedirectory  = (uint32*)0x00400000;       // 16K page directory
-    pagetable_pool = (uint32*)0x00404000;       // page table pool above 16k page directory
+    
+
+    
+    /*
+     * The pagedirectory and pagetable_pool (255 1k pagetables, 16 pagetables per
+     * process allocated between 4MB and 8MB.
+     */
     
     
-    ctrl = GetCtrl();               // Set ARM v5 page table format
+    pagetable_base = 0x00700000;
+    pagedirectory  = (uint32*)pagetable_base;
+    
+    ctrl = GetCtrl();                           // Set ARM v5 page table format
     ctrl &= ~C1_XP;
     SetCtrl (ctrl);
     
-        
-    MemSet (pagedirectory, 0, L1_TABLE_SIZE);
+    for (t=0; t < 4096; t++)                    // Clear page directory
+        *(pagedirectory + t) = L1_TYPE_INV;
     
-    LIST_INIT (&free_pagetable_list);
+    LIST_INIT (&pmap_lru_list);
     
-    for (t=0; t < max_process; t++)
+    for (t=0; t < NPMAP; t++)
     {
-        pmap_mem = (struct PmapMem *)((uint8*)pagetable_pool + t * (L2_TABLE_SIZE * 16));
-         
-        LIST_ADD_TAIL (&free_pagetable_list, pmap_mem, free_link);
-    }
+        pmap_table[t].addr = (uint32 *)(pagetable_base + 0x4000) + (t * L2_TABLE_SIZE * 16);
+        pmap_table[t].lru = 0;
+        pmap_table[t].map_type = PMAP_MAP_PHYSICAL;
+        pmap_table[t].owner = NULL;
         
-    KLog ("Initializing page directory");
+        for (u=0; u< NPDE; u++)
+        {
+            pmap_table[t].pde[u].idx = -1;
+            pmap_table[t].pde[u].val = L1_TYPE_INV;
+        }
+        
+        LIST_ADD_TAIL (&pmap_lru_list, &pmap_table[t], lru_link);
+    }
+  
+   
+    // FIXME: Can only make first 1MB read only or clear it once the interrupt table
+    // is initialized.
     
-    for (paddr = 0, vaddr=0;
-            vaddr < 0x00400000;
-            paddr += 0x00100000, vaddr += 0x00100000)
+    for (paddr = 0, vaddr=0; vaddr < 0x00700000;
+         paddr += 0x00100000, vaddr += 0x00100000)
+    {
         pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | L1_S_B | L1_S_C | paddr;
+    }
     
-    for (paddr = 0x00400000, vaddr=0x00400000;
-            vaddr < 0x00800000;
-            paddr += 0x00100000, vaddr += 0x00100000)
+    paddr = 0x00700000;
+    vaddr=0x00700000;
+    pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | paddr;
+    
+    for (paddr = videocore_phys, vaddr = videocore_base; vaddr < videocore_ceiling;
+         paddr += 0x00100000, vaddr += 0x00100000)
+    {
         pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | paddr;
+    }
     
-    
-    
-    for (paddr = videocore_phys, vaddr = videocore_base;
-            vaddr < videocore_ceiling;
-            paddr += 0x00100000, vaddr += 0x00100000)
+    for (paddr = peripheral_phys, vaddr = peripheral_base; vaddr < peripheral_ceiling;
+         paddr += 0x00100000, vaddr += 0x00100000)
+    {
         pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | paddr;
-    
-    for (paddr = peripheral_phys, vaddr = peripheral_base;
-            vaddr < peripheral_ceiling;
-            paddr += 0x00100000, vaddr += 0x00100000)
-        pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | paddr;
+    }
+
     
     KLog ("Enabling paging");
 
@@ -180,21 +214,71 @@ void InitVM (void)
     screen_buf = videocore_base + (screen_buf - videocore_phys);
 
     KLog ("Hello from other side!!");
-    KLog ("Double checking");
-    KLog ("screen_buf = %#010x", screen_buf);
-
-    InitRendez (&vm_rendez);
+    
+//    InitRendez (&vm_busy_rendez);
 }
 
 
 
 
+/*
+ *
+ */
+ 
+int AllocateSeg (int i, vm_addr base, vm_size size, bits32_t flags)
+{
+/*
+    vseg_table[i].bucket_q = -1;
+    vseg_table[i].base = pseg->base;
+    vseg_table[i].ceiling = pseg->base + pseg->size;
+    vseg_table[i].size = pseg->size;
+    vseg_table[i].owner = NULL;
+    vseg_table[i].flags = MEM_ALLOC | flags;
+    vseg_table[i].physical_addr = pseg->base;
+    vseg_table[i].physical_segment = pseg;
+    vseg_table[i].version = segment_version_counter ++;    
+    vseg_table[i].next_free = NULL;
+ */
+    
+    return i+1;
+}
 
 
 
 
 /*
- * BootAlloc();
+ *
+ */
+
+int InitSegBucket (int i, int q, vm_addr base, vm_addr ceiling, vm_size size)
+{
+    vm_addr addr;
+    
+    free_segment_size[q] = size;
+
+    HEAP_INIT (&free_segment_list[q]);
+    
+    for (addr = base; addr < ceiling; addr += size, i++)
+    {
+        seg_table[i].base = addr;
+        seg_table[i].bucket_q = q;
+        seg_table[i].size = size;
+        seg_table[i].owner = NULL;
+        seg_table[i].flags = MEM_FREE;
+        seg_table[i].physical_addr = 0;
+        seg_table[i].segment_id = 0;
+        
+        HEAP_ADD_HEAD (&free_segment_list[q], seg_table, link);
+    }
+    
+    return i;
+}
+
+
+
+
+/*
+ * HeapAlloc();
  *
  * Allocate an area of physical/virtal memory for a kernel array.
  */
@@ -208,7 +292,6 @@ void *HeapAlloc (uint32 sz)
 
     return p;
 }
-
 
 
 

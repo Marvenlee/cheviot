@@ -20,6 +20,12 @@ struct BSegment
 };
 
 
+#define BSEG_RESERVED			0
+#define BSEG_FREE				1
+#define BSEG_ALLOC				2
+
+
+
 struct BModule
 {
     char name[64];

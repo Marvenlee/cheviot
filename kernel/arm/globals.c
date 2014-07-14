@@ -41,7 +41,7 @@ int free_process_cnt;
 int free_channel_cnt;
 int free_timer_cnt;
 int free_isr_handler_cnt;
-int free_notification_cnt;
+// int free_notification_cnt;
 
 
 
@@ -88,6 +88,7 @@ uint32 peripheral_phys;
  */
 
 int max_cpu;
+int cpu_cnt;
 struct CPU cpu_table[MAX_CPU];
 
 int max_process;
@@ -153,6 +154,8 @@ char *cfg_boot_prefix;
 int cfg_boot_verbose;
 
 
+
+
 /*
  * Handles
  */
@@ -162,25 +165,79 @@ struct Handle *handle_table;
 handle_list_t free_handle_list;
 
 
+
+
 /*
  * Virtual Memory management
  */
  
+/* 
+ * The pagedirectory and pagetable_pool combined are stored within a 4MB area
+ * of the kernel, starting at 4MB.  The page directory and page tables must
+ * be in memory marked as uncacheable.
+ *
+ * Each process has a pmap structure to manage a process's pagetables.  Each
+ * process is given 16 1k pagetables that are recyclable/discardable if there is
+ * no free page table.  4MB allows for a maximum of 255 processes plus the
+ * page directory.
+ *
+ * A possible option is to use a 1MB pool of 1024 page tables and share them
+ * among all processes, but limiting each process to a maximum of 16 page tables
+ * at a time. Either 63 pools of 16k or manage it by maintaining Pmap descriptors for
+ * each page table, attaching them to the owner pmap..
+ * 
+ * LRU tables based on least recently run process, on task switch move to tail of
+ * list.
+ */
+ 
+ 
+struct Pmap pmap_table[NPMAP];
+pmap_list_t pmap_lru_list;
 uint32 *pagedirectory;
-uint32 *pagetable_pool;
-pagetable_list_t free_pagetable_list;
+vm_addr pagetable_base;
 
-int max_vseg;
-struct VirtualSegment *vseg_table;
-int vseg_cnt;
+vm_size free_segment_size[NSEGBUCKET];
 
-int max_pseg;
-struct PhysicalSegment *pseg_table;
-int pseg_cnt;
+seg_list_t free_segment_list[NSEGBUCKET];
 
-struct Rendez vm_rendez;
+seg_list_t segment_heap;
 
-int64 segment_version_counter;
+seg_list_t cache_lru_list;
+seg_list_t cache_hash[CACHE_HASH_SZ];
+
+struct Segment *last_aged_seg;
+
+int max_seg;                            // Maximum size of vseg_table
+struct Segment *seg_table;              // Virtual memory map of single address space
+int seg_cnt;                            // Current size of vseg_table
+
+int64 next_unique_segment_id;           // Next unique identifier for segments
+
+
+struct Rendez compact_rendez;
+struct Rendez alloc_rendez;
+struct Rendez vm_task_rendez;
+
+
+
+
+vm_addr memory_ceiling;
+vm_size requested_alloc_size;
+vm_size garbage_size;
+vm_size cache_size;
+vm_size min_cache_size;
+vm_size max_cache_size;
+
+
+
+struct Segment *compact_seg;
+vm_size compact_offset;
+
+
+
+
+
+
 
 
 
@@ -197,18 +254,18 @@ uint32 heap_ptr;
  * Channel
  */
 
-int max_channel;
-channel_list_t free_channel_list;
-struct Channel *channel_table;
+int max_channel;                    // Maximum number of IPC Channels
+channel_list_t free_channel_list;   // List of free Channels
+struct Channel *channel_table;      // Array of Channels
 
 
 /*
  * Notification
  */
 
-int max_notification;
-notification_list_t free_notification_list;
-struct Notification *notification_table;
+// int max_notification;
+// notification_list_t free_notification_list;
+// struct Notification *notification_table;
 
 
 
@@ -230,6 +287,8 @@ timer_list_t timing_wheel[JIFFIES_PER_SECOND];
 timer_list_t free_timer_list;
 int max_timer;
 struct Timer *timer_table;
+
+volatile spinlock_t timer_slock;
 
 volatile long long hardclock_seconds;
 volatile long hardclock_jiffies;

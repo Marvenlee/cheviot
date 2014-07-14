@@ -30,6 +30,8 @@
 .global EnableInterrupts
 .global DisablePreemption
 .global EnablePreemption
+.global SpinLock
+.global SpinUnlock
 .global CopyIn
 .global CopyOut
 .global MemCpy
@@ -225,6 +227,12 @@ DisablePreemption:
     
 EnablePreemption:
     MEnablePreemption
+    bx lr
+
+SpinLock:
+    bx lr
+
+SpinUnlock:
     bx lr
 
 

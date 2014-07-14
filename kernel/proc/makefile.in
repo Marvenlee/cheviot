@@ -57,18 +57,6 @@ kernel/proc/proc.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/proc/proc.o: ./kernel/h/kernel/utility.h ./kernel/h/kernel/globals.h
 kernel/proc/proc.o: ./kernel/h/kernel/arm/globals.h
 kernel/proc/proc.o: ./kernel/h/kernel/arm/raspberry.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/proc.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/vm.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/arm/locks.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/parcel.h ./kernel/h/kernel/timer.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/sysinfo.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/utility.h
-kernel/proc/sysinfo.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/globals.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/arm/globals.h
-kernel/proc/sysinfo.o: ./kernel/h/kernel/arm/raspberry.h
 kernel/proc/notification.o: ./kernel/h/kernel/types.h
 kernel/proc/notification.o: ./kernel/h/kernel/lists.h
 kernel/proc/notification.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/vm.h
@@ -94,6 +82,16 @@ kernel/proc/event.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/proc/event.o: ./kernel/h/kernel/globals.h
 kernel/proc/event.o: ./kernel/h/kernel/arm/globals.h
 kernel/proc/event.o: ./kernel/h/kernel/arm/raspberry.h
+kernel/proc/join.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/proc.h
+kernel/proc/join.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/vm.h
+kernel/proc/join.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
+kernel/proc/join.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
+kernel/proc/join.o: ./kernel/h/kernel/arm/locks.h ./kernel/h/kernel/parcel.h
+kernel/proc/join.o: ./kernel/h/kernel/timer.h ./kernel/h/kernel/dbg.h
+kernel/proc/join.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
+kernel/proc/join.o: ./kernel/h/kernel/globals.h
+kernel/proc/join.o: ./kernel/h/kernel/arm/globals.h
+kernel/proc/join.o: ./kernel/h/kernel/arm/raspberry.h
 kernel/proc/msg.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/lists.h
 kernel/proc/msg.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/vm.h
 kernel/proc/msg.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
@@ -116,13 +114,22 @@ kernel/proc/interrupt.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/proc/interrupt.o: ./kernel/h/kernel/globals.h
 kernel/proc/interrupt.o: ./kernel/h/kernel/arm/globals.h
 kernel/proc/interrupt.o: ./kernel/h/kernel/arm/raspberry.h
-kernel/proc/join.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/proc.h
-kernel/proc/join.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/vm.h
-kernel/proc/join.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
-kernel/proc/join.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
-kernel/proc/join.o: ./kernel/h/kernel/arm/locks.h ./kernel/h/kernel/parcel.h
-kernel/proc/join.o: ./kernel/h/kernel/timer.h ./kernel/h/kernel/dbg.h
-kernel/proc/join.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
+kernel/proc/info.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/proc.h
+kernel/proc/info.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/vm.h
+kernel/proc/info.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h
+kernel/proc/info.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
+kernel/proc/info.o: ./kernel/h/kernel/arm/locks.h ./kernel/h/kernel/parcel.h
+kernel/proc/info.o: ./kernel/h/kernel/timer.h ./kernel/h/kernel/utility.h
+kernel/proc/info.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
+kernel/proc/info.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/globals.h
+kernel/proc/info.o: ./kernel/h/kernel/arm/globals.h
+kernel/proc/info.o: ./kernel/h/kernel/arm/raspberry.h
+kernel/proc/info.o: /cheviot/arm-eabi/include/limits.h /usr/include/limits.h
+kernel/proc/info.o: /usr/include/features.h
+kernel/proc/info.o: /cheviot/arm-eabi/include/sys/cdefs.h
+kernel/proc/info.o: /cheviot/arm-eabi/include/sys/features.h
+kernel/proc/info.o: /usr/include/bits/wordsize.h
+kernel/proc/info.o: /cheviot/arm-eabi/include/sys/syslimits.h
 kernel/proc/sched.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/proc.h
 kernel/proc/sched.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/vm.h
 kernel/proc/sched.o: ./kernel/h/kernel/arch.h ./kernel/h/kernel/arm/arm.h

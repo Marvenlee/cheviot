@@ -36,14 +36,16 @@ extern int exception_stack_top;
 
 void InitProcesses(void);
 void IdleTask (void);
-void VMTask (void);
 void ReaperTask (void);
+
+
 
 struct Process *InitRootProcess (void (*entry)(void), void *stack,
     int policy, int priority);
-struct Process *InitDaemon (void (*entry)(void), void *stack,
+struct Process *InitIdleTask (void (*entry)(void), void *stack,
     int policy, int priority);
 void InitSchedParams (struct Process *proc, int policy, int priority);
+struct Process *InitVMTask (int policy, int priority);
 
 
 
@@ -82,7 +84,6 @@ void InitProcessTables (void)
     struct Timer *timer;
     struct ISRHandler *isr_handler;
     struct Channel *channel;
-    struct Notification *notif;
     struct Handle *handle;
     struct Parcel *parcel;
     
@@ -145,14 +146,7 @@ void InitProcessTables (void)
         LIST_ADD_TAIL (&free_channel_list, channel, link);
     }
     
-    LIST_INIT (&free_notification_list);
     
-    for (t=0; t < max_notification; t++)
-    {
-        notif = &notification_table[t];
-        LIST_ADD_TAIL (&free_notification_list, notif, link);
-    }        
-
     LIST_INIT (&free_handle_list);
     
     for (t = 0; t < max_handle; t++)
@@ -181,10 +175,7 @@ void InitProcessTables (void)
 
 
 /*
- * InitRoot();
- * FIXME: Why can't we call AllocProcess() ?
- * Reason: AllocProcess() depends on GetCurrentProcess() to inherit
- * parent values.
+ * Initializes root user process followed by idle and vm_task kernel processes.
  */
 
 void InitProcesses (void)
@@ -195,16 +186,18 @@ void InitProcesses (void)
     KLog("InitProcesses()");
     
     max_cpu = 1;
+    cpu_cnt = max_cpu;
     cpu = &cpu_table[0];
 
     root_process = InitRootProcess (bootinfo->procman_entry_point,
                     (void *)bootinfo->user_stack_ceiling, SCHED_OTHER, 100);
                     
-    idle_task    = InitDaemon (IdleTask, (void *)&idle_task_stack_top, SCHED_IDLE, 0);
-    vm_task      = InitDaemon (VMTask, (void *)&vm_task_stack_top, SCHED_OTHER, 100);
-    reaper_task  = InitDaemon (ReaperTask, (void *)&reaper_task_stack_top, SCHED_OTHER, 100);
+    idle_task    = InitIdleTask (IdleTask, (void *)&idle_task_stack_top, SCHED_IDLE, 0);
+    vm_task      = InitVMTask (SCHED_OTHER, 0);
+    
     
     root_process->state = PROC_STATE_RUNNING;
+    
     cpu->current_process = root_process;
     cpu->idle_process = idle_task;
     cpu->reschedule_request = 0;
@@ -238,12 +231,12 @@ struct Process *InitRootProcess (void (*entry)(void), void *stack,
     
     proc->handle = handle;
     proc->exit_status = 0;
-    proc->virtualalloc_sz = 0;
+    proc->virtualalloc_size = 0;
     
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);
     
-    PmapInit (&proc->pmap);
+    PmapInit (proc);
     
     proc->task_state.cpu = &cpu_table[0];
     proc->task_state.flags = 0;
@@ -265,13 +258,12 @@ struct Process *InitRootProcess (void (*entry)(void), void *stack,
     proc->task_state.sp = (uint32)stack;
     proc->task_state.lr = 0;
 
-    for (t=0; t<vseg_cnt; t++)
+    for (t=0; t < seg_cnt; t++)
     {
-        if ((vseg_table[t].flags & MEM_MASK) == MEM_ALLOC)
+        if ((seg_table[t].flags & MEM_MASK) == MEM_ALLOC)
         {
-            vseg_table[t].owner = proc;
-            vseg_table[t].version = segment_version_counter;
-            segment_version_counter++;
+            seg_table[t].owner = proc;
+            seg_table[t].segment_id = next_unique_segment_id ++;
         }
     }
     
@@ -286,7 +278,7 @@ struct Process *InitRootProcess (void (*entry)(void), void *stack,
 
 
 
-struct Process *InitDaemon (void (*entry)(void), void *stack,
+struct Process *InitIdleTask (void (*entry)(void), void *stack,
     int policy, int priority)
 {
     struct Process *proc;
@@ -294,7 +286,7 @@ struct Process *InitDaemon (void (*entry)(void), void *stack,
     proc = AllocProcess();
     
     proc->exit_status = 0;
-    proc->virtualalloc_sz = 0;
+    proc->virtualalloc_size = 0;
 
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);
@@ -360,6 +352,57 @@ void InitSchedParams (struct Process *proc, int policy, int tickets)
 
 
 
+/*
+ *
+ */
+     
+struct Process *InitVMTask (int policy, int priority)
+{    
+    int handle;
+    struct Process *proc;
+
+    
+    proc = AllocProcess();
+    handle = AllocHandle();
+
+    KASSERT (handle >= 0);
+        
+    SetObject (proc, handle, HANDLE_TYPE_PROCESS, proc);
+    
+    proc->handle = handle;
+    proc->exit_status = 0;
+    proc->virtualalloc_size = 0;
+    
+    proc->continuation_function = &VMTaskBegin;
+        
+    LIST_INIT (&proc->pending_handle_list);
+    LIST_INIT (&proc->close_handle_list);
+    
+    proc->pmap = NULL;
+    
+    proc->task_state.cpu = &cpu_table[0];
+    proc->task_state.flags = 0;
+    proc->task_state.pc = (uint32)NULL;
+    proc->task_state.r0 = 0;
+    proc->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
+    proc->task_state.r1 = 0;
+    proc->task_state.r2 = 0;
+    proc->task_state.r3 = 0;
+    proc->task_state.r4 = 0;
+    proc->task_state.r5 = 0;
+    proc->task_state.r6 = 0;
+    proc->task_state.r7 = 0;
+    proc->task_state.r8 = 0;
+    proc->task_state.r9 = 0;
+    proc->task_state.r10 = 0;
+    proc->task_state.r11 = 0;
+    proc->task_state.r12 = 0;
+    proc->task_state.sp = (uint32)NULL;
+    proc->task_state.lr = 0;
+  
+    InitSchedParams (proc, policy, priority);
+    return proc;
+}
 
 
 
