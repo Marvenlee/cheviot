@@ -45,6 +45,7 @@
 .global SyncBarrier
 .global DataSyncBarrier
 .global EnablePaging
+.global SetPageDirectory
 .global GetCurrentProcess
 .global GetCPU
 .global GetCPSR
@@ -376,7 +377,14 @@ EnablePaging:
     bx lr
 
 
-
+SetPageDirectory:
+    mov r2,#0
+    mcr p15,0,r2,c7,c7,0        // invalidate caches
+    mcr p15,0,r2,c8,c7,0        // invalidate tlb
+    
+    mcr p15,0,r0,c2,c0,0        // tlb base
+    mcr p15,0,r0,c2,c0,1        // tlb base
+    bx lr
 
 
 

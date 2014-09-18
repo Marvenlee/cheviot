@@ -110,7 +110,7 @@ SYSCALL int WaitFor (int h)
         h = hp - handle_table;
         return h;
     }
-    else
+    else if (handle_table[h].owner == current)
     {
         if (handle_table[h].pending == 0)
         {
@@ -123,7 +123,9 @@ SYSCALL int WaitFor (int h)
         
         LIST_REM_ENTRY (&current->pending_handle_list, hp, link);
         return h;
-    }       
+    }
+    
+    return handleErr;
 }
 
 
@@ -144,7 +146,11 @@ void DoRaiseEvent (int h)
     
     proc = handle_table[h].owner;
     
-    handle_table[h].pending = 1;
+    if (handle_table[h].pending == 0)
+    {
+        LIST_ADD_TAIL (&proc->pending_handle_list, &handle_table[h], link);
+        handle_table[h].pending = 1;
+    }
     
     if (proc->waiting_for == h || proc->waiting_for == -1)
         Wakeup (&proc->waitfor_rendez);

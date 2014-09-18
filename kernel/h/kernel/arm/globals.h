@@ -116,7 +116,6 @@ extern struct Process *root_process;
 extern struct Process *idle_task;
 extern struct Process *vm_task;
 
-extern struct Process *reaper_task;
 
 // extern uint8 reaper_task_stack_top;
 extern uint8 idle_task_stack_top;
@@ -175,7 +174,11 @@ extern handle_list_t free_handle_list;
  
 extern struct Pmap pmap_table[NPMAP];
 extern pmap_list_t pmap_lru_list;
+
 extern uint32 *pagedirectory;
+extern uint32 *phys_pagedirectory;
+
+
 extern vm_addr pagetable_base;
 
 extern vm_size free_segment_size[NSEGBUCKET];

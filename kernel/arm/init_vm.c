@@ -162,11 +162,16 @@ void InitVM (void)
     for (t=0; t < 4096; t++)                    // Clear page directory
         *(pagedirectory + t) = L1_TYPE_INV;
     
+    for (t=0; t < 4096; t++)                    // Clear physical mapped page directory
+        *(phys_pagedirectory + t) = L1_TYPE_INV;
+        
+        
+        
     LIST_INIT (&pmap_lru_list);
     
     for (t=0; t < NPMAP; t++)
     {
-        pmap_table[t].addr = (uint32 *)(pagetable_base + 0x4000) + (t * L2_TABLE_SIZE * 16);
+        pmap_table[t].addr = (uint32 *)(pagetable_base + 0x8000) + (t * L2_TABLE_SIZE * 16);
         pmap_table[t].lru = 0;
         pmap_table[t].map_type = PMAP_MAP_PHYSICAL;
         pmap_table[t].owner = NULL;
@@ -205,6 +210,14 @@ void InitVM (void)
     {
         pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | paddr;
     }
+
+
+    for (paddr = 0, vaddr=0; vaddr < 0x80000000;
+         paddr += 0x00100000, vaddr += 0x00100000)
+    {
+        phys_pagedirectory[vaddr>>20] = L1_TYPE_S | L1_S_AP(AP_KRW) | L1_S_B | L1_S_C | paddr;
+    }
+    
 
     
     KLog ("Enabling paging");

@@ -33,20 +33,19 @@ extern int svc_stack_top;
 extern int interrupt_stack_top;
 extern int exception_stack_top;
 
+//extern int vm_task_stack_top;
+//extern int idle_task_stack_top;
+
 
 void InitProcesses(void);
 void IdleTask (void);
 void ReaperTask (void);
+void VMTask (void);
 
 
 
-struct Process *InitRootProcess (void (*entry)(void), void *stack,
-    int policy, int priority);
-struct Process *InitIdleTask (void (*entry)(void), void *stack,
-    int policy, int priority);
-void InitSchedParams (struct Process *proc, int policy, int priority);
-struct Process *InitVMTask (int policy, int priority);
-
+struct Process *CreateProcess (void (*entry)(void), void *stack,
+    int policy, int priority, bits32_t flags, struct CPU *cpu);
 
 
 /*
@@ -181,25 +180,34 @@ void InitProcessTables (void)
 void InitProcesses (void)
 {   
     struct CPU *cpu;
-   
+    int t;
+    
    
     KLog("InitProcesses()");
     
     max_cpu = 1;
     cpu_cnt = max_cpu;
     cpu = &cpu_table[0];
-
-    root_process = InitRootProcess (bootinfo->procman_entry_point,
-                    (void *)bootinfo->user_stack_ceiling, SCHED_OTHER, 100);
-                    
-    idle_task    = InitIdleTask (IdleTask, (void *)&idle_task_stack_top, SCHED_IDLE, 0);
-    vm_task      = InitVMTask (SCHED_OTHER, 0);
     
+    
+    
+    idle_task = CreateProcess (IdleTask, &idle_task_stack_top, SCHED_IDLE, 0, PROCF_DAEMON, &cpu_table[0]);
+    vm_task = CreateProcess (VMTask, &vm_task_stack_top, SCHED_OTHER, 0, PROCF_DAEMON, &cpu_table[0]);
+
+    root_process = CreateProcess (bootinfo->procman_entry_point, (void *)bootinfo->user_stack_ceiling,
+                                    SCHED_OTHER, 100, PROCF_FILESYS, &cpu_table[0]);
+                    
+    for (t=0; t < seg_cnt; t++)
+    {
+        if ((seg_table[t].flags & MEM_MASK) == MEM_ALLOC)
+        {
+            seg_table[t].owner = root_process;
+            seg_table[t].segment_id = next_unique_segment_id ++;
+        }
+    }    
     
     root_process->state = PROC_STATE_RUNNING;
-    
     cpu->current_process = root_process;
-    cpu->idle_process = idle_task;
     cpu->reschedule_request = 0;
     cpu->svc_stack = (vm_addr)&svc_stack_top;
     cpu->interrupt_stack = (vm_addr)&interrupt_stack_top;
@@ -214,13 +222,11 @@ void InitProcesses (void)
  *
  */
      
-struct Process *InitRootProcess (void (*entry)(void), void *stack,
-    int policy, int priority)
+struct Process *CreateProcess (void (*entry)(void), void *stack, int policy, int priority, bits32_t flags, struct CPU *cpu)
 {    
     int handle;
     struct Process *proc;
-    int t;
-    
+  
     
     proc = AllocProcess();
     handle = AllocHandle();
@@ -231,71 +237,28 @@ struct Process *InitRootProcess (void (*entry)(void), void *stack,
     
     proc->handle = handle;
     proc->exit_status = 0;
-    proc->virtualalloc_size = 0;
     
+    proc->flags = flags;
+    
+   // FIXME: Move into AllocProcess ????????????????
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);
     
+        
     PmapInit (proc);
     
-    proc->task_state.cpu = &cpu_table[0];
+    proc->task_state.cpu = cpu;
     proc->task_state.flags = 0;
     proc->task_state.pc = (uint32)entry;
     proc->task_state.r0 = 0;
-    proc->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
-    proc->task_state.r1 = 0;
-    proc->task_state.r2 = 0;
-    proc->task_state.r3 = 0;
-    proc->task_state.r4 = 0;
-    proc->task_state.r5 = 0;
-    proc->task_state.r6 = 0;
-    proc->task_state.r7 = 0;
-    proc->task_state.r8 = 0;
-    proc->task_state.r9 = 0;
-    proc->task_state.r10 = 0;
-    proc->task_state.r11 = 0;
-    proc->task_state.r12 = 0;
-    proc->task_state.sp = (uint32)stack;
-    proc->task_state.lr = 0;
-
-    for (t=0; t < seg_cnt; t++)
-    {
-        if ((seg_table[t].flags & MEM_MASK) == MEM_ALLOC)
-        {
-            seg_table[t].owner = proc;
-            seg_table[t].segment_id = next_unique_segment_id ++;
-        }
+    
+    if (proc->flags & PROCF_DAEMON) {
+        proc->task_state.cpsr = cpsr_dnm_state | SYS_MODE | CPSR_DEFAULT_BITS;
+    }
+    else {
+        proc->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
     }
     
-    InitSchedParams (proc, policy, priority);
-    return proc;
-}
-
-
-
-
-
-
-
-
-struct Process *InitIdleTask (void (*entry)(void), void *stack,
-    int policy, int priority)
-{
-    struct Process *proc;
-    
-    proc = AllocProcess();
-    
-    proc->exit_status = 0;
-    proc->virtualalloc_size = 0;
-
-    LIST_INIT (&proc->pending_handle_list);
-    LIST_INIT (&proc->close_handle_list);
-
-    proc->task_state.cpu = &cpu_table[0];
-    proc->task_state.flags = 0;
-    proc->task_state.pc = (uint32)entry;
-    proc->task_state.r0 = 0;
-    proc->task_state.cpsr = cpsr_dnm_state | SYS_MODE | CPSR_DEFAULT_BITS;
     proc->task_state.r1 = 0;
     proc->task_state.r2 = 0;
     proc->task_state.r3 = 0;
@@ -311,31 +274,18 @@ struct Process *InitIdleTask (void (*entry)(void), void *stack,
     proc->task_state.sp = (uint32)stack;
     proc->task_state.lr = 0;
 
-    InitSchedParams (proc, policy, priority);
-    return proc;
-}
-
-
-
-
-/*
- *
- */
-     
-void InitSchedParams (struct Process *proc, int policy, int tickets)
-{
     if (policy == SCHED_RR || policy == SCHED_FIFO)
     {
         proc->quanta_used = 0;
         proc->sched_policy = policy;
-        proc->tickets = tickets;
+        proc->tickets = priority;
         SchedReady (proc);
     }
     else if (policy == SCHED_OTHER)
     {
         proc->quanta_used = 0;
         proc->sched_policy = policy;
-        proc->tickets = tickets;
+        proc->tickets = priority;
         proc->stride = STRIDE1 / proc->tickets;
         proc->remaining = proc->stride;
         proc->pass = global_pass;
@@ -343,66 +293,19 @@ void InitSchedParams (struct Process *proc, int policy, int tickets)
     }
     else if (policy == SCHED_IDLE)
     {
-
+        cpu->idle_process = proc;
     }
-}
 
 
-
-
-
-
-/*
- *
- */
-     
-struct Process *InitVMTask (int policy, int priority)
-{    
-    int handle;
-    struct Process *proc;
-
-    
-    proc = AllocProcess();
-    handle = AllocHandle();
-
-    KASSERT (handle >= 0);
-        
-    SetObject (proc, handle, HANDLE_TYPE_PROCESS, proc);
-    
-    proc->handle = handle;
-    proc->exit_status = 0;
-    proc->virtualalloc_size = 0;
-    
-    proc->continuation_function = &VMTaskBegin;
-        
-    LIST_INIT (&proc->pending_handle_list);
-    LIST_INIT (&proc->close_handle_list);
-    
-    proc->pmap = NULL;
-    
-    proc->task_state.cpu = &cpu_table[0];
-    proc->task_state.flags = 0;
-    proc->task_state.pc = (uint32)NULL;
-    proc->task_state.r0 = 0;
-    proc->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
-    proc->task_state.r1 = 0;
-    proc->task_state.r2 = 0;
-    proc->task_state.r3 = 0;
-    proc->task_state.r4 = 0;
-    proc->task_state.r5 = 0;
-    proc->task_state.r6 = 0;
-    proc->task_state.r7 = 0;
-    proc->task_state.r8 = 0;
-    proc->task_state.r9 = 0;
-    proc->task_state.r10 = 0;
-    proc->task_state.r11 = 0;
-    proc->task_state.r12 = 0;
-    proc->task_state.sp = (uint32)NULL;
-    proc->task_state.lr = 0;
-  
-    InitSchedParams (proc, policy, priority);
     return proc;
 }
+
+
+
+
+
+
+
 
 
 

@@ -30,7 +30,58 @@
 
 
 
-uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx);
+
+
+
+
+
+/*
+ *
+ */
+
+void PmapPageFault (void)
+{
+    struct Process *current;
+    struct Segment *seg;
+    vm_addr addr;
+    bits32_t access;
+    
+    current = GetCurrentProcess();
+        
+    KASSERT (current != NULL);
+    KASSERT (!(current->flags & PROCF_DAEMON));
+    
+    addr = ALIGN_DOWN (current->task_state.fault_addr, PAGE_SIZE);
+    access = current->task_state.fault_access;
+    
+    seg = SegmentFind (addr);
+    
+    if (addr < user_base || addr >= user_ceiling
+        || seg == NULL || seg->owner != current
+        || MEM_TYPE(seg->flags) == MEM_FREE
+        || MEM_TYPE(seg->flags) == MEM_RESERVED
+        || (access & seg->flags) != access)
+    {
+        current->task_state.flags |= TSF_EXCEPTION;
+        DoExit(EXIT_FATAL);
+    }
+
+    DisablePreemption();
+    
+    if (seg->flags & SEG_COMPACT)
+        Sleep (&compact_rendez);
+            
+    if (seg->flags & MAP_VERSION && access & PROT_WRITE)
+    {
+        seg->flags &= ~MAP_VERSION;
+        seg->segment_id = next_unique_segment_id ++;
+    }
+    
+    PmapEnterRegion(seg, addr);
+    
+    current->task_state.flags &= ~TSF_PAGEFAULT;
+    KLog ("Returning from fault");
+}
 
 
 
@@ -43,6 +94,18 @@ uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx);
 int PmapSupportsCachePolicy (bits32_t flags)
 {
     return 0;
+}
+
+
+
+vm_size PmapAlignmentSize (ssize_t size)
+{
+    if (size >= 0x100000)
+        return 0x100000;
+    else if (size >= 0x10000)
+        return 0x10000;
+    else
+        return 0;
 }
 
 
@@ -113,7 +176,7 @@ void PmapDestroy (struct Process *proc)
  * and modifying the page directory.
  */
 
-void PmapEnterRegion (struct Pmap *pmap, struct Segment *seg, vm_addr addr)
+void PmapEnterRegion (struct Segment *seg, vm_addr addr)
 {
     uint32 *pt;
     int pde_idx, pte_idx;
@@ -122,13 +185,20 @@ void PmapEnterRegion (struct Pmap *pmap, struct Segment *seg, vm_addr addr)
     vm_addr pa;
     vm_addr ceiling;
     int t;
+    struct Pmap *pmap;
     
-    KASSERT (pmap != NULL);  
+    
     KASSERT (seg != NULL);
     KASSERT ((addr & 0x00000fff) == 0);
     KASSERT (addr >= 0x00800000);
     KASSERT (seg->base <= addr && addr < seg->base + seg->size);
     KASSERT ((seg->flags & MEM_MASK) == MEM_ALLOC || (seg->flags & MEM_MASK) == MEM_PHYS);
+
+    if (seg->owner == NULL || seg->owner->pmap == NULL)
+        return;
+
+    pmap = seg->owner->pmap;
+    
         
     pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
     
@@ -198,50 +268,6 @@ void PmapEnterRegion (struct Pmap *pmap, struct Segment *seg, vm_addr addr)
 
 
 
-
-/*
- * Maps physical memory into address space of VM Task.
- */
- 
-void PmapEnterPhysicalSpace (struct Pmap *pmap, vm_addr addr)
-{
-    uint32 *pt;
-    int pde_idx, pte_idx;
-    uint32 pa_bits;
-    vm_addr pa;
-    vm_addr ceiling;
-    int t;
-    
-    KASSERT (pmap != NULL);  
-    KASSERT ((addr & 0x00000fff) == 0);
-    KASSERT (addr >= 0x00800000);
-        
-    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
-    
-    pt = PmapGetPageTable (pmap, pde_idx);
-        
-    addr = ALIGN_DOWN (addr, 0x10000);
-    ceiling = addr + 0x100000;
-    
-    pte_idx = 0;
-    
-    pa = addr;
-    pa_bits = L2_AP(AP_W);
-    pa_bits |= L2_B | L2_C;
-    pa_bits |= L2_TYPE_L;
-        
-    for (pa = addr; pa < ceiling; pa += 0x10000, pte_idx += 16)
-    {
-        for (t=0; t<16; t++)
-           pt[pte_idx+t] = pa | pa_bits;
-    }
-    
-    PmapFlushTLBs();
-}
-
-
-
-
 /*
  *
  */
@@ -297,7 +323,7 @@ uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx)
  * teardown.
  */
 
-void PmapRemoveRegion (struct Pmap *pmap, struct Segment *seg)
+void PmapRemoveRegion (struct Segment *seg)
 {
     uint32 *pt;
     uint32 pde_idx, pte_idx;
@@ -306,13 +332,16 @@ void PmapRemoveRegion (struct Pmap *pmap, struct Segment *seg)
     vm_addr last_pagetable_base;
     vm_addr temp_ceiling;
     int t; 
+    struct Pmap *pmap;
     
     
     KASSERT (seg != NULL);
     KASSERT ((seg->flags & MEM_MASK) == MEM_ALLOC || (seg->flags & MEM_MASK) == MEM_PHYS);
 
-    if (pmap == NULL)
+    if (seg->owner == NULL || seg->owner->pmap == NULL)
         return;
+    
+    pmap = seg->owner->pmap;
     
     first_pagetable_ceiling = ALIGN_UP (seg->base, 0x100000);
     last_pagetable_base = ALIGN_DOWN (seg->base + seg->size, 0x100000);
@@ -376,6 +405,30 @@ void PmapRemoveRegion (struct Pmap *pmap, struct Segment *seg)
 
 
 /*
+ *
+ */
+ 
+void PmapCachePreDMA (struct Segment *seg)
+{
+    FlushCaches();
+}
+
+
+
+
+/*
+ *
+ */
+
+void PmapCachePostDMA (struct Segment *seg)
+{
+    FlushCaches();
+}
+
+
+
+
+/*
  * Flushes the CPU's TLBs once page tables are updated.
  */
 
@@ -416,22 +469,18 @@ void PmapInvalidateAll (void)
 void PmapSwitch (struct Process *next, struct Process *current)
 {
     int t;
-    
-
+ 
     if (current->pmap != NULL)
     {
         for (t=0; t< NPDE; t++)
         {
-            
-            if (current->pmap->pde[t].idx == -1)
-                continue;
-                
-            pagedirectory[current->pmap->pde[t].idx] = L1_TYPE_INV;
+            if (current->pmap->pde[t].idx != -1)
+                pagedirectory[current->pmap->pde[t].idx] = L1_TYPE_INV;
         }
-        
-        LIST_REM_ENTRY (&pmap_lru_list, current->pmap, lru_link);
     }
     
+    LIST_REM_ENTRY (&pmap_lru_list, current->pmap, lru_link);
+    LIST_ADD_TAIL (&pmap_lru_list, current->pmap, lru_link);
     
     if (next->pmap == NULL)
     {
@@ -446,16 +495,20 @@ void PmapSwitch (struct Process *next, struct Process *current)
         } 
     }
     else
-    {        
+    {
         for (t=0; t< NPDE; t++)
         {
-            if (next->pmap->pde[t].idx == -1)
-                continue;
-                
-            pagedirectory[next->pmap->pde[t].idx] = next->pmap->pde[t].val;
+            if (next->pmap->pde[t].idx != -1)
+                pagedirectory[next->pmap->pde[t].idx] = next->pmap->pde[t].val;
         }
     }
-    PmapFlushTLBs();
+        
+    // Reload Page Directory with physically mapped pagedir. if PROCF_DAEMON;
+    
+    if (next->flags & PROCF_DAEMON)
+        SetPageDirectory (phys_pagedirectory);
+    else
+        SetPageDirectory (pagedirectory);
 }
 
 

@@ -13,6 +13,7 @@ KERNEL_OBJ:=
 # ----------------------------------------------------------------------------
 
 # TODO: Conditionally include the arm/makefile.in
+# TODO: Conditionally include a test/makefile.in
 
 include kernel/arm/makefile.in
 include kernel/vm/makefile.in
@@ -27,7 +28,6 @@ kernel : kernel/kernel
 
 kernel/kernel:  $(KERNEL_OBJ) kernel/arm/linker.ls 
 	$(LINK) $(KERNEL_OBJ) -lgcc -T kernel/arm/linker.ls -o kernel/kernel
-
 
 # ----------------------------------------------------------------------------
 

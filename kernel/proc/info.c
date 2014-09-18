@@ -45,7 +45,6 @@ SYSCALL int ProcessInfo (struct ProcessInfo *pi_result)
     
     pi.sighangup_handle     = current->sighangup_handle;
     pi.sigterm_handle       = current->sigterm_handle;
-    pi.siglowmem_handle     = current->siglowmem_handle;
     pi.namespace_handle     = current->namespace_handle;
 
     pi.argv = current->argv;

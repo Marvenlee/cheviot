@@ -94,9 +94,11 @@ void ClosePendingHandles (void)
                 DoCloseTimer (h);
                 break;
     
+/*
             case HANDLE_TYPE_SYSTEMEVENT:
                 DoCloseSystemEvent(h);
                 break;
+*/
                 
             default:
                 break;
@@ -108,9 +110,11 @@ void ClosePendingHandles (void)
 
 
 /*
- * Closes sighangup, sigterm and sigresource events
+ * Closes a process's sighangup and sigterm handles.
+ * FIXME:  
  */
 
+/*
 void DoCloseSystemEvent (int h)
 {
     struct Process *current;
@@ -124,7 +128,7 @@ void DoCloseSystemEvent (int h)
     
     FreeHandle (h);
 }
-
+*/
 
 
 

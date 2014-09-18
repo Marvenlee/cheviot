@@ -66,11 +66,8 @@ SYSCALL vm_addr VirtualAlloc (vm_addr addr, ssize_t len, bits32_t flags)
     
     DisablePreemption();
     
-    if (EnoughSpace() == FALSE)
-        RequestCompaction (len);
-    
     if ((seg = SegmentAlloc ((vm_addr)NULL, len, flags)) == NULL)
-            return (vm_addr)NULL;
+        return (vm_addr)NULL;
     
     return seg->base;
 }
@@ -107,9 +104,6 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, ssize_t len, bits32_t flags, vm_
 
     DisablePreemption();
 
-    if (EnoughSegments() == FALSE)
-        ReclaimSegments();
-        
     if ((seg = SegmentAlloc (paddr, len, flags)) == NULL)
         return (vm_addr)NULL;
   
@@ -161,8 +155,8 @@ SYSCALL int VirtualProtect (vm_addr addr, bits32_t flags)
     if ((seg = SegmentFind (addr)) == NULL)
         return memoryErr;
 
-    if (seg->flags & SEG_COMPACT)
-        Sleep (&compact_rendez);
+//  if (seg->flags & VSEG_BUSY)
+//      Sleep (&vm_busy_rendez);
 
     if (seg->owner != current || MEM_TYPE(seg->flags) == MEM_RESERVED)
         return memoryErr;
@@ -200,8 +194,8 @@ SYSCALL int VirtualVersion (vm_addr addr, uint64 *segment_id)
         return memoryErr;
     }
 
-    if (seg->flags & SEG_COMPACT)
-        Sleep (&compact_rendez);
+//  if (seg->flags & VSEG_BUSY)
+//      Sleep (&vm_busy_rendez);
     
     CopyOut (segment_id, &seg->segment_id, sizeof (uint64));
 
@@ -227,7 +221,10 @@ SYSCALL ssize_t VirtualSizeOf (vm_addr addr)
     
     if ((seg = SegmentFind (addr)) == NULL || seg->owner != current)
         return memoryErr;
-    
+
+//  if (seg->flags & VSEG_BUSY)
+//      Sleep (&vm_busy_rendez);
+        
     return seg->size;
 }
 

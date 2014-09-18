@@ -85,6 +85,45 @@
 
 
 
+
+/*
+ *
+ */
+
+#define VMMSG_ALLOC          0
+#define VMMSG_FREE           1
+#define VMMSG_FREE_PROCESS   2
+
+
+#define VIRTUALALLOC_STATE_READY      0
+#define VIRTUALALLOC_STATE_SEND       1
+#define VIRTUALALLOC_STATE_REPLY      2
+
+ 
+struct VMMsg
+{    
+    int type;
+    int state;
+    int result;
+    struct Segment *seg;
+    
+    
+    vm_addr vaddr;
+    vm_addr paddr;
+    size_t size;             // Size of memory requested by virtualalloc
+    bits32_t flags;
+    struct Process *proc;
+    
+    
+//    struct Segment *virtualalloc_segment;
+//    int virtualalloc_state;
+};
+    
+
+
+
+
+
 /*
  *
  */
@@ -125,24 +164,31 @@ void InitAddressSpace (struct Process *proc);
 void FreeAddressSpace (void);
 
 
-// vm/segment.c
+
+// vm/lookup.c
 
 struct Segment *SegmentFind (vm_addr addr);
 int SegmentFindMultiple (struct Segment **seg_table, void **mem_ptrs, int nseg);
-struct Segment *SegmentAlloc (ssize_t size, bits32_t flags);
-struct Segment *SegmentAllocPhys (ssize_t size, bits32_t flags);
-void SegmentFree (struct Segment *seg);
-
 
 SYSCALL vm_addr GetCachedSegment (uint64 *in_version);
 SYSCALL int PutCachedSegment (vm_addr addr, bits32_t flags, uint64 *out_version);
 SYSCALL int ExpungeCachedSegment (uint64 *in_segment_id);
 
-void VMTaskBegin(void);
-void VMTaskResizeCache (void);
-void VMTaskCompactHeap(void);
-void VMTaskAllocateSegments (void);
-struct Segment *AllocateSegment (struct Process *proc, vm_size size, bits32_t flags);
+
+
+
+
+// vm/segment.c
+
+
+
+struct Segment *SegmentAlloc (vm_addr paddr, ssize_t size, bits32_t flags);
+void SegmentFree (struct Segment *seg);
+struct Segment *SegmentAllocStruct (size_t size);
+
+
+
+
 
 
 
@@ -152,15 +198,21 @@ struct Segment *AllocateSegment (struct Process *proc, vm_size size, bits32_t fl
 int PmapSupportsCachePolicy (bits32_t flags);
 int PmapInit (struct Process *proc);
 void PmapDestroy (struct Process *proc);
-void PmapEnterRegion (struct Pmap *pmap, struct Segment *seg, vm_addr va);
-void PmapEnterPhysicalSpace (struct Pmap *pmap, vm_addr addr);
-void PmapRemoveRegion (struct Pmap *pmap, struct Segment *seg);
+
+void PmapEnterRegion (struct Segment *seg, vm_addr va);
+
+void PmapEnterIdentityMapPhysMem (vm_addr addr);
+
+void PmapRemoveRegion (struct Segment *seg);
 void PmapFlushTLBs (void);
 void PmapInvalidateAll (void);
+
 void PmapSwitch (struct Process *next, struct Process *current);
 
 vm_size PmapAllocAlignment (vm_size size);
 
+void PmapCachePreDMA (struct Segment *seg);
+void PmapCachePostDMA (struct Segment *seg);
 
 // vm/vm.c
 

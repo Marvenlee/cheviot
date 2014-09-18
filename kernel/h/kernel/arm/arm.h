@@ -173,7 +173,7 @@ typedef uint32      iflag_t;
 #define VM_USER_CEILING             0xFFFF0000
 
 
-#define NPMAP                       64
+#define NPMAP                       62
 #define NPDE                        16         /* Pagetables per process */
 #define PMAP_SIZE                   (L2_TABLE_SIZE * NPDE)
 
@@ -306,7 +306,9 @@ void DisableIRQ (int irq);
 
 
 
-void DoPageFault (void);
+void PmapPageFault (void);
+uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx);
+
 
 
 

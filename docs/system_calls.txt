@@ -81,11 +81,11 @@ int ProcessInfo (procinfo_t *pi);
 
 *****************************************************************************
 
-void *VirtualAlloc (void *addr, size_t size, bits32_t flags);
+void *VirtualAlloc (void *addr, ssize_t size, bits32_t flags);
 
 *****************************************************************************
 
-void *VirtualAllocPhys (void *addr, size_t size, bits32_t flags, void *phys_addr);
+void *VirtualAllocPhys (void *addr, ssize_t size, bits32_t flags, void *phys_addr);
 
 *****************************************************************************
 
@@ -97,15 +97,27 @@ int VirtualProtect (void *addr, bits32_t flags);
 
 *****************************************************************************
 
-size_t VirtualSizeOf (void *addr);
+ssize_t VirtualSizeOf (void *addr);
 
 *****************************************************************************
 
-int VirtualWire (void *addr);
+int WireMem (void *addr);
 
 *****************************************************************************
 
-int VirtualUnwire (void *addr);
+int UnwireMem (void *addr);
+
+*****************************************************************************
+
+vm_addr GetCachedSegment (uint64 *in_segment_id)
+
+*****************************************************************************
+
+int PutCachedSegment (vm_addr addr, bits32_t flags, uint64 *out_segment_id)
+
+*****************************************************************************
+
+int ExpungeCachedSegment (uint64 *in_segment_id)
 
 *****************************************************************************
 
@@ -113,11 +125,11 @@ int PutMsg (int handle, void *msg, bits32_t flags);
 
 *****************************************************************************
 
-ssize_t GetMsg (int handle, void **msg, bits32_t access);
+ssize_t GetMsg (int handle, void **msg);
 
 *****************************************************************************
 
-int PutHandle (int port_handle, int handle_to_send, bits32_t flags);
+int PutHandle (int port_handle, int send_handle, bits32_t flags);
 
 *****************************************************************************
 
@@ -129,20 +141,7 @@ int CreateChannel (int handle[2]);
 
 *****************************************************************************
 
-int IsAChannel(int handle1, int handle2);
-
-*****************************************************************************
-
-int PutNotification (int handle, int value);
-
-*****************************************************************************
-
-int GetNotification (int handle);
-
-*****************************************************************************
-
-int CreateNotification (int handle[2]);
-
+int IsAChannel (int handle1, int handle2);
 
 
 

@@ -138,14 +138,68 @@ syscall_table:
     .long PutCachedSegment          // 32
     .long GetCachedSegment          // 33
     .long ExpungeCachedSegment      // 34
+    .long VMRecvMsg                 // 35   Kernel thread
+    .long VMReplyMsg                // 36   Kernel thread
+    .long VMResizeCache             // 37   Kernel thread
+    .long VMLockSegment             // 38   Kernel thread
+    .long VMUnlockSegment           // 39   Kernel thread
+    .long SysVMAllocSegment         // 40   Kernel thread
+    .long SysVMFreeSegment          // 41   Kernel thread
+    .long SysVMFreeProcessSegments  // 42   Kernel thread
+
+
+
         
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 34
+#define MAX_SYSCALL                 42
+
+
+
+# ****************************************************************************
+
+#define SYSCALL0(name)      \
+.global name;               \
+name:;                      \
+    swi #SYS_ ## name;      \
+    bx lr;
+
+#define SYSCALL1 SYSCALL0
+#define SYSCALL2 SYSCALL0
+#define SYSCALL3 SYSCALL0
+#define SYSCALL4 SYSCALL0
 
 
 .balign 16
 
+#define SYS_SysVMRecvMsg                    35
+SYSCALL1( SysVMRecvMsg)
+
+#define SYS_SysVMReplyMsg                   36
+SYSCALL1( SysVMReplyMsg)
+
+#define SYS_SysVMResizeCache                37
+SYSCALL1( SysVMResizeCache)
+
+#define SYS_SysVMLockSegment                38
+SYSCALL1( SysVMLockSegment)
+
+#define SYS_SysVMUnlockSegment              39
+SYSCALL1( SysVMUnlockSegment)
+
+#define SYS_SysVMAllocSegment               40
+SYSCALL4( SysVMAllocSegment)
+
+#define SYS_SysVMFreeSegment                41
+SYSCALL1( SysVMFreeSegment)
+
+#define SYS_SysVMFreeProcessSegments        42
+SYSCALL1( SysVMFreeProcessSegments)
+
+
+
 # ****************************************************************************
+
+.balign 16
 
 reset_vector:
     MPrepareStack #CPU_EXCEPTION_STACK

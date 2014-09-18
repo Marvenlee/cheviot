@@ -135,7 +135,7 @@ void PrefetchAbortHandler (void)
     current->task_state.fault_addr = current->task_state.pc;
     current->task_state.fault_access = PROT_EXEC;
     current->task_state.flags |= TSF_PAGEFAULT;
-    DoPageFault();
+    PmapPageFault();
 }
 
 
@@ -168,78 +168,8 @@ void DataAbortHandler (void)
     current->task_state.fault_addr = GetFAR();
     current->task_state.fault_access = access;
     current->task_state.flags |= TSF_PAGEFAULT;
-    DoPageFault();
+    PmapPageFault();
 }
-
-
-
-
-/*
- *
- */
-
-void DoPageFault (void)
-{
-    struct Process *current;
-    struct Segment *seg;
-    vm_addr addr;
-    bits32_t access;
-    
-    current = GetCurrentProcess();
-        
-    KASSERT (current != NULL);
-    
-    addr = current->task_state.fault_addr;
-    access = current->task_state.fault_access;
-    addr = ALIGN_DOWN (addr, PAGE_SIZE);
-
-    if (current == vm_task)
-    {
-         PmapEnterPhysicalSpace (current->pmap, addr);
-    }
-    else
-    {
-        seg = SegmentFind (addr);
-        
-        if (addr < user_base || addr >= user_ceiling
-            || seg == NULL || seg->owner != current
-            || MEM_TYPE(seg->flags) == MEM_FREE
-            || MEM_TYPE(seg->flags) == MEM_RESERVED
-            || (access & seg->flags) != access)
-        {
-            current->task_state.flags |= TSF_EXCEPTION;
-            DoExit(EXIT_FATAL);
-        }
-    
-    
-        DisablePreemption();
-        
-        if (seg->flags & SEG_COMPACT)
-            Sleep (&compact_rendez);
-                
-        if (seg->flags & MAP_VERSION && access & PROT_WRITE)
-        {
-            seg->flags &= ~MAP_VERSION;
-            seg->segment_id = next_unique_segment_id ++;
-        }
-        
-        PmapEnterRegion(current->pmap, seg, addr);
-    }
-    
-            
-    current->task_state.flags &= ~TSF_PAGEFAULT;
-    KLog ("Returning from fault");
-}
-
-
-
-
-
-
-
-
-
-
 
 
 

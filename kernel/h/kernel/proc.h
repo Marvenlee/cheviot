@@ -67,7 +67,6 @@ typedef struct ProcessInfo
 {
     int sighangup_handle;
     int sigterm_handle;
-    int siglowmem_handle;
     int namespace_handle;
     
     char **argv;
@@ -237,6 +236,9 @@ struct Handle
 
 
 
+  
+    
+
 
 
 /*
@@ -268,28 +270,12 @@ struct Process
     struct TimeVal syscall_start_time;  // Time of start of syscall for VM watchdog purposes.
     int watchdog_state;
     
+
+    struct VMMsg vm_msg;
     
-    size_t virtualalloc_size;             // Size of memory requested by virtualalloc
-    bits32_t virtualalloc_flags;
-    struct Segment *virtualalloc_segment;
-    int virtualalloc_state;
-    
-    
-    void (*continuation_function)(void); // Deferred procedure called from
-                                         // KernelExit().
-    
-    union                               // Continuation/deferred procedure state
-    {
-        struct                          // VirtualAlloc memory cleansing state
-        {
-            vm_addr addr;
-            bits32_t flags;
-        } virtualalloc;
-    } continuation;
     
     
     LIST_ENTRY (Process) alloc_link;
-    
     LIST_ENTRY (Process) free_entry;
     
     int exit_status;                     // Exit() error code
@@ -318,9 +304,6 @@ struct Process
 
 
 
-#define VIRTUALALLOC_STATE_READY      0
-#define VIRTUALALLOC_STATE_SEND       1
-#define VIRTUALALLOC_STATE_REPLY      2
 
 
 
@@ -452,7 +435,7 @@ void SwitchTasks (struct TaskState *current, struct TaskState *next, struct CPU 
 int MaskInterrupt (int irq);
 int UnmaskInterrupt (int irq);
 
-
+void ContinueTo (void (*func) (void));
 
 
 #endif

@@ -99,12 +99,6 @@ void *idle_process_table;
 struct Process *root_process;
 struct Process *idle_task;
 struct Process *vm_task;
-struct Process *reaper_task;
-
-struct Process *memory_daemon;
-struct Process *reaper_daemon;
-
-
 
 bool reschedule_request;
 process_circleq_t realtime_queue[32];
@@ -194,6 +188,7 @@ handle_list_t free_handle_list;
 struct Pmap pmap_table[NPMAP];
 pmap_list_t pmap_lru_list;
 uint32 *pagedirectory;
+uint32 *phys_pagedirectory;
 vm_addr pagetable_base;
 
 vm_size free_segment_size[NSEGBUCKET];

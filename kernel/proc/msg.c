@@ -84,7 +84,7 @@ SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags)
     
     KASSERT (parcel != NULL);
     
-    PmapRemoveRegion(current->pmap, seg);
+    PmapRemoveRegion(seg);
     
     parcel->type = PARCEL_MSG;
     parcel->content.msg = seg;
@@ -162,7 +162,7 @@ SYSCALL ssize_t GetMsg (int port_h, void **rcv_msg)
     seg->flags = (seg->flags & ~PROT_MASK) | PROT_READWRITE;
 
     if ((seg->flags & SEG_COMPACT) == 0)
-        PmapEnterRegion (current->pmap, seg, seg->base);
+        PmapEnterRegion (seg, seg->base);
     
     return (ssize_t)seg->size;
 }

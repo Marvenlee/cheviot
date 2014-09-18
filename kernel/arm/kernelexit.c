@@ -79,12 +79,6 @@ void KernelExit (void)
     }
     
     ClosePendingHandles();
-    
-    EnablePreemption();
-    
-    while (current->continuation_function != NULL)
-        current->continuation_function();
-    
 }
 
 

@@ -104,7 +104,7 @@ SYSCALL int Spawn (struct SpawnArgs *user_sa, void **user_segments, int segment_
     
     for (t=0; t < segment_cnt; t++)
     {
-        PmapRemoveRegion (current->pmap, vs_ptrs[t]);
+        PmapRemoveRegion (vs_ptrs[t]);
         vs_ptrs[t]->owner = proc;
     }
     
@@ -141,7 +141,10 @@ struct Process *AllocProcess (void)
     proc->stride = STRIDE1 / proc->tickets;
     proc->remaining = 0;
     proc->pass = global_pass;
-    proc->continuation_function = NULL;
+
+    proc->vm_msg.state = VIRTUALALLOC_STATE_READY;
+
+//    proc->continuation_function = NULL;
 //    proc->virtualalloc_sz = 0;
     
     LIST_INIT (&proc->pending_handle_list);

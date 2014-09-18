@@ -97,10 +97,10 @@ int DoCloseProcess (int h)
         FreeHandle (h);
         return 0;
     }
-    else if (handle->owner != reaper_task)
+    else if (handle->owner != root_process)
     {
         DoRaiseEvent (child->sighangup_handle);
-        handle->owner = reaper_task;
+        handle->owner = root_process;
         return 0;
     }
     else

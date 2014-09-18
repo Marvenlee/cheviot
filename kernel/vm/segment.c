@@ -31,130 +31,46 @@
 
 
 
+SYSCALL int SysVMRecvMsg (struct VMMsg *msg);
+SYSCALL int SysVMReplyMsg (struct VMMsg *msg);
+SYSCALL size_t SysVMResizeCache (size_t desired_cache_size);
 
-/*
- * Looks up and returns a Segment for a given virtual address.
- */
+SYSCALL int SysVMLockSegment (struct Segment *segment);
+SYSCALL int SysVMUnlockSegment (struct Segment *segment);
 
-struct Segment *SegmentFind (vm_addr addr)
-{
-    int low = 0;
-    int high = seg_cnt - 1;
-    int mid;    
-        
-        
-    while (low <= high)
-    {
-        mid = low + ((high - low) / 2);
-        
-        if (addr >= seg_table[mid].base + seg_table[mid].size)
-            low = mid + 1;
-        else if (addr < seg_table[mid].base)
-            high = mid - 1;
-        else
-            return &seg_table[mid];
-    }
-
-    return NULL;
-}
+SYSCALL struct Segment *SysVMAllocSegment (struct Process *proc, size_t size, bits32_t flags, vm_addr paddr);
+SYSCALL int SysVMFreeSegment (struct Segment *seg);
+SYSCALL int SysVMFreeProcessSegments (struct Process *proc);
 
 
 
 
-/*
- * Used by Spawn() to lookup multiple Segment structures
- * Initializes the vseg array with pointers to the found areas.
- * Ensures each Segment is unique otherwise returns an error.
- *
- * OPTIMIZE: For sizes greater than 64k, w should try to find a suitable
- * segment where we can create an allocation that is 64k aligned to make
- * use of a CPU's larger TLB sizes.  Same applies for physical allocation
- * and compaction.
- *
- */
- 
-int SegmentFindMultiple (struct Segment **segs, void **mem_ptrs, int cnt)
-{
-    struct Segment *seg;
-    struct Process *current;
-    int t, u;
-    
-    
-    current = GetCurrentProcess();
+SYSCALL int VMRecvMsg (struct VMMsg *msg);
+SYSCALL int VMReplyMsg (struct VMMsg *msg);
+SYSCALL size_t VMResizeCache (size_t desired_cache_size);
 
-    for (t=0; t< cnt; t++)
-    {
-        seg = SegmentFind ((vm_addr)mem_ptrs[t]);
-        
-        if (seg == NULL || seg->owner != current || (seg->flags & MEM_MASK) != MEM_ALLOC)
-            return memoryErr;
-        
-        if (seg->flags & SEG_WIRED)
-            return memoryErr;
-        
-        for (u=0; u<t; u++)
-        {
-            if (seg == segs[u])
-                return paramErr;
-        }
-        
-        segs[t] = seg;
-    }
-    
-    return 0;
-}   
+SYSCALL int VMLockSegment (struct Segment *segment);
+SYSCALL int VMUnlockSegment (struct Segment *segment);
+
+SYSCALL struct Segment *VMAllocSegment (struct Process *proc, size_t size, bits32_t flags, vm_addr paddr);
+SYSCALL int VMFreeSegment (struct Segment *seg);
+SYSCALL int VMFreeProcessSegments (struct Process *proc);
+
+void CompactMem (size_t requested_alloc_size);
+
+
+
+
 
 
 
 
 /*
- * Enqueues a memory allocation request to the VM kernel task.
+ * Sends an allocation request to the VM kernel task.
  */
 
-struct Segment *SegmentAlloc (ssize_t size, bits32_t flags)
+struct Segment *SegmentAlloc (vm_addr paddr, vm_size size, bits32_t flags)
 {
-    struct Segment *seg;
-    struct Process *current;
-    
-    current = GetCurrentProcess();
-
-    if (current->virtualalloc_state == VIRTUALALLOC_STATE_READY)
-    {
-        if (size <= 0 || requested_alloc_size + size < requested_alloc_size)
-            return NULL;
- 
-        current->virtualalloc_state = VIRTUALALLOC_STATE_SEND;       
-        requested_alloc_size += size;
-        current->virtualalloc_size = size;
-        current->virtualalloc_flags = flags;
-       
-        Wakeup (&vm_task_rendez);    
-        Sleep (&alloc_rendez);
-        return NULL;    
-    }
-    else if (current->virtualalloc_state == VIRTUALALLOC_STATE_REPLY)
-    {
-        seg = current->virtualalloc_segment;
-        current->virtualalloc_state = VIRTUALALLOC_STATE_READY;
-        return seg;
-    }
-    else
-    {
-        current->virtualalloc_state = VIRTUALALLOC_STATE_READY;
-        return NULL;
-    }
-}
-
-
-
-
-/*
- * Allocates a segment struct on behalf of VirtualAllocPhys().
- */
-
-struct Segment *SegmentAllocPhys (ssize_t size, bits32_t flags)
-{
-    int t;
     struct Segment *seg;
     struct Process *current;
     
@@ -163,30 +79,29 @@ struct Segment *SegmentAllocPhys (ssize_t size, bits32_t flags)
     if (size <= 0)
         return NULL;
     
-    for (t=0; t < NSEGBUCKET; t++)
+    if (current->vm_msg_state == VM_STATE_READY)
     {
-        if (size <= free_segment_size[t]
-            && (seg = LIST_HEAD (&free_segment_list[t])) != NULL)
-        {
-            LIST_REM_HEAD (&free_segment_list[t], link);
-
-            LIST_ADD_TAIL (&segment_heap, seg, link);
-            
-            seg->size = size;
-            seg->physical_addr = (vm_addr)NULL;
-            seg->flags = flags;
-            seg->owner = current;
-
-            return seg;
-        }
+        current->vm_msg.type = VMMSG_ALLOC;
+        current->vm_msg.paddr = paddr;       
+        current->vm_msg.size = size;
+        current->vm_msg.flags = flags;
+        
+        current->vm_msg_state = VM_STATE_SEND;       
+        Wakeup (&vm_task_rendez);    
+        Sleep (&alloc_rendez);
+        return NULL;    
     }
-    
-    return NULL;
+    else if (current->vm_msg_state == VM_STATE_REPLY)
+    {
+        seg = current->vm_msg.seg;
+        current->vm_msg_state = VM_STATE_READY;
+        return seg;
+    }
+    else
+    {
+        return NULL;
+    }
 }
-
-
-
-
 
 
 
@@ -196,93 +111,104 @@ struct Segment *SegmentAllocPhys (ssize_t size, bits32_t flags)
  *
  * Called by VirtualFree()
  * 
- * Frees a segment if it was created by VirtualAllocPhys().
- * Otherwise it marks the segment as garbage to be freed by
- * the 'compaction' task.
  */
  
 void SegmentFree (struct Segment *seg)
 {
-    KASSERT (0 <= seg->bucket_q && seg->bucket_q < NSEGBUCKET);
-
-    if (MEM_TYPE (seg->flags) == MEM_PHYS)
+    struct Process *current;
+    
+    current = GetCurrentProcess();
+    
+    if (size <= 0)
+        return NULL;
+    
+    if (current->vm_msg_state == VM_STATE_READY)
     {
-        seg->flags = MEM_FREE;
-        LIST_ADD_HEAD (&free_segment_list[seg->bucket_q], seg, link);
+        current->vm_msg.type = VMMSG_FREE;
+        current->vm_msg.seg = seg;
+        
+        current->vm_msg_state = VM_STATE_SEND;       
+        Wakeup (&vm_task_rendez);    
+        Sleep (&alloc_rendez);
+        return NULL;    
+    }
+    else if (current->vm_msg_state == VM_STATE_REPLY)
+    {
+        current->vm_msg_state = VM_STATE_READY;
+        return seg;
     }
     else
     {
-        seg->flags = MEM_GARBAGE;
-        garbage_size += seg->size;
+        return NULL;
     }
 }
-     
 
 
 
 
 
-/* VMTask Part 1
- * 
- * The VM Task is a kernel task that processes requests to allocate and free memory
- * from the heap.  It resizes the segment cache and compacts the heap to make room
- * at the top for allocations.
+
+/*
  *
- * As the kernel has a single kernel stack (interrupt model kernel) the VM Task
- * is a collection of continuation functions that are called by KernelExit.  This way
- * the VM Task never returns to user-mode.  The VM task maps all of physical memory
- * into its address space and the page fault handling code treats it as a special case.
- * 
- * The VM Task is made up of 4 continuations that have a number of preemption points.
- * If the continuation is preempted it starts again the next time the VM Task runs.
- * If a continuation completes it disables preemption and advance to the next
- * continuation.
- *
- * 1 VMTaskBegin()
- * 2 VMTaskResizeCache()
- * 3 VMTaskCompactHeap()
- * 4 VMTaskAllocateSegments();
- *
- * VMTaskBegin determines if there is any requests to allocate memory, otherwise
- * it goes to sleep.
  */
 
-void VMTaskBegin (void)
+void VMTask (void)
 {
-    struct Process *current;
+    struct VMMsg msg;
+    struct Segment *seg;
     
-    current = GetCurrentProcess();
     
-    if (requested_alloc_size == 0)
-        Sleep (&vm_task_rendez);
-    
-    DisablePreemption();
-    current->continuation_function = &VMTaskResizeCache;
+    while (1)
+    {
+        SysVMRecvMsg (&msg);
+     
+        if (msg.type == VMMSG_ALLOC)
+        {                   
+            if ((seg = SysVMAllocSegment (msg.proc, msg.size, msg.flags, msg.paddr)) == NULL)
+            {
+                CompactMem(msg.size);
+                seg = SysVMAllocSegment (msg.proc, msg.size, msg.flags, msg.paddr);
+            }
+            
+            
+            msg.seg = seg;
+        }
+        else if (msg.type == VMMSG_FREE)
+        {
+            msg.result = SysVMFreeSegment(msg.seg);
+            msg.seg = NULL;
+        }
+        else if (msg.type == VMMSG_FREE_PROCESS)
+        {
+            SysVMFreeProcessSegments (msg.proc);
+            msg.seg = NULL;
+        }
+        
+        SysVMReplyMsg (&msg);
+    }
+        
 }
 
 
 
 
 
-/* 
- * VM Task's 2nd continuation.
- * 
- * Resizes the segment cache by marking the least recently used segments as
- * garbage until the cache is of the desired size or less.
- */  
-    
-void VMTaskResizeCache (void)
-{
-    struct Segment *cache_seg;
-    struct Segment *seg;
-    vm_size heap_remaining;
-    vm_addr top_of_heap;
-    struct Process *current;
-    vm_size desired_cache_size;
-    
-    
-    current = GetCurrentProcess();
 
+
+        
+        
+        
+        
+                
+void CompactMem (size_t requested_alloc_size)
+{                
+    struct Segment *seg;
+    vm_addr watermark;
+    vm_size desired_cache_size;
+    vm_size heap_remaining;      
+    vm_addr top_of_heap;
+    
+    
     seg = LIST_TAIL (&segment_heap);
         
     if (seg == NULL)
@@ -291,8 +217,111 @@ void VMTaskResizeCache (void)
         top_of_heap = seg->base + seg->size;
     
     heap_remaining = memory_ceiling - top_of_heap;
+
+
+    
     desired_cache_size = (heap_remaining + garbage_size + cache_size
-                                               - requested_alloc_size) / 4 * 3;
+                                           - requested_alloc_size) / 4 * 3;
+
+    VMResizeCache (desired_cache_size);
+
+
+    watermark = VM_USER_BASE;
+    
+    seg = LIST_HEAD (&segment_heap);
+    
+    while (seg != NULL)
+    {
+        alignment = PmapAlignmentSize (seg->size);
+    
+        if (seg->size >= 0x100000)
+            watermark = ALIGN_UP (watermark, 0x100000);
+        else if (compact_seg->size >= 0x10000)
+            watermark = ALIGN_UP (watermark, 0x10000);
+
+        if (watermark >= seg->physical_addr)
+            watermark = new_watermark;
+            
+        VMLockSegment (seg);
+
+        if (watermark < seg->physical_addr)
+        {
+            MemCpy ((void *)watermark, (void *) seg->physical_addr, seg->size);
+            seg->physical_addr = watermark;
+        }
+        
+        VMUnlockSegment (seg);
+        
+        watermark = seg->physical_addr + seg->size;
+        
+        seg = LIST_NEXT (seg, link);
+    }
+}
+
+
+
+
+
+
+
+
+SYSCALL int VMRecvMsg (struct VMMsg *msg)
+{
+    struct Process *current;
+    
+    
+    current = GetCurrentProcess();
+
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
+    
+    
+    // if alloc queue has entry
+    // copy out data, disablepreemption, removed head
+    
+    // else sleep
+    
+    
+    
+    return 0;
+}
+
+
+
+
+SYSCALL int VMReplyMsg (struct VMMsg *msg)
+{
+    struct Process *current;
+    
+    
+    current = GetCurrentProcess();
+
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
+    
+    // reply current message to proc in msg???????
+    // wakeup blocked task.
+        
+    return 0;
+}
+
+
+
+
+/*
+ *
+ */  
+    
+SYSCALL size_t VMResizeCache (size_t desired_cache_size)
+{
+    struct Segment *cache_seg;
+    struct Process *current;
+    
+    
+    current = GetCurrentProcess();
+
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
         
     if (desired_cache_size < min_cache_size)
         desired_cache_size = min_cache_size;
@@ -313,226 +342,276 @@ void VMTaskResizeCache (void)
         if (cache_seg == last_aged_seg)
             last_aged_seg = NULL;
         
-        cache_seg->flags = MEM_GARBAGE;
+        cached_seg->flags = MEM_FREE;
+        LIST_REM_ENTRY (&segment_heap, cached_seg, link);
+        LIST_ADD_HEAD (&free_segment_list[seg->bucket_q], cached_seg, link);
+        
         cache_size -= cache_seg->size;
         garbage_size += cache_seg->size;
         
         EnablePreemption();
     }
     
-    
-    DisablePreemption();
-    current->continuation_function = &VMTaskCompactHeap;
+    return cache_size;
 }
 
 
 
 
 /*
- * VM Task's 3rd continuation.
- * 
- * Frees segments marked as garbage and compacts allocated segments towards
- * the bottom of physical memory.  Memory compaction is preemptible with 
- * the current segment and offset of the move updated for every page moved.
  */
  
-
-void VMTaskCompactHeap(void)
+ 
+int VMLockSegment (struct Segment *seg)
 {
-	struct Segment *prev;
-    struct Segment *next;
     struct Process *current;
-    vm_addr watermark;    
     
-
+    
     current = GetCurrentProcess();
-   
-    DisablePreemption();
-       
-    if (garbage_size == 0)
-    {
-        current->continuation_function = &VMTaskAllocateSegments;
-        return;
-    }
-    
-    if (compact_seg == NULL)
-    {
-        compact_seg = LIST_HEAD (&segment_heap);
-        compact_offset = 0;
-        watermark = VM_USER_BASE;
-    }
-    
 
-	while (compact_seg != NULL)
-	{
-        if (MEM_TYPE(compact_seg->flags) == MEM_GARBAGE)
-        {
-            next = HEAP_NEXT (compact_seg, link);
-            
-            EnablePreemption();
-            DisablePreemption();
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
+    
+    DisablePreemption();
+    
+    PmapRemoveRegion (seg);
+    
+    if (seg->flags & vm_busy);
+        Sleep (&blah_rendez);
+    
+    seg->flags |= blah;
+    
+    return 0;
+}
+
+
+
+
+/*
+ *
+ */
+
+int VMUnlockSegment (struct Segment *seg)
+{
+    struct Process *current;
+    
+    
+    current = GetCurrentProcess();
+
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
+    
+    seg->flags &= ~blah;
+    WakeupAll (&blah_rendez);    
+    
+    return 0;
+}
+ 
+ 
+ 
+ 
+ 
+
+
+
         
-            HEAP_REM_ENTRY (&segment_heap, compact_seg, link);
-            HEAP_ADD_HEAD (&free_segment_list[compact_seg->bucket_q], compact_seg, link);
-            compact_seg->size = 0;
-            compact_seg->physical_addr = (vm_addr)NULL;
-            compact_seg->flags = MEM_FREE;
-            compact_seg->owner = NULL;
-            compact_seg = next;
+/*
+ *
+ */ 
+ 
+struct Segment *VMAllocSegment (struct Process *proc, size_t size, bits32_t flags, vm_addr paddr)
+{
+    struct Segment *seg;
+    struct Process *current;
+    vm_size heap_remaining;      
+    vm_addr top_of_heap;
+    vm_size alignment;
+    
+    current = GetCurrentProcess();
+    
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return NULL;
+    
+    if (MEM_TYPE(flags) == MEM_ALLOC)
+    {
+        seg = LIST_TAIL (&segment_heap);
+            
+        if (seg == NULL)
+            top_of_heap = VM_USER_BASE;
+        else
+            top_of_heap = seg->base + seg->size;
+        
+        heap_remaining = memory_ceiling - top_of_heap;
+
+        alignment = PmapAlignmentSize (size);
+        
+        paddr = ALIGN_UP (top_of_heap, alignment);
+        
+        if (paddr >= top_of_heap && paddr + size > top_of_heap && paddr + size <= memory_ceiling)
+        {
+            if ((seg = SegmentAllocStruct (size)) != NULL)
+            {
+                seg->owner = NULL;
+                seg->size = size;
+                seg->flags = flags;
+                seg->physical_addr = paddr;
+            }
         }
         else
-        {        
-            if (compact_offset == 0)
-            {
-                prev = LIST_PREV (compact_seg, link);
-                
-                if (prev != NULL)
-                    watermark = prev->base + prev->size;
-                else
-                    watermark = VM_USER_BASE;
-                
-                if (compact_seg->size >= 0x100000)
-                    watermark = ALIGN_UP (watermark, 0x100000);
-                else if (compact_seg->size >= 0x10000)
-                    watermark = ALIGN_UP (watermark, 0x10000);
-            }            
-              
-            if (watermark < compact_seg->physical_addr)
-            {
-                if (compact_seg->flags & SEG_WIRED)
-                {
-                    compact_seg->flags |= SEG_COMPACT;
-                    Sleep (&compact_rendez);
-                }
-                
-                if (compact_seg->owner != NULL)
-                    PmapRemoveRegion (compact_seg->owner->pmap, compact_seg);
-                                                
-                EnablePreemption();
-            
-                while (compact_offset < compact_seg->size)
-                {
-                    MemCpy ((void *)(watermark + compact_offset),
-                        (void *)(compact_seg->physical_addr + compact_offset),
-                        PAGE_SIZE);
-                        
-                    DisablePreemption();
-                    compact_offset += PAGE_SIZE;
-                    EnablePreemption();
-                }
-                
-                DisablePreemption();
-            
-                compact_seg->physical_addr = watermark;
-                compact_offset = 0;
-                
-                compact_seg->flags &= ~SEG_COMPACT;
-                WakeupAll (&compact_rendez);
-            }
-    
-            DisablePreemption();
-            compact_seg = LIST_NEXT (compact_seg, link);
+        {
+            seg = NULL;
+        }
+
+    }
+    else if (MEM_TYPE(flags) == MEM_PHYS)
+    {
+        if ((seg = SegmentAllocStruct (size)) != NULL)
+        {
+            seg->owner = NULL;
+            seg->size = size;
+            seg->flags = flags;
+            seg->physical_addr = paddr;
         }
     }
-    
-    DisablePreemption();
-
-    compact_seg = NULL;
-    compact_offset = 0;
-
-    current->continuation_function = &VMTaskAllocateSegments;
-}
-
-
-
-
-/*
- * VM Task's 4th continuation.
- *
- * Processes the requested allocations and stores information about the allocated
- * segment in the client's Process struct.  If there is new free segments and not
- * enough space at the top of the heap the VM Task restarts from the 1st continuation,
- * compacts and tries again.
- */
-
-void VMTaskAllocateSegments (void)
-{
-    struct Process *proc;
-    struct Segment *seg;
-    struct Process *current;
-
-    
-    current = GetCurrentProcess();
-    
-    while((proc = LIST_HEAD (&alloc_rendez.process_list)) != NULL)
+    else
     {
-        seg = AllocateSegment (proc, proc->virtualalloc_size, proc->virtualalloc_flags);
-
-        if (seg == NULL && garbage_size > 0 && cache_size > min_cache_size)
-            break;
-                
-        requested_alloc_size -= proc->virtualalloc_size;
-        proc->virtualalloc_segment = seg;
-        proc->virtualalloc_state = VIRTUALALLOC_STATE_REPLY;
-
-        Wakeup (&alloc_rendez);
+        seg = NULL;
     }
-
-    DisablePreemption();
-    current->continuation_function = &VMTaskBegin;
+    
+    return seg;
+    
 }
 
 
 
 
 /*
- * Allocates a single segment at the top of the heap.
+ * 
  */
- 
-struct Segment *AllocateSegment (struct Process *proc, vm_size size, bits32_t flags)
+
+struct Segment *SegmentAllocStruct (size_t size)
 {
-    vm_addr addr;
-    vm_addr top_of_heap;
     int t;
     struct Segment *seg;
-  
-    seg = LIST_TAIL (&segment_heap);
     
-    top_of_heap = seg->physical_addr + seg->size;
     
-    addr = top_of_heap;
-
-    if (seg->size > 0x100000)
-        addr = ALIGN_UP (top_of_heap, 0x100000);
-    else if (seg->size > 0x10000)
-        addr = ALIGN_UP (top_of_heap, 0x10000);
-    else
-        addr = top_of_heap;
-
-    if (addr + size > addr && addr + size  <= memory_ceiling)
+    for (t=0; t < NSEGBUCKET; t++)
     {
-        for (t=0; t < NSEGBUCKET; t++)
+        if (size <= free_segment_size[t]
+            && (seg = LIST_HEAD (&free_segment_list[t])) != NULL)
         {
-            if (size <= free_segment_size[t]
-                && (seg = LIST_HEAD (&free_segment_list[t])) != NULL)
-            {
-                LIST_REM_HEAD (&free_segment_list[t], link);
-
-                LIST_ADD_TAIL (&segment_heap, seg, link);
-                
-                seg->size = size;
-                seg->physical_addr = addr;
-                seg->flags = flags;
-                seg->owner = proc;
- 
-                return seg;
-            }
+            LIST_REM_HEAD (&free_segment_list[t], link);
+            LIST_ADD_TAIL (&segment_heap, seg, link);
+            seg->size = size;
+            return seg;
         }
-
     }
-
+    
     return NULL;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ *
+ */
+
+int VMFreeSegment (struct Segment *seg)
+{
+    struct Process *current;
+
+
+    KASSERT (0 <= seg->bucket_q && seg->bucket_q < NSEGBUCKET);
+    
+    current = GetCurrentProcess();
+
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
+
+    if (MEM_TYPE (seg->flags) == MEM_PHYS)
+    {
+        seg->flags = MEM_FREE;
+        LIST_ADD_HEAD (&free_segment_list[seg->bucket_q], seg, link);
+    }
+    else
+    {
+        seg->flags = MEM_FREE;
+        LIST_REM_ENTRY (&segment_heap, seg, link);
+        LIST_ADD_HEAD (&free_segment_list[seg->bucket_q], seg, link);
+    }
+
+    return 0;
+}
+
+
+
+
+
+/*
+ *
+ */
+
+int VMFreeProcessSegments (struct Process *proc)
+{
+    struct Process *current;
+    
+    
+    current = GetCurrentProcess();
+
+    if ((current->flags & PROCF_DAEMON) == 0)
+        return -1;
+        
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
