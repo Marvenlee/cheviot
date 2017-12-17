@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 /*
- * Process and non-VM kernel resource initialization.
+ * Kernel initialization.
  */
 
 #include <kernel/types.h>
@@ -23,30 +23,23 @@
 #include <kernel/proc.h>
 #include <kernel/dbg.h>
 #include <kernel/utility.h>
-#include <kernel/arch.h>
 #include <kernel/arm/init.h>
+#include <kernel/arch.h>
 #include <kernel/globals.h>
 #include <kernel/arm/boot.h>
 
 
+// Variables
 extern int svc_stack_top;
 extern int interrupt_stack_top;
 extern int exception_stack_top;
+extern int idle_stack_top;
 
-//extern int vm_task_stack_top;
-//extern int idle_task_stack_top;
+#define PROCF_USER            0         // User process
+#define PROCF_KERNEL          (1 << 0)  // Kernel task: For kernel daemons
 
-
-void InitProcesses(void);
-void IdleTask (void);
-void ReaperTask (void);
-void VMTask (void);
-
-
-
-struct Process *CreateProcess (void (*entry)(void), void *stack,
+struct Process *CreateProcess (void (*entry)(void), void *stack, void (*continuation)(void),
     int policy, int priority, bits32_t flags, struct CPU *cpu);
-
 
 /*
  * InitProc();
@@ -58,35 +51,17 @@ struct Process *CreateProcess (void (*entry)(void), void *stack,
  * includes this initialization code will be visible.
  */
 
-void InitProc (void)
-{
-    KLOG ("InitProc() ***");
-    
-    InitProcessTables();
-    InitProcesses();
-}
-
-
-
-
-
-
-
-/*
- *
- */
-
-void InitProcessTables (void)
+void InitProcesses (void)
 {
     uint32 t;
     struct Process *proc;
     struct Timer *timer;
     struct ISRHandler *isr_handler;
-    struct Channel *channel;
     struct Handle *handle;
-    struct Parcel *parcel;
+    struct CPU *cpu;
+
     
-    KPRINTF ("InitProcessTables()");
+    KLog ("InitProcesses()");
         
         
     for (t=0;t<NIRQ;t++)
@@ -103,6 +78,10 @@ void InitProcessTables (void)
     
     
     LIST_INIT (&free_process_list)
+    free_process_cnt = max_process;
+    
+    KLog ("InitProcesses() - isr, realtime, stride and free process done");
+
         
     for (t=0; t<max_process; t++)
     {
@@ -111,6 +90,11 @@ void InitProcessTables (void)
         LIST_ADD_TAIL (&free_process_list, proc, free_entry);
         proc->state = PROC_STATE_UNALLOC;
     }
+
+    KLog ("InitProcesses() - processes added to free list");
+    
+    
+    // Move to inittimer ?
     
     for (t=0; t<JIFFIES_PER_SECOND; t++)
     {
@@ -121,32 +105,32 @@ void InitProcessTables (void)
     softclock_jiffies = hardclock_jiffies = 0;
 
     LIST_INIT (&free_timer_list);
+    free_timer_cnt = max_timer;
     
     for (t=0; t < max_timer; t++)
     {
         timer = &timer_table[t];
         LIST_ADD_TAIL (&free_timer_list, timer, timer_entry);
     }
-        
+
+    KLog ("InitProcesses() - timer lists done");
+
+    
+    
     LIST_INIT (&free_isr_handler_list);
+    free_isr_handler_cnt = max_isr_handler;
     
     for (t=0; t < max_isr_handler; t++)
     {
         isr_handler = &isr_handler_table[t];
         LIST_ADD_TAIL (&free_isr_handler_list, isr_handler, isr_handler_entry);
     }
-        
-        
-    LIST_INIT (&free_channel_list);
     
-    for (t=0; t < max_channel; t++)
-    {
-        channel = &channel_table[t];
-        LIST_ADD_TAIL (&free_channel_list, channel, link);
-    }
-    
+    KLog ("InitProcesses() - free isr list done");
+
     
     LIST_INIT (&free_handle_list);
+    free_handle_cnt = max_handle;
     
     for (t = 0; t < max_handle; t++)
     {
@@ -159,100 +143,75 @@ void InitProcessTables (void)
         
         LIST_ADD_TAIL (&free_handle_list, handle, link);
     }
-    
-    
-    LIST_INIT (&free_parcel_list);
-    
-    for (t=0; t < max_parcel; t++)
-    {
-        parcel = &parcel_table[t];
-        LIST_ADD_TAIL (&free_parcel_list, parcel, link);
-    }
-}
-
-
-
-
-/*
- * Initializes root user process followed by idle and vm_task kernel processes.
- */
-
-void InitProcesses (void)
-{   
-    struct CPU *cpu;
-    int t;
-    
+      
+    KLog ("InitProcesses() - free handle list done");
    
-    KLog("InitProcesses()");
+    KLog("Init root process");
     
     max_cpu = 1;
     cpu_cnt = max_cpu;
     cpu = &cpu_table[0];
     
-    
-    
-    idle_task = CreateProcess (IdleTask, &idle_task_stack_top, SCHED_IDLE, 0, PROCF_DAEMON, &cpu_table[0]);
-    vm_task = CreateProcess (VMTask, &vm_task_stack_top, SCHED_OTHER, 0, PROCF_DAEMON, &cpu_table[0]);
 
-    root_process = CreateProcess (bootinfo->procman_entry_point, (void *)bootinfo->user_stack_ceiling,
-                                    SCHED_OTHER, 100, PROCF_FILESYS, &cpu_table[0]);
-                    
-    for (t=0; t < seg_cnt; t++)
-    {
-        if ((seg_table[t].flags & MEM_MASK) == MEM_ALLOC)
-        {
-            seg_table[t].owner = root_process;
-            seg_table[t].segment_id = next_unique_segment_id ++;
-        }
-    }    
-    
+    root_process = CreateProcess (bootinfo->root_entry_point, (void *)bootinfo->root_stack_top,
+                                    NULL, SCHED_RR, 1, PROCF_USER, &cpu_table[0]);
+        
     root_process->state = PROC_STATE_RUNNING;
     cpu->current_process = root_process;
     cpu->reschedule_request = 0;
     cpu->svc_stack = (vm_addr)&svc_stack_top;
     cpu->interrupt_stack = (vm_addr)&interrupt_stack_top;
     cpu->exception_stack = (vm_addr)&exception_stack_top;
+
+    idle_task = CreateProcess (IdleTask, (void *)idle_stack_top,
+                                    NULL,  SCHED_RR, 0, PROCF_KERNEL, &cpu_table[0]);
+                                    
+    KLog ("InitProcesses() DONE");
 }
 
 
-
-
-
-/*
- *
- */
-     
-struct Process *CreateProcess (void (*entry)(void), void *stack, int policy, int priority, bits32_t flags, struct CPU *cpu)
+/*!
+    Hmmm, can't we simplify this for root and idle processes?
+*/     
+struct Process *CreateProcess (void (*entry)(void), void *stack, void (*continuation)(void),
+    int policy, int priority, bits32_t flags, struct CPU *cpu)
 {    
     int handle;
     struct Process *proc;
-  
-    
-    proc = AllocProcess();
-    handle = AllocHandle();
 
-    KASSERT (handle >= 0);
+    KLog ("CreateProcess()");  
+    
+    if ((proc = AllocProcess()) == NULL)
+    {
+        return NULL;
+    }
+    
+    if ((handle = AllocHandle()) == -1)
+    {
+        return NULL;
+    }
         
     SetObject (proc, handle, HANDLE_TYPE_PROCESS, proc);
     
+    proc->continuation_function = continuation;        
     proc->handle = handle;
     proc->exit_status = 0;
-    
+    proc->virtualalloc_size = 0;
     proc->flags = flags;
     
-   // FIXME: Move into AllocProcess ????????????????
+    InitRendez(&proc->waitfor_rendez);
+        
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);
     
-        
-    PmapInit (proc);
+    proc->as.pmap->l1_table = (void *)VirtToPhys(bootinfo->root_pagedir);
     
     proc->task_state.cpu = cpu;
     proc->task_state.flags = 0;
     proc->task_state.pc = (uint32)entry;
     proc->task_state.r0 = 0;
     
-    if (proc->flags & PROCF_DAEMON) {
+    if (proc->flags & PROCF_KERNEL) {
         proc->task_state.cpsr = cpsr_dnm_state | SYS_MODE | CPSR_DEFAULT_BITS;
     }
     else {
@@ -273,6 +232,8 @@ struct Process *CreateProcess (void (*entry)(void), void *stack, int policy, int
     proc->task_state.r12 = 0;
     proc->task_state.sp = (uint32)stack;
     proc->task_state.lr = 0;
+
+    KLog ("Proc add to run queue");
 
     if (policy == SCHED_RR || policy == SCHED_FIFO)
     {
@@ -296,32 +257,9 @@ struct Process *CreateProcess (void (*entry)(void), void *stack, int policy, int
         cpu->idle_process = proc;
     }
 
+    KLog ("CreateProcess() DONE");
 
     return proc;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
 

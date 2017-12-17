@@ -38,20 +38,8 @@
 
 SYSCALL int ProcessInfo (struct ProcessInfo *pi_result)
 {
-    struct Process *current;
-    struct ProcessInfo pi;
-    
-    current = GetCurrentProcess();
-    
-    pi.sighangup_handle     = current->sighangup_handle;
-    pi.sigterm_handle       = current->sigterm_handle;
-    pi.namespace_handle     = current->namespace_handle;
-
-    pi.argv = current->argv;
-    pi.argc = current->argc;
-    pi.envv = current->envv;
-    pi.envc = current->envc;
-            
+    struct ProcessInfo *pi;
+    // TODO:
     CopyOut (pi_result, &pi, sizeof pi);
     return 0;
 }

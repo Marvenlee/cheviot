@@ -28,7 +28,6 @@
 
 
 
-
 /*
  * Create a new process, Only Executive.has permission to create a new process.
  * Takes a table of pointers to segments and a table of handles to pass to the
@@ -37,81 +36,68 @@
  * If removing page table entries in PmapRemove operations are atomic we can
  * move it before disabling preemption.
  *
+
  */
 
-SYSCALL int Spawn (struct SpawnArgs *user_sa, void **user_segments, int segment_cnt)
+SYSCALL int Fork (bits32_t flags)
 {
     struct Process *proc, *current;
-    void *segments[NSPAWNSEGMENTS];
-    struct Segment *vs_ptrs[NSPAWNSEGMENTS];
-    int h;  
-    int t;
-    struct SpawnArgs sa;
+    int h;
     
     
     current = GetCurrentProcess();
     
-    if (!(current->flags & PROCF_FILESYS))
-        return privilegeErr;
-    
-            
-    if (segment_cnt < 1 || segment_cnt > NSPAWNSEGMENTS)
-        return paramErr;
-
-    CopyIn (&sa, user_sa, sizeof sa);
-    CopyIn (segments, user_segments, sizeof (void *) * segment_cnt);
-
-    if (free_handle_cnt < (1 + 3 + 1) || free_process_cnt < 1)
-        return resourceErr;
-    
-    if (sa.namespace_handle == -1)
-        return paramErr;
-
-    if (FindHandle (current, sa.namespace_handle) == NULL)
-        return paramErr;
-    
-    if (SegmentFindMultiple (vs_ptrs, segments, segment_cnt) < 0)
-        return paramErr;
-    
     DisablePreemption();
     
-    h = AllocHandle();
-    proc = AllocProcess();
-    proc->handle = h;
-    proc->flags = sa.flags & ~PROCF_SYSTEMMASK;
-
-
-    proc->namespace_handle = sa.namespace_handle;
-    handle_table[sa.namespace_handle].owner = proc;
-    handle_table[sa.namespace_handle].flags |= HANDLEF_GRANTED_ONCE;
-    
-    proc->sighangup_handle = AllocHandle();
-    SetObject (proc, proc->sighangup_handle, HANDLE_TYPE_SYSTEMEVENT, NULL);
-    handle_table[proc->sighangup_handle].flags |= HANDLEF_GRANTED_ONCE;
-    
-    proc->sigterm_handle = AllocHandle();
-    SetObject (proc, proc->sigterm_handle, HANDLE_TYPE_PROCESS, NULL);
-    handle_table[proc->sigterm_handle].flags |= HANDLEF_GRANTED_ONCE;
-    
-    current->argv = sa.argv;
-    current->argc = sa.argc;
-    current->envv = sa.envv;
-    current->envc = sa.envc;
-
-    ArchAllocProcess(proc, sa.entry, sa.stack_top);
-    
-    SetObject (current, h, HANDLE_TYPE_PROCESS, proc);
-    
-    for (t=0; t < segment_cnt; t++)
+    if ((h = AllocHandle()) == -1)
+        return resourceErr;
+        
+    if ((proc = AllocProcess()) == NULL)
     {
-        PmapRemoveRegion (vs_ptrs[t]);
-        vs_ptrs[t]->owner = proc;
+        FreeHandle (h);
+        return resourceErr;
+    }
+
+    proc->handle = h;
+    proc->flags = 0;
+    
+    if (ArchForkProcess(proc, current) != 0)
+    {
+        FreeProcess (proc);
+        FreeHandle (h);
+        return resourceErr;
+    } 
+    
+    if (ForkAddressSpace (&proc->as, &current->as) != 0)
+    {
+        FreeProcess(proc);
+        FreeHandle(h);
+        return resourceErr;
     }
     
+    SetObject (current, h, HANDLE_TYPE_PROCESS, proc);    
+        
     proc->state = PROC_STATE_READY;
     SchedReady(proc);
+
     return h;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -141,11 +127,10 @@ struct Process *AllocProcess (void)
     proc->stride = STRIDE1 / proc->tickets;
     proc->remaining = 0;
     proc->pass = global_pass;
-
-    proc->vm_msg.state = VIRTUALALLOC_STATE_READY;
-
-//    proc->continuation_function = NULL;
+    proc->continuation_function = NULL;
 //    proc->virtualalloc_sz = 0;
+    
+    InitRendez(&proc->waitfor_rendez);
     
     LIST_INIT (&proc->pending_handle_list);
     LIST_INIT (&proc->close_handle_list);

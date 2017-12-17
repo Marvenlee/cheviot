@@ -60,15 +60,8 @@
 .global interrupt_stack
 .global exception_stack_top
 .global exception_stack
-.global root_stack_top
-.global root_stack
-.global idle_task_stack_top
-.global idle_task_stack
-.global vm_task_stack_top
-.global vm_task_stack
-.global reaper_task_stack_top
-.global reaper_task_stack
-
+.global idle_stack_top
+.global idle_stack
 
 
 .section .data
@@ -81,52 +74,39 @@ svc_stack:
 .skip 4096
 svc_stack_top:
 
-.balign 4096
 interrupt_stack:
 .skip 4096
 interrupt_stack_top:
 
-.balign 4096
 exception_stack:
 .skip 4096
 exception_stack_top:
 
-.balign 4096
-root_stack:
+idle_stack:
 .skip 4096
-root_stack_top:
+idle_stack_top:
 
-.balign 2048
-idle_task_stack:
-.skip 2048
-idle_task_stack_top:
+init_stack:
+.skip 4096
+init_stack_top:
 
-.balign 2048
-reaper_task_stack:
-.skip 2048
-reaper_task_stack_top:
-
-.balign 2048
-vm_task_stack:
-.skip 2048
-vm_task_stack_top:
-
-
+# ****************************************************************************
 
 .section .text
 
 # ****************************************************************************
 # Entry point into the kernel,  the bootinfo structure is passed in r0 by
-# the bootloader.  Clears uninitialized data, saves a pointer to bootinfo
+# the bootloader.  Clears bootstrap uninitialized data, saves a pointer to bootinfo
 # and calls Main().
 
 _start:
-    ldr   r3, =_bss_end
-    ldr   r2, =_bss_start
+    ldr   sp, =init_stack_top
+    ldr   r3, =_ebss
+    ldr   r2, =_sbss
     cmp   r2, r3
     bcs   2f
     sub   r3, r2, #1
-    ldr   r1, =_bss_end
+    ldr   r1, =_ebss
     sub   r1, r1, #1
     mov   r2, #0
 1:
@@ -162,7 +142,7 @@ _start:
     ldr sp, =svc_stack_top
 
     msr cpsr_c, #(SYS_MODE | I_BIT | F_BIT);
-    ldr sp, =root_stack_top
+    ldr sp, =idle_stack_top
 
     b Main
 

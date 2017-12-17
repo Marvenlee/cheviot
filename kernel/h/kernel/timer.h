@@ -61,8 +61,7 @@ LIST_TYPE (Timer) timer_list_t;
  * Prototypes
  */
 
-void SetWatchdog (int seconds);
-int CheckWatchdog (void);
+int SetAlarm (struct TimeVal *tv_user);
 
 
 

@@ -21,24 +21,25 @@
 #
 # ----------------------------------------------------------------------------
 
-LINK:= arm-eabi-ld
-CC:= arm-eabi-gcc
-CPP:= arm-eabi-g++
-AS:=arm-eabi-as
-STRIP:= arm-eabi-strip
-OBJCOPY:= arm-eabi-objcopy
-OBJDUMP:= arm-eabi-objdump
-ARCHIVE:= arm-eabi-ar
+LINK:= arm-none-eabi-ld
+CC:= arm-none-eabi-gcc
+CPP:= arm-none-eabi-g++
+AS:=arm-none-eabi-as
+STRIP:= arm-none-eabi-strip
+OBJCOPY:= arm-none-eabi-objcopy
+OBJDUMP:= arm-none-eabi-objdump
+ARCHIVE:= arm-none-eabi-ar
 OFLAGS:=
 AFLAGS:= -r -I./h 
-CFLAGS:= -Wall -I./h -O2 
-LFLAGS:= -v
-DFLAGS:= -I/cheviot/arm-eabi/include -I./kernel/h \
-			-I/cheviot/lib/gcc/arm-eabi/4.8.1/include
+CFLAGS:= -Wall -I./h -O2 -std=c99
+LFLAGS:= -v --library-path="/home/marven/build_tools/lib/gcc/arm-none-eabi/4.9.2/fpu"
+
+DFLAGS:= -I/cheviot/arm-none-eabi/include -I./kernel/h \
+			-I/cheviot/lib/gcc/arm-none-eabi/4.9.2/include
 DEPEND:= makedepend 
-APPLINK:= arm-eabi-gcc
+APPLINK:= arm-none-eabi-gcc
 APPLDFLAGS:= 
-INSTALLDIR:=/cheviot/arm-eabi/
+INSTALLDIR:=/cheviot/arm-none-eabi/
 
 
 # Could add -fno-common to CFLAGS

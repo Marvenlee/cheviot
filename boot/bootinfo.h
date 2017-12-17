@@ -4,41 +4,23 @@
 #include "types.h"
 
 
-
-#define NMODULE		64
-
-struct Module
-{
-	char name[64];
-	void *addr;
-	size_t size;
-};
-
-
-
 struct BootInfo
 {
-	void (*procman_entry_point)(void);
-	vm_addr user_stack_base;
-	vm_addr user_stack_ceiling;
-	vm_addr user_base;
-	vm_addr heap_base;
-	vm_addr heap_ceiling;
+	void (*root_entry_point)(void);
+	void *root_stack_top;
+	void *root_pagedir;
+	void *kernel_pagetables;
+	void *root_pagetables;
+	void *io_pagetables;
 	uint32 screen_width;
 	uint32 screen_height;
-	uint32 screen_buf;
 	uint32 screen_pitch;
- 
-	struct Segment *segment_table;
-	int segment_cnt;
-
-	struct Module *module_table;
-	int module_cnt;
+	void *screen_buf;
+    void *timer_regs;
+    void *gpio_regs;
+    void *interrupt_regs;
+    vm_size mem_size;
 };
-
-
-
-
 
 
 #endif

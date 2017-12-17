@@ -1,6 +1,5 @@
-
-SEARCH_DIR("/cheviot/lib/gcc/arm-eabi/4.8.1/fpu");
-
+SEARCH_DIR("/home/marven/build_tools/arm-none-eabi/lib");
+SEARCH_DIR("/home/marven/build_tools/lib/gcc/arm-none-eabi/4.9.2/");
 
 SECTIONS
 {
@@ -45,8 +44,4 @@ SECTIONS
 		*(COMMON)
 		_bss_end = .;
 	}
-
-
-	_end = .;
-	
 }

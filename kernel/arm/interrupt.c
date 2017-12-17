@@ -51,15 +51,15 @@ void InterruptTopHalf (void)
     uint32 status;
     struct CPU *cpu;
     
-    KLog ("-- intr --");
     MemoryBarrier();
     
     pending_interrupts[0] |= interrupt_regs->irq_pending_1;
     pending_interrupts[1] |= interrupt_regs->irq_pending_2;
     pending_interrupts[2] |= interrupt_regs->irq_basic_pending;
 
-    if (interrupt_regs->irq_pending_1 & (1 << INTERRUPT_TIMER3))
+    if (pending_interrupts[0] & (1 << INTERRUPT_TIMER3))
     {
+        pending_interrupts[0] &= ~(1 << INTERRUPT_TIMER3);
         MemoryBarrier();
         status = timer_regs->cs;
         MemoryBarrier();
@@ -68,8 +68,9 @@ void InterruptTopHalf (void)
         {
             clo = timer_regs->clo;
             clo += MICROSECONDS_PER_JIFFY;
-            timer_regs->c3 = clo;
-            MemoryBarrier();    
+            timer_regs->c3 = clo;            
+            MemoryBarrier();
+            
             timer_regs->cs = ST_CS_M3;
             MemoryBarrier();
         
@@ -82,11 +83,13 @@ void InterruptTopHalf (void)
     mask_interrupts[0] |= pending_interrupts[0];
     mask_interrupts[1] |= pending_interrupts[1];
     mask_interrupts[2] |= pending_interrupts[2];
-        
+
     interrupt_regs->disable_irqs_1 = mask_interrupts[0];
     interrupt_regs->disable_irqs_2 = mask_interrupts[1];
     interrupt_regs->disable_basic_irqs = mask_interrupts[2];
-
+    MemoryBarrier();
+            
+//    KLog ("-- intr TOP END -- pending = %08x, masked = %08x", interrupt_regs->irq_pending_1,interrupt_regs->disable_irqs_1);
     cpu = GetCPU();
     cpu->reschedule_request = TRUE;
 }
@@ -101,6 +104,8 @@ void InterruptTopHalf (void)
 void InterruptBottomHalf (void)
 {
     DisableInterrupts();
+
+//    KLog ("-- Bottom -- pending = %08x, masked = %08x", interrupt_regs->irq_pending_1,interrupt_regs->disable_irqs_1);
     
     mask_interrupts[0] &= ~pending_interrupts[0];
     mask_interrupts[1] &= ~pending_interrupts[1];
@@ -109,6 +114,7 @@ void InterruptBottomHalf (void)
     interrupt_regs->disable_irqs_1 = mask_interrupts[0];
     interrupt_regs->disable_irqs_2 = mask_interrupts[1];
     interrupt_regs->disable_basic_irqs = mask_interrupts[2];
+    MemoryBarrier();
 
     if (pending_interrupts[0] != 0)
         ProcessInterrupts(0, 31);
@@ -118,6 +124,8 @@ void InterruptBottomHalf (void)
     
     if (pending_interrupts[2] != 0)
         ProcessInterrupts(64, NIRQ-1);
+
+//    KLog ("-- Bottom END -- pending = %08x, masked = %08x", interrupt_regs->irq_pending_1,interrupt_regs->disable_irqs_1);
 
     EnableInterrupts();
 }
@@ -134,6 +142,7 @@ void ProcessInterrupts (int imin, int imax)
     int t;
     struct ISRHandler *isr_handler;
 
+//    KLog ("ProcessInterrupts, min = %d, max = %d", imin, imax);
        
     for (t = imin; t <= imax; t++)
     {
@@ -280,6 +289,7 @@ SYSCALL int UnmaskInterrupt (int irq)
  
 void EnableIRQ (int irq)
 {
+    KLog ("EnableIRQ %d", irq);
     if (irq < 32)
     {
         interrupt_regs->enable_irqs_1 = 1 << irq;

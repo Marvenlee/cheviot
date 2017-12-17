@@ -15,16 +15,18 @@
  */
 
 /*
- * ARM and Raspberry Pi initialization.
+ * Kernel initialization.
  */
 
 #include <kernel/types.h>
 #include <kernel/vm.h>
 #include <kernel/proc.h>
 #include <kernel/dbg.h>
+#include <kernel/utility.h>
+#include <kernel/arm/init.h>
 #include <kernel/arch.h>
 #include <kernel/globals.h>
-
+#include <kernel/arm/boot.h>
 
 
 /*
@@ -32,71 +34,51 @@
  * Also, how do we preempt the kernel on arm/use separate stacks?
  *
  * There are 64 videocore IRQa and about 8 ARM IRQs.
+ *
+ * TODO: Can we set the vector table to 0xFFFF0000 by flag in cr15 ?
+ * NOTE: When setting the vector table entries at address 0 an exception occurred.
+ * Yet addresses a few bytes above 0 worked fine. Need to look into it.
  */
-
-
 void InitArm (void)
 {
-    KLOG ("InitArm() ***");
-
+    KLog  ("InitArm()");
+     
     cpsr_dnm_state = GetCPSR() & CPSR_DNM_MASK;
-    
-    
 
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x00) = (LDR_PC_PC | 0x18);
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x04) = (LDR_PC_PC | 0x18);
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x08) = (LDR_PC_PC | 0x18);
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x0C) = (LDR_PC_PC | 0x18);
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x10) = (LDR_PC_PC | 0x18);
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x14) = (LDR_PC_PC | 0x18);;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x18) = (LDR_PC_PC | 0x18);
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x1C) = (LDR_PC_PC | 0x18);
-    
+    KLog  ("InitArm() - set primary vector table");
+ 
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x00) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x04) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x08) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x0C) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x10) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x14) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x18) = (LDR_PC_PC | 0x18);
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x1C) = (LDR_PC_PC | 0x18);
+        
     /* setup the secondary vector table in RAM */
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x20) = (uint32)reset_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x24) = (uint32)undef_instr_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x28) = (uint32)swi_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x2C) = (uint32)prefetch_abort_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x30) = (uint32)data_abort_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x34) = (uint32)reserved_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x38) = (uint32)irq_vector;
-    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x3C) = (uint32)fiq_vector;
-
-
-    // AWOOGA (We're still using physical addresses of peripheral base here !!!!!!!!!!!!!
-    // 
-    //
-    //
-    // Have we just mapped the screen buffer or the entire peripherial IO area
-    // at top of address space?
-    
-    timer_regs = (struct bcm2835_system_timer_registers *)
-                            ((uint8 *)ST_BASE + peripheral_base - peripheral_phys);
-
-    interrupt_regs = (struct bcm2835_interrupt_registers *)
-                            ((uint8 *)ARMCTRL_IC_BASE + peripheral_base - peripheral_phys);
-    
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x20) = (uint32)reset_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x24) = (uint32)undef_instr_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x28) = (uint32)swi_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x2C) = (uint32)prefetch_abort_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x30) = (uint32)data_abort_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x34) = (uint32)reserved_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x38) = (uint32)irq_vector;
+    *(uint32 volatile *)(VECTOR_TABLE_ADDR + 0x80000000 + 0x3C) = (uint32)fiq_vector;
 
     InitTimer();
-    
 }
-
-
 
 
 /*
- *
- */
- 
+*/ 
 void InitTimer (void)
 {
     uint32 clo;
-    
+
     clo = timer_regs->clo;
     clo += MICROSECONDS_PER_JIFFY;
     timer_regs->c3 = clo;
-
     EnableIRQ (INTERRUPT_TIMER3);
 }
-
 

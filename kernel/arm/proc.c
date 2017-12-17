@@ -34,33 +34,26 @@
  * of the new process.
  */
 
-void ArchAllocProcess (struct Process *proc, void *entry, void *stack)
+int ArchForkProcess (struct Process *proc, struct Process *current)
 {
-    KLog ("ArchInitProc()");
+    int sc;
+    
+    KLog ("ArchForkProcess()");
     
     proc->task_state.cpu = &cpu_table[0];
     proc->task_state.flags = 0;
 
-    PmapInit (proc);
+    if ((sc = PmapInit (&proc->as)) != 0)
+    {
+        return sc;
+    }
 
-    proc->task_state.pc = (uint32)entry;
-    proc->task_state.r0 = 0;
-    proc->task_state.cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS;
-    proc->task_state.r1 = 0;
-    proc->task_state.r2 = 0;
-    proc->task_state.r3 = 0;
-    proc->task_state.r4 = 0;
-    proc->task_state.r5 = 0;
-    proc->task_state.r6 = 0;
-    proc->task_state.r7 = 0;
-    proc->task_state.r8 = 0;
-    proc->task_state.r9 = 0;
-    proc->task_state.r10 = 0;
-    proc->task_state.r11 = 0;
-    proc->task_state.r12 = 0;
-    proc->task_state.sp = (uint32)stack;
-    proc->task_state.lr = 0;
+    MemCpy (proc, current, sizeof *current);
+    proc->task_state.r0 = proc->handle;
+    return 0;
 }
+
+
 
 
 

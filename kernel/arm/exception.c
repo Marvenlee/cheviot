@@ -117,7 +117,9 @@ void PrefetchAbortHandler (void)
 {
     struct Process *current;
     bits32_t spsr;
-
+	vm_addr fault_addr;
+	bits32_t access;
+	
     current = GetCurrentProcess();  
         
     KLog ("Prefetch Abort Handler");
@@ -125,17 +127,14 @@ void PrefetchAbortHandler (void)
         
     spsr = GetSPSR();
         
-    if (!((spsr & CPSR_MODE_MASK) == USR_MODE
-        || (spsr & CPSR_MODE_MASK) == SYS_MODE))
+    if (!((spsr & CPSR_MODE_MASK) == USR_MODE || (spsr & CPSR_MODE_MASK) == SYS_MODE))
     {
         KernelPanic ("Instruction prefetch fault in kernel");
     }
         
-    
-    current->task_state.fault_addr = current->task_state.pc;
-    current->task_state.fault_access = PROT_EXEC;
-    current->task_state.flags |= TSF_PAGEFAULT;
-    PmapPageFault();
+    fault_addr = current->task_state.pc;
+    access = PROT_EXEC;
+    PageFault(fault_addr, access);
 }
 
 
@@ -148,27 +147,37 @@ void PrefetchAbortHandler (void)
 void DataAbortHandler (void)
 {
     struct Process *current;
+    bits32_t spsr;
     bits32_t dfsr;
     bits32_t access;
+    vm_addr fault_addr;
     
     current = GetCurrentProcess();
     KLog ("Data Abort Handler");
     KLog ("pc = %#010x, sp = %#010x", current->task_state.pc, current->task_state.sp);
 
     if (inkernel_lock == 1)
+    {
         KernelPanic ("Kernel page fault with inkernel_lock held");
+    }
     
     dfsr = GetDFSR();
+    spsr = GetSPSR();
+    fault_addr = GetFAR();
 
     if (dfsr & DFSR_RW)
         access = PROT_WRITE;
     else
         access = PROT_READ;
+            
+    // TODO:  Kernel panic if in interrupt or other privileged non SVS mode.
+    if (!((spsr & CPSR_MODE_MASK) == USR_MODE || (spsr & CPSR_MODE_MASK) == SYS_MODE)
+        && fault_addr >= KERNEL_BASE)
+    {
+        KernelPanic ("Page fault in kernel at a kernel address");
+    }
     
-    current->task_state.fault_addr = GetFAR();
-    current->task_state.fault_access = access;
-    current->task_state.flags |= TSF_PAGEFAULT;
-    PmapPageFault();
+    PageFault(fault_addr, access);
 }
 
 

@@ -13,12 +13,7 @@ int elf_load (char *filename, void **entry_point)
 {
 	int t;
 	Elf32_PHdr *phdr;
-	off_t phdr_offs, sec_offs;
-	uint32 sec_addr;
-	int32 sec_file_sz;
-	uint32 sec_mem_sz;
-	uint32 sec_prot;
-	void *addr;
+	off_t phdr_offs;
 	
 	KLOG ("elf_load()");
 	
@@ -69,47 +64,31 @@ int elf_load (char *filename, void **entry_point)
 		
 		if (phdr->p_type != PT_LOAD)
 		{
+		    KLOG ("Not PT_LOAD");
 			continue;
 		}
-		
-		sec_addr = phdr->p_vaddr;
-		sec_file_sz = phdr->p_filesz;
-		sec_mem_sz = phdr->p_memsz;
-		sec_offs = phdr->p_offset;
-				
-		if (sec_mem_sz < sec_file_sz)
+
+		if (phdr->p_memsz < phdr->p_filesz)
+		{
+		    KLOG("ELF corrupt, mem_sz < file_sz");
 			return -1;
-
-		sec_addr = ALIGN_DOWN (phdr->p_vaddr, phdr->p_align);
-		sec_mem_sz = phdr->p_memsz;
-		sec_prot = 0;
-		
-		if (phdr->p_flags & PF_X)
-			sec_prot |= PROT_EXEC;
-		if (phdr->p_flags & PF_R)
-			sec_prot |= PROT_READ;
-		if (phdr->p_flags & PF_W)
-			sec_prot |= PROT_WRITE;
-		
-		addr = SegmentCreate (sec_addr, sec_mem_sz, SEG_TYPE_ALLOC, MAP_FIXED | sec_prot);
-
-		KLog ("%#010x = SegmentCreate (%#010x, %d", addr, sec_addr, sec_mem_sz);
-					
-		if (addr != (void *)sec_addr)
+        }
+        
+		if (phdr->p_filesz != 0)
 		{
-			KPanic ("Segment address does not match fixed address");
-		}
-		
-		KLOG ("p_vaddr = %#010x, sz = %d", phdr->p_vaddr, sec_mem_sz);
-				
-		if (sec_file_sz != 0)
-		{
-			fat_seek (sec_offs);
+		    KLOG ("Reading in elf section");
+		    
+			fat_seek (phdr->p_offset);
 
-			if (fat_read ((void *)phdr->p_vaddr, sec_file_sz) != sec_file_sz)
+			if (fat_read ((void *)phdr->p_paddr, phdr->p_filesz) != phdr->p_filesz)
+			{
+			    KLOG ("FAT read failed");
 				return -1;
+		    }
 		}
 	}
+
+    KLOG ("elf_load() OK");
 	
 	return 0;
 }

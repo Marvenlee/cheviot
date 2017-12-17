@@ -1,11 +1,12 @@
+
 kernel/%.o : kernel/%.c	
 	$(CC) -c $(CFLAGS) -I./kernel/h $< -o $@
 
 kernel/%.o : kernel/%.s
-	$(AS) $(AFLAGS)  -I./kernel/h  $< -o $@
+	$(AS) $(AFLAGS)  -I./kernel/h $< -o $@
 
 kernel/%.o : kernel/%.S
-	$(CC) -c $(CFLAGS) -I./kernel/h  $< -o $@
+	$(CC) -c $(CFLAGS) -I./kernel/h $< -o $@
 
 KERNEL_OBJ:= 
 
@@ -13,12 +14,11 @@ KERNEL_OBJ:=
 # ----------------------------------------------------------------------------
 
 # TODO: Conditionally include the arm/makefile.in
-# TODO: Conditionally include a test/makefile.in
 
 include kernel/arm/makefile.in
-include kernel/vm/makefile.in
 include kernel/proc/makefile.in
 include kernel/utility/makefile.in
+include kernel/vm/makefile.in
 
 
 # ----------------------------------------------------------------------------
@@ -29,22 +29,22 @@ kernel : kernel/kernel
 kernel/kernel:  $(KERNEL_OBJ) kernel/arm/linker.ls 
 	$(LINK) $(KERNEL_OBJ) -lgcc -T kernel/arm/linker.ls -o kernel/kernel
 
+
 # ----------------------------------------------------------------------------
 
 .PHONY : kernel/depend
-kernel/depend : kernel/vm/depend \
-				kernel/proc/depend \
+kernel/depend : kernel/proc/depend \
 				kernel/arm/depend \
-				kernel/utility/depend
-
+				kernel/utility/depend \
+				kernel/vm/depend
 
 # ----------------------------------------------------------------------------
 
 .PHONY : kernel/clean
-kernel/clean : 	kernel/vm/clean \
-				kernel/proc/clean \
+kernel/clean : 	kernel/proc/clean \
 				kernel/arm/clean \
-				kernel/utility/clean
+				kernel/utility/clean \
+				kernel/vm/clean 
 	rm -f kernel/kernel
 	rm -f kernel/dump.txt
 

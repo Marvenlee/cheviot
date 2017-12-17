@@ -71,14 +71,20 @@ void KernelExit (void)
     if (current->task_state.flags != 0)
     {
         if (current->task_state.flags & TSF_EXIT)
-            DoExit (current->exit_status);
+            Exit (current->exit_status);
         else if (current->task_state.flags & TSF_KILL)
-            DoExit(EXIT_KILLED);
+            Exit(EXIT_KILLED);
         else if (current->task_state.flags & TSF_EXCEPTION)
-            DoExit(EXIT_FATAL);
+            Exit(EXIT_FATAL);
     }
     
     ClosePendingHandles();
+    
+    EnablePreemption();
+    
+    while (current->continuation_function != NULL)
+        current->continuation_function();
+    
 }
 
 

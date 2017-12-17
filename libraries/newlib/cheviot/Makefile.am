@@ -12,12 +12,9 @@ extra_objs =
 
 lib_a_SOURCES = \
 _exit.c \
-createprocess.c \
 debug.c \
 environ.c \
-filesystem.c \
 malloc.c \
-marshall.c \
 port.c \
 signal.c \
 sleep.c \
@@ -37,3 +34,4 @@ endif
 
 ACLOCAL_AMFLAGS = -I ../../.. -I ../../../..
 CONFIG_STATUS_DEPENDENCIES = $(newlib_basedir)/configure.host
+

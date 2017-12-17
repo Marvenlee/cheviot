@@ -29,6 +29,20 @@ typedef uint32      iflag_t;
 
 
 
+// Should pack fields together
+
+//#define PAGETABLE_POOL_SIZE   8388608
+#define VPAGETABLE_SZ       4096
+#define VPTE_TABLE_OFFS     1024
+#define PAGEDIR_SZ          16384
+
+#define N_PAGEDIR_PDE      (4096)     
+#define N_PAGETABLE_PTE      (256)     
+
+#define KERNEL_BASE     0x80000000
+#define KERNEL_CEILING  0xF0000000
+
+
 /*
  *
  */
@@ -77,10 +91,31 @@ typedef uint32      iflag_t;
  *
  */
 
-#define C1_XP           (1<<23)         // 0 subpage enabled (arm v5 mode)
+#define C1_XP           (1<<23)       // 0 subpage enabled (arm v5 mode)
 
 
 
+
+/*
+ * virtual page table flags
+ */
+ 
+#define VPTE_PHYS            (1 << 0)
+
+#define VPTE_LAZY          (1 << 2)
+#define VPTE_PROT_COW      (1 << 3)
+#define VPTE_PROT_R        (1 << 4)
+#define VPTE_PROT_W        (1 << 5)
+#define VPTE_PROT_X        (1 << 6)
+#define VPTE_ACCESSED      (1 << 7)   // Should be part of PF
+#define VPTE_DIRTY         (1 << 8)  // Should be part of PF
+
+#define VPTE_WIRED         (1 << 9)   // Should be part of PF
+
+#define VPTE_PRESENT       (1 << 10)
+
+
+#define VPTE_TABLE_OFFS 1024
 
 
 
@@ -173,7 +208,7 @@ typedef uint32      iflag_t;
 #define VM_USER_CEILING             0xFFFF0000
 
 
-#define NPMAP                       62
+#define NPMAP                       64
 #define NPDE                        16         /* Pagetables per process */
 #define PMAP_SIZE                   (L2_TABLE_SIZE * NPDE)
 
@@ -206,36 +241,40 @@ typedef uint32      iflag_t;
 
 struct Process;
 
+#define L2_PAGETABLES		16
+
+
 
 struct Pmap
 {
-    LIST_ENTRY (Pmap) lru_link;
-    struct Process *owner;
-    
-    void *addr;             // Point to 16k  16 * 1k page tables
-    int32 lru;              // Least recent set PDE. (circular buffer).
-    int map_type;           // Set to 1 if mapping physical memory in address space..
-    
-    
-    // Need compaction if an page table index is freed during IPC.
-    // Or keep idx non-zero, valid BUT value would be a non-present page table.
-    
-    
-    struct
-    {
-        int idx;            // page directory index of entry
-        bits32_t val;       // value pof page directory entry
-    } pde[NPDE]; 
+    uint32 *l1_table;             // Page table    
+};
 
+
+struct PmapVPTE
+{
+    LIST_ENTRY (PmapVPTE) link;
+    uint32 flags;
+} __attribute__ ((packed));
+
+
+struct PmapPageframe
+{
+    LIST (PmapVPTE) vpte_list;
 };
 
 
 
-LIST_TYPE (Pmap) pmap_list_t;
+LIST_TYPE (Pmap)     pmap_list_t;
 
 
 
 
+
+// Move to macros
+
+#define VirtToPhys(va) ((vm_addr)va & 0x7FFFFFFF)
+#define PhysToVirt(pa) ((vm_addr)pa | 0x80000000)
 
 
 
@@ -304,7 +343,10 @@ void EnableIRQ (int irq);
 void DisableIRQ (int irq);
 
 
+// GetPagecache();
+// ReleasePagecache();
 
+// pmap pagetable stuff built ontop of getpagecache/releasepagecache
 
 void PmapPageFault (void);
 uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx);

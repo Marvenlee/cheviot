@@ -5,21 +5,16 @@
 #include "dbg.h"
 
 
-
-
-
-
-
 /*
- *
- */
-
+*/
 int fat_init (void)
 {
 	struct MBRPartitionEntry mbe[4];
 	int t;
 
-	sd_read(bdev, bootsector, 512, 0);
+	if (sd_read(bdev, bootsector, 512, 0) == -1) {
+	    KPanic ("sd_read of bootsector failed");
+	}
 	
 	KLOG ("bootsector end = %#02x %#02x", bootsector[510], bootsector[511]);
 	KLOG ("****************************************************");
@@ -32,8 +27,11 @@ int fat_init (void)
 		KLOG ("partition = %d", t);
 		
 		if (mbe[t].partition_type == 0x00)
+		{
+		    KLog ("partition type = 0, skipping");
 			continue;
-
+        }
+        
 		fsb.partition_start = mbe[t].lba;
 		fsb.partition_size = mbe[t].nsectors;
 		
@@ -143,20 +141,12 @@ int fat_init (void)
 	}
 	
 	KLOG ("No FAT partition");
-	while (1);
+	return -1;
 }
 
 
-
-
-
-
-
-
 /*
- * FatOpen();
- */
-
+*/
 int fat_open (char *pathname)
 {
 	KLOG ("fat_open (%s)", pathname);
@@ -179,26 +169,16 @@ int fat_open (char *pathname)
 }
 
 
-
-
-
 /*
- * FatSeek();
- */
-
+*/
 void fat_seek (off_t offset)
 {
 	filp.offset = offset;
 }
 
 
-
-
-
 /*
- *
- */
-
+*/
 size_t fat_read (void *buf, size_t count)
 {
 	uint32 cluster;
@@ -208,6 +188,8 @@ size_t fat_read (void *buf, size_t count)
 	uint32 cluster_offset;
 	uint32 sector_offset;
 	uint8 *dst;
+
+    KLOG ("fat_read addr = %010x, sz = %d", buf, count);
 	
 	if ((node.dirent.attributes & ATTR_DIRECTORY) != 0)
 		return -1;
@@ -224,6 +206,8 @@ size_t fat_read (void *buf, size_t count)
 	
 	while (nbytes_read < count)
 	{	
+//        KLOG ("dst = %010x, nbytes_read = %d", dst, nbytes_read);
+
 		if (fat_find_cluster (filp.offset, &cluster) != 0)
 			break;
 		
@@ -238,7 +222,9 @@ size_t fat_read (void *buf, size_t count)
 		transfer_nbytes = (512 < (count - nbytes_read)) ? 512 : (count - nbytes_read);
 		transfer_nbytes = (transfer_nbytes < (512 - sector_offset))
 						? transfer_nbytes : (512 - sector_offset);
-		
+
+
+//        KLOG ("sector = %d, sector_offset = %d, xfer = %d", sector, sector_offset, transfer_nbytes);		
 		
 		if (fat_read_sector (dst, sector, sector_offset, transfer_nbytes) != 0)
 			break;
@@ -249,23 +235,13 @@ size_t fat_read (void *buf, size_t count)
 		filp.offset += transfer_nbytes;
 	}
 
+    KLOG ("nbytes_read = %d", nbytes_read);
 	return nbytes_read;
 }
 
 
-
-
-
-
-
-
-
-
 /*
- * Would be nice to make it generic across filesystems, then supply pointers to
- * name comparison/conversion functions.
- */
-
+*/
 int fat_lookup (char *pathname)
 {
 	char component[256];
@@ -299,14 +275,8 @@ int fat_lookup (char *pathname)
 }
 
 
-
-
-
-
 /*
- * FatSearchDir();
  */
-
 int fat_search_dir (char *component)
 {
 	struct FatDirEntry dirent;
@@ -348,14 +318,8 @@ int fat_search_dir (char *component)
 }
 
 
-
-
-
-
 /*
- *
- */
-
+*/
 int fat_dir_read (void *buf, off_t offset, uint32 *r_sector, uint32 *r_sector_offset)
 {
 	uint32 cluster;
@@ -363,8 +327,6 @@ int fat_dir_read (void *buf, off_t offset, uint32 *r_sector, uint32 *r_sector_of
 	uint32 cluster_offset;
 	uint32 sector_offset;
 
-	
-	
 	if (node.is_root == TRUE && (fsb.fat_type == TYPE_FAT12 || fsb.fat_type == TYPE_FAT16))
 	{
 		if (offset < fsb.bpb.root_entries_cnt)
@@ -410,26 +372,19 @@ int fat_dir_read (void *buf, off_t offset, uint32 *r_sector, uint32 *r_sector_of
 }
 
 
-
-
-
 /*
- * CompareDirEntry()
- *
- * Comparison can be simplified, shouldn't need len. (old?)
- */
- 
+    CompareDirEntry()
+    Comparison can be simplified, shouldn't need len. (old?)
+*/ 
 int fat_cmp_dirent (struct FatDirEntry *dirent, char *comp)
 {
 	int i;
 	char *comp_p, *dirent_p;
 	char packed_dirent_name[13];
 	char *p;	
-
-
+    
 	if (!(dirent->name[0] != DIRENTRY_FREE && (uint8)dirent->name[0] != DIRENTRY_DELETED
-			&& (dirent->attributes & ATTR_LONG_FILENAME) != ATTR_LONG_FILENAME))
-	{
+			&& (dirent->attributes & ATTR_LONG_FILENAME) != ATTR_LONG_FILENAME)) {
 		return -1;
 	}
 				
@@ -450,26 +405,17 @@ int fat_cmp_dirent (struct FatDirEntry *dirent, char *comp)
 	comp_p = comp;
 	dirent_p = packed_dirent_name;
 	
-//	KLOG("compare : packed = %s, comp = %s", dirent_p, comp_p);
-	
-	for ( ; *comp_p == *dirent_p; comp_p++, dirent_p++)
-		if (*comp_p == '\0')
+	for ( ; *comp_p == *dirent_p; comp_p++, dirent_p++) {
+		if (*comp_p == '\0') {
 			return 0;
-	
-//	KLOG ("NO MATCH");
+        }
+    }
     return -1;
 }
 
 
-
-
-
-
-
 /*
- *
- */
-
+*/
 int fat_find_cluster (off_t offset, uint32 *r_cluster)
 {
 	uint32 cluster_size;
@@ -497,8 +443,6 @@ int fat_find_cluster (off_t offset, uint32 *r_cluster)
 	else
 		cluster = fat_get_first_cluster (&node.dirent);
 	
-	
-	
 	while (temp_offset < offset)
 	{
 		if (cluster < CLUSTER_ALLOC_MIN || cluster > CLUSTER_ALLOC_MAX)
@@ -524,21 +468,12 @@ int fat_find_cluster (off_t offset, uint32 *r_cluster)
 }
 
 
-
-
-
-
-
 /*
- * ReadFATEntry();
- *
- * Modify to use 32-bit values for args and result.
- *
- * Things that call ReadEntry WriteEntry need better error checking.
- *
- * Use multiple FATs
- */
-
+    ReadFATEntry();
+    
+    Modify to use 32-bit values for args and result.
+    Things that call ReadEntry WriteEntry need better error checking.
+*/
 int fat_read_fat (uint32 cluster, uint32 *r_value)
 {
 	int32 sector, sector_offset;
@@ -561,7 +496,9 @@ int fat_read_fat (uint32 cluster, uint32 *r_value)
 			
 			if (fat_buf_sector != sector)
 			{
-				sd_read (bdev, fat_buf, 512, sector + fsb.partition_start);
+				if (sd_read (bdev, fat_buf, 512, sector + fsb.partition_start) == -1) {
+				    KPanic ("sd_read failed fat16");
+				}
 				fat_buf_sector = sector;
 			}
 			bmemcpy (&word_value, fat_buf + sector_offset, 2);
@@ -585,7 +522,9 @@ int fat_read_fat (uint32 cluster, uint32 *r_value)
 			
 			if (fat_buf_sector != sector)
 			{
-				sd_read (bdev, fat_buf, 512, sector + fsb.partition_start);
+				if (sd_read (bdev, fat_buf, 512, sector + fsb.partition_start) == -1) {
+				    KPanic ("sd_read failed fat32");
+				}
 				fat_buf_sector = sector;
 			}
 
@@ -607,21 +546,8 @@ int fat_read_fat (uint32 cluster, uint32 *r_value)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
 /*
- * GetFirstCluster();
- */
-
+*/
 uint32 fat_get_first_cluster (struct FatDirEntry *dirent)
 {
 	uint32 cluster;
@@ -651,21 +577,8 @@ uint32 fat_get_first_cluster (struct FatDirEntry *dirent)
 }
 
 
-
-
-
-
-
-
-
-
-
 /*
- * Advance();
- *
- * Can be used within filesystems to parse a pathname.
- */
-
+*/
 char *fat_path_advance (char *next, char *component)
 {
 	while (*next == '/')
@@ -688,19 +601,15 @@ char *fat_path_advance (char *next, char *component)
 }
 
 
-
-
-
-
 /*
- *
- */
-
+*/
 int fat_read_sector (void *mem, int sector, int sector_offset, size_t nbytes)
 {
 	if (file_buf_sector != sector)
 	{
-		sd_read(bdev, file_buf, 512, fsb.partition_start + sector);
+		if (sd_read(bdev, file_buf, 512, fsb.partition_start + sector) == -1) {
+		    KPanic ("fat_read_sector failed");
+		}
 		file_buf_sector = sector;
 	}
 	
@@ -709,77 +618,11 @@ int fat_read_sector (void *mem, int sector, int sector_offset, size_t nbytes)
 }
 
 
-
-
-
-
-
-
 /*
- *
- */
-
-size_t fat_getline (char *buf, size_t buf_sz)
-{
-	size_t nbytes_read = 0;
-	int ch;
-	
-
-	while (1)
-	{
-		ch = fat_getch();
-	
-		*buf++ = (char)ch;
-
-		if (ch == -1)
-		{
-			*buf = '\0';
-			break;
-		}
-		
-		nbytes_read ++;
-				
-		if (ch == '\n' || ch == '\r' || ch == '\0')
-		{
-			*buf = '\0';
-			break;
-		}
-	}
-	
-	
-	return nbytes_read;
-}
-
-
-
-
-int fat_getch(void)
-{
-	char ch;
-	
-	if (fat_read (&ch, 1) != 1)
-		return -1;
-	
-	return ch;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+*/
 size_t fat_get_filesize (void)
 {
 	return node.dirent.size;
 }
+
+

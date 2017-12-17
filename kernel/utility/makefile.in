@@ -25,36 +25,6 @@ kernel/utility/clean :
 
 # DO NOT DELETE
 
-kernel/utility/strlcat.o: ./kernel/h/kernel/types.h
-kernel/utility/strlcat.o: ./kernel/h/kernel/utility.h
-kernel/utility/strlcat.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/utility/strlcpy.o: ./kernel/h/kernel/types.h
-kernel/utility/strlcpy.o: ./kernel/h/kernel/utility.h
-kernel/utility/strlcpy.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/utility/rand.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/utility/rand.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/dbg.h
-kernel/utility/rand.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/lists.h
-kernel/utility/rand.o: ./kernel/h/kernel/vm.h ./kernel/h/kernel/arch.h
-kernel/utility/rand.o: ./kernel/h/kernel/arm/arm.h
-kernel/utility/rand.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
-kernel/utility/rand.o: ./kernel/h/kernel/arm/locks.h
-kernel/utility/rand.o: ./kernel/h/kernel/parcel.h ./kernel/h/kernel/timer.h
-kernel/utility/string.o: ./kernel/h/kernel/types.h
-kernel/utility/string.o: ./kernel/h/kernel/utility.h
-kernel/utility/string.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/utility.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/types.h
-kernel/utility/snprintf.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/dbg.h ./kernel/h/kernel/proc.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/lists.h ./kernel/h/kernel/vm.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/arch.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/arm/arm.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/arm/task.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/error.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/arm/locks.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/parcel.h
-kernel/utility/snprintf.o: ./kernel/h/kernel/timer.h
-kernel/utility/doprintf.o: /cheviot/lib/gcc/arm-eabi/4.8.1/include/stdarg.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/dbg.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/lists.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/vm.h ./kernel/h/kernel/arch.h
@@ -62,5 +32,26 @@ kernel/utility/doprintf.o: ./kernel/h/kernel/arm/arm.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/arm/task.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/error.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/arm/locks.h
-kernel/utility/doprintf.o: ./kernel/h/kernel/parcel.h
 kernel/utility/doprintf.o: ./kernel/h/kernel/timer.h
+kernel/utility/rand.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/dbg.h
+kernel/utility/rand.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/lists.h
+kernel/utility/rand.o: ./kernel/h/kernel/vm.h ./kernel/h/kernel/arch.h
+kernel/utility/rand.o: ./kernel/h/kernel/arm/arm.h
+kernel/utility/rand.o: ./kernel/h/kernel/arm/task.h ./kernel/h/kernel/error.h
+kernel/utility/rand.o: ./kernel/h/kernel/arm/locks.h
+kernel/utility/rand.o: ./kernel/h/kernel/timer.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/utility.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/types.h ./kernel/h/kernel/dbg.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/proc.h ./kernel/h/kernel/lists.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/vm.h ./kernel/h/kernel/arch.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/arm/arm.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/arm/task.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/error.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/arm/locks.h
+kernel/utility/snprintf.o: ./kernel/h/kernel/timer.h
+kernel/utility/string.o: ./kernel/h/kernel/types.h
+kernel/utility/string.o: ./kernel/h/kernel/utility.h
+kernel/utility/strlcat.o: ./kernel/h/kernel/types.h
+kernel/utility/strlcat.o: ./kernel/h/kernel/utility.h
+kernel/utility/strlcpy.o: ./kernel/h/kernel/types.h
+kernel/utility/strlcpy.o: ./kernel/h/kernel/utility.h

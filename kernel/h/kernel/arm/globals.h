@@ -33,30 +33,22 @@ extern int free_isr_handler_cnt;
 
 
 /*
- *
+ * Linker script symbols
  */
- 
+
+/* 
 extern uint8 _text_start;
 extern uint8 _text_end;
 extern uint8 _data_start;
 extern uint8 _data_end;
 extern uint8 _bss_start;
 extern uint8 _bss_end;
+*/
 
-extern struct BootInfo *bootinfo;
-extern char *cfg_boot_prefix;
-extern int cfg_boot_verbose;
-extern uint32 estimated_heap_size;
-extern uint32 text_base;
-extern uint32 text_ceiling;
-extern uint32 data_base;
-extern uint32 data_ceiling;
-extern uint32 heap_base;
-extern uint32 heap_ceiling;
-extern uint32 heap_ptr;
+extern uint8 _ebss;
 
-extern vm_addr user_base;
-extern vm_addr user_ceiling;
+extern uint8 *kernel_heap_base;
+extern uint32 kernel_heap_size;
 
 
 
@@ -72,12 +64,6 @@ extern uint32 arm_mem_size;
 extern uint32 videocore_base;
 extern uint32 videocore_ceiling;
 extern uint32 videocore_phys;
- 
-extern uint32 peripheral_base;
-extern uint32 peripheral_ceiling;
-extern uint32 peripheral_phys;
-
-extern volatile uint32 *gpio;
  
 extern volatile struct bcm2835_system_timer_registers *timer_regs;
 extern volatile struct bcm2835_gpio_registers *gpio_regs;
@@ -114,15 +100,6 @@ extern process_list_t free_process_list;
 
 extern struct Process *root_process;
 extern struct Process *idle_task;
-extern struct Process *vm_task;
-
-
-// extern uint8 reaper_task_stack_top;
-extern uint8 idle_task_stack_top;
-extern uint8 vm_task_stack_top;
-
-// extern uint8 kernel_stack;
-// extern uint8 kernel_stack_top;
 
 
 
@@ -132,7 +109,7 @@ extern uint8 vm_task_stack_top;
 
 extern uint32 screen_width;
 extern uint32 screen_height;
-extern uint32 screen_buf;
+extern uint32 screen_buf;           // FIXME: void * 
 extern uint32 screen_pitch;
 
 extern vm_addr debug_base;
@@ -154,6 +131,13 @@ extern bits32_t mask_interrupts[3];
 extern bits32_t pending_interrupts[3];
 
 
+/*
+ *
+ */
+
+extern struct BootInfo *bootinfo;
+extern char *cfg_boot_prefix;
+extern int cfg_boot_verbose;
 
 
 
@@ -165,81 +149,28 @@ extern int max_handle;
 extern struct Handle *handle_table;
 extern handle_list_t free_handle_list;
 
+extern int max_pagecache;
+extern pagecache_list_t free_pagecache_list;
+extern pagecache_list_t lru_pagecache_list;
+extern pagecache_list_t pagecache_hash[NPAGECACHE_HASH];
+extern struct Pagecache *pagecache_table;
 
 
-/*
- *
- */
+extern vm_size mem_size;
+extern int max_pageframe;
+extern struct Pageframe *pageframe_table;
+extern pageframe_list_t free_4k_pf_list;
+extern pageframe_list_t free_16k_pf_list;
+extern pageframe_list_t free_64k_pf_list;
 
- 
-extern struct Pmap pmap_table[NPMAP];
-extern pmap_list_t pmap_lru_list;
+extern uint32 free_pageframe_cnt;
 
-extern uint32 *pagedirectory;
-extern uint32 *phys_pagedirectory;
-
-
-extern vm_addr pagetable_base;
-
-extern vm_size free_segment_size[NSEGBUCKET];
-
-extern seg_list_t free_segment_list[NSEGBUCKET];
-extern seg_list_t segment_heap;
-
-extern struct Segment *last_aged_seg;
-extern seg_list_t cache_lru_list;
-extern seg_list_t cache_hash[CACHE_HASH_SZ];
-
-
-extern int max_seg;                            // Maximum size of vseg_table
-extern struct Segment *seg_table;              // Virtual memory map of single address space
-extern int seg_cnt;                            // Current size of vseg_table
-
-extern int64 next_unique_segment_id;           // Next unique identifier for segments
-
-
-extern struct Segment *compact_seg;
-extern vm_size compact_offset;
-
-extern struct Rendez compact_rendez;        // Sleep on rendez if segment is being compacted
-extern struct Rendez alloc_rendez;          // Sleep when sending alloc requests to vm_task
-extern struct Rendez vm_task_rendez;        // Sleep waiting for alloc requests.
-
-extern vm_addr memory_ceiling;
-
-extern vm_size requested_alloc_size;
-extern vm_size garbage_size;
+extern vm_size overcommit_size;
 extern vm_size cache_size;
+extern vm_size dirty_cache_size;
 extern vm_size min_cache_size;
 extern vm_size max_cache_size;
 
-
-
-
-
-
-
-/*
- *
- */
-
-extern int max_channel;
-extern channel_list_t free_channel_list;
-extern struct Channel *channel_table;
-
-/*
- *
- */
- 
-// extern int max_notification;
-// extern notification_list_t free_notification_list;
-// extern struct Notification *notification_table;
-
-
-
-extern int max_parcel;
-extern parcel_list_t free_parcel_list;
-extern struct Parcel *parcel_table;
 
 /*
  *

@@ -97,109 +97,49 @@
 .global fiq_vector
 .global __KernelExit
 
-# ****************************************************************************
+# *************************************************************************
 # System call table
+
+.section .text
 
 .balign 16
 syscall_table:
     .long UnknownSyscall            // 0
     .long Debug                     // 1
-    .long Spawn                     // 2  Executive process only
+
+    .long Fork	                    // 2  
     .long Exit                      // 3
-    .long Join                      // 4
-    .long CloseHandle               // 5
-    .long WaitFor                   // 6
-    .long CheckFor                  // 7
-    .long SetSchedParams            // 8
-    .long Yield                     // 9
-    .long AddInterruptHandler       // 10  
-    .long MaskInterrupt             // 11  
-    .long UnmaskInterrupt           // 12
-    .long CreateTimer               // 13
-    .long SetTimer                  // 14
-    .long GetSystemTime             // 15
-    .long SystemInfo                // 16 
-    .long VirtualAlloc              // 17
-    .long VirtualAllocPhys          // 18    Privileged, IO processes
-    .long VirtualFree               // 19
-    .long VirtualProtect            // 20 
-    .long VirtualSizeOf             // 21
-    .long VirtualVersion            // 22
-    .long WireMem                   // 23    Privileged, IO processes
-    .long UnwireMem                 // 24    Privileged, IO processes
-    .long CreateChannel             // 25
-    .long PutMsg                    // 26 
-    .long GetMsg                    // 27
-    .long IsAChannel                // 28
-    .long PutHandle                 // 29
-    .long GetHandle                 // 30
-    .long GetNextMsgType            // 31
-    .long ProcessInfo               // 32
-    .long PutCachedSegment          // 32
-    .long GetCachedSegment          // 33
-    .long ExpungeCachedSegment      // 34
-    .long VMRecvMsg                 // 35   Kernel thread
-    .long VMReplyMsg                // 36   Kernel thread
-    .long VMResizeCache             // 37   Kernel thread
-    .long VMLockSegment             // 38   Kernel thread
-    .long VMUnlockSegment           // 39   Kernel thread
-    .long SysVMAllocSegment         // 40   Kernel thread
-    .long SysVMFreeSegment          // 41   Kernel thread
-    .long SysVMFreeProcessSegments  // 42   Kernel thread
+    .long WaitPid                   // 4
+    .long Kill                      // 5  
+    .long SetSchedParams            // 6
 
+	.long GetSystemTime		        // 7
+    
+    .long VirtualAlloc             	// 8
+    .long VirtualAllocPhys          // 9
+    .long VirtualFree              	// 10
+    .long VirtualProtect       		// 11 
+    
+    .long Close                     // 12
+	.long WaitEvent                 // 13	
+    .long CheckEvent                // 14
+	.long CreateTimer               // 15
+	.long SetTimer                  // 16
+    
+    .long CreateInterrupt           // 17
+    .long MaskInterrupt             // 18
+    .long UnmaskInterrupt           // 19
 
+	.long Dup	                    // 20
 
         
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 42
-
-
-
-# ****************************************************************************
-
-#define SYSCALL0(name)      \
-.global name;               \
-name:;                      \
-    swi #SYS_ ## name;      \
-    bx lr;
-
-#define SYSCALL1 SYSCALL0
-#define SYSCALL2 SYSCALL0
-#define SYSCALL3 SYSCALL0
-#define SYSCALL4 SYSCALL0
+#define MAX_SYSCALL                 36
 
 
 .balign 16
 
-#define SYS_SysVMRecvMsg                    35
-SYSCALL1( SysVMRecvMsg)
-
-#define SYS_SysVMReplyMsg                   36
-SYSCALL1( SysVMReplyMsg)
-
-#define SYS_SysVMResizeCache                37
-SYSCALL1( SysVMResizeCache)
-
-#define SYS_SysVMLockSegment                38
-SYSCALL1( SysVMLockSegment)
-
-#define SYS_SysVMUnlockSegment              39
-SYSCALL1( SysVMUnlockSegment)
-
-#define SYS_SysVMAllocSegment               40
-SYSCALL4( SysVMAllocSegment)
-
-#define SYS_SysVMFreeSegment                41
-SYSCALL1( SysVMFreeSegment)
-
-#define SYS_SysVMFreeProcessSegments        42
-SYSCALL1( SysVMFreeProcessSegments)
-
-
-
 # ****************************************************************************
-
-.balign 16
 
 reset_vector:
     MPrepareStack #CPU_EXCEPTION_STACK

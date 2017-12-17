@@ -22,7 +22,7 @@
  *
  * while (1)
  * {
- *     WaitFor (handle);
+ *     WaitEvent (handle);
  *
  *     // Interrupt is masked when it occurs and must be unmasked by process.
  *     // Handle interrupt before unmasking interrupt
@@ -48,7 +48,7 @@
  * be raised when an interrupt occurs.
  */
  
-SYSCALL int AddInterruptHandler (int irq)
+SYSCALL int CreateInterrupt (int irq)
 {
     struct ISRHandler *isr_handler;
     struct Process *current;
@@ -61,8 +61,6 @@ SYSCALL int AddInterruptHandler (int irq)
 
     if (free_handle_cnt < 1 || free_isr_handler_cnt < 1)
         return resourceErr;
-
-    DisablePreemption();
         
     handle = AllocHandle();
 

@@ -106,8 +106,9 @@ void Reschedule (void)
         next = LIST_HEAD (&stride_queue);
                             
     if (next == NULL)
+    {
         next = cpu->idle_process;
-    
+    }
     current->state = PROC_STATE_READY;
     next->state = PROC_STATE_RUNNING;
     PmapSwitch (next, current);
@@ -157,6 +158,10 @@ void SchedReady (struct Process *proc)
             LIST_ADD_TAIL (&stride_queue, proc, stride_entry);
         }
     }
+    else
+    {
+        KLog ("Ready: Unknown sched policy *****");   
+    }
 
     proc->quanta_used = 0;          
     reschedule_request = TRUE;
@@ -186,7 +191,11 @@ void SchedUnready (struct Process *proc)
         proc->remaining = global_pass - proc->pass;
         LIST_REM_ENTRY (&stride_queue, proc, stride_entry);
     }
-    
+    else
+    {
+        KLog ("Unready: Unknown sched policy *****");   
+    }
+
     proc->quanta_used = 0;
     reschedule_request = TRUE;
 }

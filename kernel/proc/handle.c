@@ -25,13 +25,29 @@
 #include <kernel/globals.h>
 
 
+/*!
+ * TODO:  Convert from global handle table to per-process handle tables
+ * TODO:  Add file handle support here
+ */
+
+SYSCALL int Dup (int h, int start_h)
+{
+	return undefinedErr;
+}
 
 
+/*!
+ *
+ */
+
+SYSCALL int HandleCtrl (int h, bits32_t flags)
+{
+	return undefinedErr;
+}
 
 
-
-/*
- * CloseHandle() is the single system call used to close any kernel resource.
+/*!
+ *  CloseHandle() is the single system call used to close any kernel resource.
  */
 
 SYSCALL int CloseHandle(int h)
@@ -46,20 +62,28 @@ SYSCALL int CloseHandle(int h)
     DisablePreemption();
     
     LIST_ADD_TAIL (&current->close_handle_list, &handle_table[h], link);
+
+    // TODO close appropriate handle type.
+
     return 0;
 }
 
 
 
 
+
+int Close (int fd)
+{
+    return undefinedErr;
+}
+
+
 /*
  * Closes any handles placed on the process's close_handle_list when a
  * Channel is closed.  As Channels are closed any embedded handles in
  * the message segments are appended to this list.
- *
- * FIXME: Add preemption to this loop.
  */
- 
+
 void ClosePendingHandles (void)
 {
     int h;
@@ -85,50 +109,17 @@ void ClosePendingHandles (void)
             case HANDLE_TYPE_ISR:
                 DoCloseInterruptHandler (h);
                 break;
-                            
-            case HANDLE_TYPE_CHANNEL:
-                DoCloseChannel (h);
-                break;
-                
+                                            
             case HANDLE_TYPE_TIMER:
                 DoCloseTimer (h);
                 break;
-    
-/*
-            case HANDLE_TYPE_SYSTEMEVENT:
-                DoCloseSystemEvent(h);
-                break;
-*/
-                
+
             default:
                 break;
         }
     }
 }
 
-
-
-
-/*
- * Closes a process's sighangup and sigterm handles.
- * FIXME:  
- */
-
-/*
-void DoCloseSystemEvent (int h)
-{
-    struct Process *current;
-    
-    current = GetCurrentProcess();
-    
-    if (h == current->sighangup_handle)
-        current->sighangup_handle = -1;
-    else if (h == current->sigterm_handle)
-        current->sigterm_handle = -1;
-    
-    FreeHandle (h);
-}
-*/
 
 
 
@@ -180,8 +171,9 @@ struct Handle *FindHandle (struct Process *proc, int h)
 
 void SetObject (struct Process *proc, int h, int type, void *object)
 {
+    KLog ("SetObject (proc = %08x, h = %d", proc, h);
+
     KASSERT (0 <= h && h < max_handle);
-        
     handle_table[h].type = type;
     handle_table[h].object = object;
     handle_table[h].owner = proc;

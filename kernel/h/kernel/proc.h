@@ -6,7 +6,6 @@
 #include <kernel/vm.h>
 #include <kernel/timer.h>
 #include <kernel/arch.h>
-#include <kernel/parcel.h>
 
 
 
@@ -18,62 +17,12 @@ struct Process;
 
 
 /*
- * Array of handles passed to Spawn and retrieve by GetSystemPorts.
- */
-
-
-#define NSPAWNSEGMENTS     32       // Maximum segments to pass to Spawn
-
-
-
-
-/*
- * Spawn flags
- */
-
-#define PROCF_ALLOW_IO          (1<<0)      // Device driver IO
-#define PROCF_FILESYS           (1<<1)      // Root / file system process
-#define PROCF_DAEMON            (1<<2)      // Kernel Use: For kernel daemons
-
-#define PROCF_SYSTEMMASK        (PROCF_FILESYS | PROCF_DAEMON)
-
-
-
-
-/*
- *
- */
-
-struct SpawnArgs
-{
-    void *entry;
-    void *stack_top;
-    char **argv;
-    int argc;
-    char **envv;
-    int envc;
-    bits32_t flags;
-    int namespace_handle;
-};
-
-
-
-
-/*
  *
  */
 
 typedef struct ProcessInfo
 {
-    int sighangup_handle;
-    int sigterm_handle;
-    int namespace_handle;
-    
-    char **argv;
-    int argc;
-    char **envv;
-    int envc;
-
+	int dummy;
 } processinfo_t;
 
 
@@ -115,18 +64,6 @@ typedef struct  SysInfo
 
 
 
-
-
-
-
-
-/*
- * PutMsg() and PutHandle() flags
- */
-
-
-#define MSG_GRANT_ONCE               (1<<0)         // Prevent forwarding handle
-#define MSG_SILENT                   (1<<1)         // Do not raise event on this PutMsg()
 
 
 
@@ -208,12 +145,10 @@ struct ISRHandler
 #define HANDLE_TYPE_FREE                0
 #define HANDLE_TYPE_PROCESS             1
 #define HANDLE_TYPE_ISR                 2
-#define HANDLE_TYPE_CHANNEL             4
-#define HANDLE_TYPE_TIMER               5
-#define HANDLE_TYPE_SYSTEMEVENT         6   // sighangup, sigterm, sigresource events
-
-
-#define HANDLEF_GRANTED_ONCE            (1<<0)  // Handle has been granted once
+#define HANDLE_TYPE_FILESYSTEM			3
+#define HANDLE_TYPE_PIPE                4
+#define HANDLE_TYPE_SOCKETPAIR          5
+#define HANDLE_TYPE_TIMER               6
 
 
 
@@ -236,10 +171,10 @@ struct Handle
 
 
 
-  
-    
 
 
+#define PROCF_KERNELTASK	(1<<0)
+#define PROCF_ALLOW_IO		(1<<1)
 
 /*
  * struct Process;
@@ -249,7 +184,7 @@ struct Process
 {
     struct TaskState task_state;        // Arch-specific state
     int handle;                         // Handle ID for this process
-    
+	struct Process *parent;    
     
     CIRCLEQ_ENTRY (Process) sched_entry; // real-time run-queue
     LIST_ENTRY (Process) stride_entry;     
@@ -263,19 +198,38 @@ struct Process
     int remaining;
     int64 pass;
     
-    struct Pmap *pmap;                  // Arch-Specific page tables
+    struct AddressSpace as;
+//    struct Pmap *pmap;                  // Arch-Specific page tables
     
     bits32_t flags;                     // Spawn() flags
     
     struct TimeVal syscall_start_time;  // Time of start of syscall for VM watchdog purposes.
     int watchdog_state;
     
-
-    struct VMMsg vm_msg;
     
+    
+    size_t virtualalloc_size;             // Size of memory requested by virtualalloc
+    bits32_t virtualalloc_flags;
+    struct Segment *virtualalloc_segment;
+    int virtualalloc_state;
+    
+    
+    void (*continuation_function)(void); // Deferred procedure called from
+                                         // KernelExit().
+    
+    union                               // Continuation/deferred procedure state
+    {
+        struct                          // VirtualAlloc memory cleansing state
+        {
+            vm_addr addr;
+            bits32_t flags;
+        } virtualalloc;
+    } continuation;
     
     
     LIST_ENTRY (Process) alloc_link;
+    
+    
     LIST_ENTRY (Process) free_entry;
     
     int exit_status;                     // Exit() error code
@@ -288,23 +242,14 @@ struct Process
     LIST (Handle) pending_handle_list;
     LIST (Handle) close_handle_list;     // To be closed in KernelExit()
     
-    int sighangup_handle;
-    int sigterm_handle;
-
-    int namespace_handle;
-    
-    char **argv;
-    int argc;
-    char **envv;
-    int envc;
-    
     int vm_retries;
 };
 
 
-
-
-
+typedef struct MsgInfo
+{
+	int client_pid;
+} msginfo_t;
 
 
 /*
@@ -312,11 +257,30 @@ struct Process
  * CONSIDER: Split into two Port structures pointing to each other.
  */
  
+struct Port
+{
+	bits32_t flags;
+	int handle;
+	struct Process *owner;
+	
+	LIST_ENTRY (Process) connection_list;
+};
+
+ 
 struct Channel
 {
-    LIST_ENTRY (Channel) link;     // Free list link
-    int handle[2];                 // Handles for both channel endpoints
-    LIST (Parcel) msg_list[2];     // Endpoint's list of pending messages
+	struct Channel *dst;
+	LIST_ENTRY (Channel) link;
+
+//	struct MsgHdr msg_queue[NMSG];
+
+// FIXME: How to reply to a message?   Do need unique handle for each channel?  rcv_id
+// Could be handle of port used on client side?
+// symmetric ??    putmsg/getmsg????
+
+// Channels separate from ports?
+	int handle;
+	struct Process *owner;
 };
 
 
@@ -326,6 +290,7 @@ struct Channel
  */
 
 LIST_TYPE (Channel) channel_list_t;
+LIST_TYPE (Port) port_list_t;
 LIST_TYPE (Handle) handle_list_t;
 LIST_TYPE (ISRHandler) isrhandler_list_t;
 LIST_TYPE (Process) process_list_t;
@@ -341,8 +306,8 @@ CIRCLEQ_TYPE (Process) process_circleq_t;
 
 // event.c
 
-SYSCALL int CheckFor (int handle);
-SYSCALL int WaitFor (int handle);
+SYSCALL int CheckEvent (int handle);
+SYSCALL int WaitEvent (int handle);
 void DoRaiseEvent (int handle);
 void DoClearEvent (struct Process *proc, int handle);
 
@@ -351,7 +316,6 @@ void DoClearEvent (struct Process *proc, int handle);
 
 SYSCALL int CloseHandle (int handle);
 void ClosePendingHandles (void);
-void DoCloseSystemEvent (int h);
 void *GetObject (struct Process *proc, int handle, int type);
 void SetObject (struct Process *proc, int handle, int type, void *object);
 struct Handle *FindHandle (struct Process *proc, int h);
@@ -360,15 +324,42 @@ int AllocHandle (void);
 void FreeHandle (int handle);
 
 
+// file.c
+
+struct stat
+{
+    int dummy;
+};
+
+
+SYSCALL int mount (int dir_fd, int mountpoint_fd, char *name);
+SYSCALL int unmount (int dir_fd, char *name);
+SYSCALL int CreatePipe (int fd[2]);
+SYSCALL int CreateFilesystem (int fd[2]);
+SYSCALL int CreateSocketpair (int fd[2]);
+SYSCALL ssize_t Ioctl (int fd, void *buf, size_t sz, void *reply_buf, size_t reply_sz);
+SYSCALL int Write (int fd, void *msg, size_t sz);
+SYSCALL ssize_t Read (int fd, void *buf, size_t sz);
+SYSCALL ssize_t Seek (int fd, int whence, size_t pos);
+SYSCALL ssize_t Readdir (int fd, void *buf, size_t sz);
+SYSCALL int Symlink (int root_fd, char *path, char *linktopath);
+SYSCALL int Authenticate (int mount_fd);
+SYSCALL int Deauthenticate (int mount_fd);
+SYSCALL int OpenAt (int dir_fd, char *pathname, int flags, mode_t mode);
+SYSCALL int Stat (int fd, struct stat *stat);
+SYSCALL int RemoveAt (int dir_fd, char *pathname);
+SYSCALL int ChMod (int fd, mode_t mode);
+int DoCloseFileHandle (int fd);
+
+
 // info.c
  
 SYSCALL int SystemInfo (sysinfo_t *si);
-SYSCALL int ProcessInfo (processinfo_t *pi);
 
 
 // interrupt.c
 
-SYSCALL int AddInterruptHandler (int irq);
+SYSCALL int CreateInterrupt (int irq);
 int DoCloseInterruptHandler (int handle);
 struct ISRHandler *AllocISRHandler(void);
 void FreeISRHandler (struct ISRHandler *isr_handler);
@@ -376,25 +367,20 @@ void FreeISRHandler (struct ISRHandler *isr_handler);
 
 // proc.c
 
-SYSCALL int Spawn (struct SpawnArgs *user_sa, void **user_segments, int segment_cnt);
+SYSCALL int Fork (bits32_t flags);
+SYSCALL int WaitPid (int pid, int *status);
+SYSCALL void Exit (int status);
 struct Process *AllocProcess (void);
 void FreeProcess (struct Process *proc);
 struct Process *GetProcess (int idx);
-
-
-// join.c
-
-SYSCALL int Join (int pid, int *status);
 int DoCloseProcess (int handle);
-
-
-// exit.c
-
-SYSCALL void Exit (int status);
 void DoExit (int status);
 
 
 // sched.c
+
+void SchedLock (void);
+void SchedUnlock (void);
 
 void Reschedule (void);
 void SchedReady (struct Process *proc);
@@ -409,33 +395,16 @@ void WakeupAll (struct Rendez *rendez);
 void WakeupProcess (struct Process *proc);
 
 
-
-
-// proc/msg.c
-
-SYSCALL int PutMsg (int port_h, void *msg, bits32_t flags);
-SYSCALL ssize_t GetMsg (int handle, void **rcv_msg);
-int CreateChannel (int result[2]);
-int DoCloseChannel (int h);
-SYSCALL int IsAChannel (int handle1, int handle2);
-
-SYSCALL int PutHandle (int port_h, int h, bits32_t flags);
-SYSCALL int GetHandle (int port_h);
-
-
-// proc/notification.c
-
-
 // Architecture-specific 
              
 
-void ArchAllocProcess (struct Process *proc, void *entry, void *stack);
+int ArchForkProcess (struct Process *proc, struct Process *current);
 void ArchFreeProcess (struct Process *proc);             
 void SwitchTasks (struct TaskState *current, struct TaskState *next, struct CPU *cpu);
 int MaskInterrupt (int irq);
 int UnmaskInterrupt (int irq);
 
-void ContinueTo (void (*func) (void));
+
 
 
 #endif

@@ -1,6 +1,9 @@
 .extern Main
 .global mailbuffer
-
+.global root_stack
+.global root_stack_top
+.global idle_stack
+.global idle_stack_top
 
 // Entry point into bootloader
 
@@ -28,7 +31,7 @@ _start:
 #	fmxr fpexc,r0
 	
 	
-	ldr sp, =istack_top
+	ldr sp, =root_stack_top
 	b Main
 
 
@@ -46,11 +49,15 @@ mailbuffer:
 .skip 256
 
 
-istack:
+root_stack:
 .skip 4096
-istack_top:
+root_stack_top:
 .skip 64
 
+idle_stack:
+.skip 2048
+idle_stack_top:
+.skip 64
 
 
 	

@@ -2,43 +2,46 @@
 #include "memory.h"
 #include "globals.h"
 #include "arm.h"
+#include "dbg.h"
 
-char heap[32768];
-size_t sbrk_offset = 0;
 
-	
+// Variables
+extern uint8 _bss_end;
+static vm_addr heap_top_addr = 0;
+
+
+/*
+    Simple incrementing memory allocator
+*/
 void *bmalloc (size_t size)
 {
-	void *mem;
+  	void *mem;
 	
-	sbrk_offset = ALIGN_UP (sbrk_offset, 16);
-	
-	mem = (void *)&heap[sbrk_offset];
-	
-	sbrk_offset += size;
-	
+	heap_top_addr = ALIGN_UP (heap_top_addr, 16);	
+	mem = (void *)heap_top_addr;	
+	heap_top_addr += size;
+
+    KLog ("bmalloc addr = %08x, size = %d", (vm_addr)mem, size);	
 	return mem;
 }
 
 
+/*!
+    Some places in emmc.c driver call bfree().  We do nothing.    
+*/
 void bfree (void *mem)
 {
 }
 
 
-
-/*
- *
+/*!
+    Simple memcpy (could use built-in)
  */
-
 void bmemcpy (void *dst, const void *src, size_t nbytes)
 {
-	char *dst1;
-	const char *src1;
-	src1 = src;
-	dst1 = dst;
-
-
+	char *dst1 = dst;
+	const char *src1 = src;
+    
 	while (nbytes > 0)
 	{
 		*dst1++ = *src1++;
@@ -47,16 +50,13 @@ void bmemcpy (void *dst, const void *src, size_t nbytes)
 }
 
 
-
-
-/*
- *
+/*!
+    Simple memset (could use built-in)
  */
-
 void bmemset (void *dst, char val, size_t nbytes)
 {
-	char *dst1;
-		
+	char *dst1 = dst;
+    		
 	while (nbytes > 0)
 	{
 		*dst1++ = val;
@@ -65,15 +65,15 @@ void bmemset (void *dst, char val, size_t nbytes)
 }
 
 
-
-
 /*
- *
+    Initialise bmalloc() heap,  determine amount of physical memory.
  */
-
-void init_mem(void)
+vm_size init_mem(void)
 {
 	uint32 result;
+    vm_size size;
+    
+    heap_top_addr = ALIGN_UP ((vm_addr)&_bss_end, 32);
 
 	mailbuffer[0] = 8 * 4;
 	mailbuffer[1] = 0;
@@ -88,263 +88,12 @@ void init_mem(void)
 	{
 		MailBoxWrite ((uint32)mailbuffer, 8);
 		result = MailBoxRead (8);
-	} while (result == 0);
-	
-	segment_cnt = 1;
-	segment_table[0].type = SEG_TYPE_FREE;
-	segment_table[0].flags = 0;
-	segment_table[0].base = mailbuffer[5];
-	segment_table[0].ceiling = mailbuffer[6];
+	} while (result == 0);	
+
+    // TODO: Assuming memory starts at 0x00000000
+    //	mem_base = mailbuffer[5];
+	size = mailbuffer[6];
+    return size;
 }
-
-
-
-
-
-
-
-
-
-void *SegmentCreate (vm_offset addr, vm_size size, int type, bits32_t flags)
-{
-	struct Segment *seg;
-	vm_addr base, ceiling;
-	int t;
-
-	addr = ALIGN_DOWN (addr, 4096);
-	size = ALIGN_UP (size, 4096);
-
-	if (flags & MAP_FIXED)
-	{	
-		if ((seg = SegmentFind(addr)) == NULL)
-			return NULL;
-			
-		if ((addr + size > seg->ceiling) || seg->type != SEG_TYPE_FREE)
-			return NULL;
-	}
-	else if ((seg = SegmentAlloc (size, flags, &addr)) == NULL)
-	{
-		return NULL;
-	}
-
-
-
-	
-	t = seg - segment_table;
-
-	if (seg->base == addr && seg->ceiling == addr + size)
-	{
-		/* Perfect fit, initialize region */
-		
-		seg->base = addr;
-		seg->ceiling = addr + size;
-		seg->type = type;
-		seg->flags = flags;
-	}
-	else if (seg->base < addr && seg->ceiling > addr + size)
-	{
-		/* In the middle, between two parts */
-	
-		base = seg->base;
-		ceiling = seg->ceiling;
-	
-		SegmentInsert (t, 2);
-				
-		seg->base = base;
-		seg->ceiling = addr;
-		seg->type = SEG_TYPE_FREE;
-		
-		seg++;
-		
-		seg->base = addr;
-		seg->ceiling = addr + size;
-		seg->type = type;
-		seg->flags = flags;
-		
-		seg++;
-		
-		seg->base = addr + size;
-		seg->ceiling = ceiling;
-		seg->type = SEG_TYPE_FREE;
-	}
-	else if (seg->base == addr && seg->ceiling > addr + size)
-	{
-		/* Starts at bottom of area */
-	
-		base = seg->base;
-		ceiling = seg->ceiling;
-	
-		SegmentInsert (t, 1);
-		
-		seg->base = addr;
-		seg->ceiling = addr + size;
-		seg->type = type;
-		seg->flags = flags;
-		
-		seg++;
-		
-		seg->base = addr + size;
-		seg->ceiling = ceiling;
-		seg->type = SEG_TYPE_FREE;
-	}
-	else
-	{
-		/* Starts at top of area */
-		
-		base = seg->base;
-		ceiling = seg->ceiling;
-	
-		SegmentInsert (t, 1);
-		
-		seg->base = base;
-		seg->ceiling = addr;
-		seg->type = SEG_TYPE_FREE;
-		
-		seg++;
-		
-		seg->base = addr;
-		seg->ceiling = addr + size;
-		seg->type = type;
-		seg->flags = flags;
-	}
-	
-	
-	return (void *)addr;
-}
-
-
-
-
-/*
- * MemAreaInsert();
- *
- * Replace code with a memmove/memcpy() ?
- *
- * May want to optimize to avoid moving entries if 'cnt' contiguous areas are free
- * starting at idx. Coalesce them if possible?
- * 
- */
- 
-void SegmentInsert (int index, int cnt)
-{
-	int t;
-	
-	for (t = segment_cnt - 1 + cnt; t >= (index + cnt); t--)
-	{
-		segment_table[t].base = segment_table[t-cnt].base;
-		segment_table[t].ceiling = segment_table[t-cnt].ceiling;
-		segment_table[t].type = segment_table[t-cnt].type;
-		segment_table[t].flags = segment_table[t-cnt].flags;
-	}
-	
-	segment_cnt += cnt;
-}
-
-
-
-
-/*
- *
- */
-
-struct Segment *SegmentFind (vm_addr addr)
-{
-	int low = 0;
-	int high = segment_cnt - 1;
-	int mid;	
-	
-	
-	while (low <= high)
-	{
-		mid = low + ((high - low) / 2);
-		
-		if (addr >= segment_table[mid].ceiling)
-			low = mid + 1;
-		else if (addr < segment_table[mid].base)
-			high = mid - 1;
-		else
-			return &segment_table[mid];
-	}
-
-	return NULL;
-}
-
-
-
-
-/*
- * MemAreaCoalesce();
- */
- 
-void SegmentCoalesce (void)
-{
-	int t, s;
-
-	for (t = 0, s = 0; t < segment_cnt; t++)
-	{
-		if (s > 0 && (segment_table[s-1].type == SEG_TYPE_FREE && segment_table[t].type == SEG_TYPE_FREE))
-		{
-			segment_table[s-1].ceiling = segment_table[t].ceiling;
-		}
-		else
-		{
-			segment_table[s].base 	     = segment_table[t].base;
-			segment_table[s].ceiling     = segment_table[t].ceiling;
-			segment_table[s].type 	     = segment_table[t].type;
-			segment_table[s].flags 	     = segment_table[t].flags;
-			s++;
-		}
-	}
-
-	segment_cnt = s;
-}
-
-
-
-
-
-
-/*
- * FIXME:  Allocate above *ret_addr
- */
-
-struct Segment *SegmentAlloc (vm_size size, uint32 flags, vm_addr *ret_addr)
-{
-	int i;
-	vm_addr addr;
-	
-	
-	addr = *ret_addr;
-		
-	for (i = 0; i < segment_cnt; i++)
-	{
-		if (segment_table[i].type != SEG_TYPE_FREE)
-			continue;
-			
-		if (segment_table[i].base <= addr &&
-			addr + size < segment_table[i].ceiling)
-		{
-			*ret_addr = addr;
-			return &segment_table[i];
-		}
-		
-		if (segment_table[i].base >= addr &&
-			size <= segment_table[i].ceiling - segment_table[i].base)
-		{
-			*ret_addr = segment_table[i].base;
-			return &segment_table[i];
-		}
-	}
-	
-	return NULL;
-}
-
-
-
-
-
-
-
-
 
 

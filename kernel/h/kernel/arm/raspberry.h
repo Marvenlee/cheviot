@@ -48,12 +48,23 @@ struct bcm2835_gpio_registers
 {
     uint32 gpfsel0;
     uint32 gpfsel1;
-    uint32 pad1[5];
+    uint32 gpfsel2;
+    uint32 gpfsel3;
+    uint32 gpfsel4;
+    uint32 gpfsel5;
+
+    uint32 resvd1;
+
     uint32 gpset0;
-    uint32 gpclr0;
-    uint32 pad2;
     uint32 gpset1;
+        
+    uint32 resvd2;
+    
+    uint32 gpclr0;
     uint32 gpclr1;
+
+    uint32 gplev0;
+    uint32 gplev1;
 };
 
 

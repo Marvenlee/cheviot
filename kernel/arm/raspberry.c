@@ -20,55 +20,6 @@
 
 
 
-/*
- *
- */
- 
-void LedOn(void)
-{
-    gpio_regs->gpfsel1 = (1 << 18);
-    gpio_regs->gpclr0 = (1 << 16);
-}
-
-
-
-/*
- *
- */
- 
-void LedOff(void)
-{
-    gpio_regs->gpfsel1 = (1 << 18);
-    gpio_regs->gpset0 = (1 << 16);
-}
-
-
-
-
-/*
- *
- */
-
-
-
-static volatile uint32 tim;
-
-void BlinkLEDs (int cnt)
-{
-    int t;
-    
-    for (t=0; t<cnt; t++)
-    {
-        for(tim = 0; tim < 500000; tim++);
-
-        LedOn();
-        
-        for(tim = 0; tim < 500000; tim++);
-
-        LedOff();
-    }
-}
-
 
 
 
@@ -364,4 +315,49 @@ void PutPixel (int x, int y, uint16 color)
 
 
 
+
+
+/*
+ *
+ */
+ 
+void LedOn(void)
+{
+    gpio_regs->gpfsel1 = (1 << 18);
+    gpio_regs->gpclr0 = (1 << 16);
+}
+
+
+
+/*
+ *
+ */
+ 
+void LedOff(void)
+{
+    gpio_regs->gpfsel1 = (1 << 18);
+    gpio_regs->gpset0 = (1 << 16);
+}
+
+
+
+
+/*!
+ */
+void BlinkLEDs (int cnt)
+{
+    int t;
+    static volatile uint32 tim;
+    
+    for (t=0; t<cnt; t++)
+    {
+        for(tim = 0; tim < 500000; tim++);
+
+        LedOn();
+        
+        for(tim = 0; tim < 500000; tim++);
+
+        LedOff();
+    }
+}
 

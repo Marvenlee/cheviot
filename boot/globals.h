@@ -12,9 +12,6 @@ extern struct BootInfo bootinfo;
 
 extern vm_addr user_base;
 
-extern struct Segment segment_table[NSEGMENT];
-extern int segment_cnt;
-
 extern struct Module *module_table;
 extern int module_cnt;
 extern void *module_heap;
@@ -68,11 +65,11 @@ extern uint32 vc_mem_size;
 
 /* Debugger stuff */
 
-extern volatile uint32 *gpio;
+extern volatile struct bcm2835_gpio_registers *gpio_regs;
 extern uint32 screen_width;
 extern uint32 screen_height;
-extern uint32 screen_buf;
 extern uint32 screen_pitch;
+extern void *screen_buf;
 
 extern bool __debug_enabled;
 

@@ -27,58 +27,40 @@
 #include <kernel/globals.h>
 
 
+// Constants
+#define KLOG_ENTRIES    256
+#define KLOG_WIDTH      256
 
+// Externals
+extern unsigned char font8x8_basic[128][8];
 
-/*
- * This debugger is part of the init process
- */
+// Variables
+char klog_entry[KLOG_ENTRIES][KLOG_WIDTH];
+int32 current_log;
+uint16 pen_color = 0xffff;
+uint16 bg_color = 0x0000;
+int dbg_y = 0;
+int klog_to_screen = TRUE;
+int log_idx = 0;
 
+// Prototypes
 static void KClearScreen (uint16 color);
 static void KScrollScreen (void);
 static void KPrintString (char *s);
 static void PrintChar (int x, int y, char ch);
 
 
-#define KLOG_ENTRIES    256
-
-#define KLOG_WIDTH      256
-
-extern unsigned char font8x8_basic[128][8];
-
-
-char klog_entry[KLOG_ENTRIES][KLOG_WIDTH];
-int32 current_log;
-uint16 pen_color = 0xffff;
-uint16 bg_color = 0x0000;
-
-int dbg_y = 0;
-
-int klog_to_screen = TRUE;
-int log_idx = 0;
-
-
-
-
-
-
 /*
  * InitDebug();
  */
- 
 void InitDebug (void)
 {
     int32 t;
-    
-        
+            
     current_log = 0;
     klog_to_screen = TRUE;
     __debug_enabled = TRUE;
     
-    GetScreenDimensions();
-    SetScreenMode();
-    
-    KClearScreen(0x0740);
-    BlinkLEDs(1);
     KClearScreen(0x0000);
         
     for (t=0; t< KLOG_ENTRIES; t++)
@@ -88,29 +70,16 @@ void InitDebug (void)
 }
 
 
-
-
-
-
-
-
-
-
-
-/*
- * Debug();
- *
- * System call allowing applications to write strings to the kernel's debugger
- * buffer.
- */
- 
+/*!
+    System call allowing applications to write strings to the kernel's debugger
+    buffer.
+*/ 
 SYSCALL void Debug (char *s)
 {
     int t;
     char buf[80];
     char ch;
-    
-    
+        
     for (t=0; t<80; t++)
     {
         CopyIn (&ch, s, 1);
@@ -126,10 +95,8 @@ SYSCALL void Debug (char *s)
     
     DisablePreemption();
     
-    KLog ("dbg:= %s:", &buf[0]);
+    KLog ("dbg: %d, %s:", (uint32)softclock_seconds, &buf[0]);
 }
-
-
 
 
 /*
@@ -143,10 +110,6 @@ SYSCALL void Debug (char *s)
  * Cannot be used during interrupt handlers or with interrupts
  * disabled s the dbg_slock must be acquired.  Same applies
  * to KPRINTF, KLOG, KASSERT and KPANIC.
- *
- * We can get away with using KLog() and above macros before
- * multitasking is enabled due to MutexLock() and MutexUnlock()
- * having a test to see if initialization is complete.
  */
  
 void KLog (const char *format, ...)
@@ -155,6 +118,7 @@ void KLog (const char *format, ...)
     
     va_start (ap, format);
 
+    DisablePreemption();
 #ifndef NDEBUG
 
     if (__debug_enabled)
@@ -176,7 +140,7 @@ void KLog (const char *format, ...)
 
 
 /*
- * KPanic();
+ * KernelPanic();
  */
 
 void KernelPanic(char *str)
@@ -211,13 +175,6 @@ void KernelPanic(char *str)
 }
 
 
-
-
-
-/*
- * KPrintString();
- */
-
 static void KPrintString (char *s)
 {
     int x = 0;
@@ -250,13 +207,6 @@ void KPrintXY (int x, int y, char *s)
 }
 
 
-
-
-
-/* 
- * ClearScreen();
- */
-
 static void KClearScreen (uint16 color)
 {
     int x,y;
@@ -272,12 +222,6 @@ static void KClearScreen (uint16 color)
     dbg_y = 0;
 }
 
-
-
-
-/*
- * ScrollScreen();
- */
 
 static void KScrollScreen (void)
 {
@@ -301,13 +245,6 @@ static void KScrollScreen (void)
         }
     }
 }
-
-
-
-
-
-
-
 
 
 static void PrintChar (int x, int y, char ch)

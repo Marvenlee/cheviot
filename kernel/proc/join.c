@@ -21,6 +21,7 @@
 #include <kernel/types.h>
 #include <kernel/proc.h>
 #include <kernel/dbg.h>
+#include <kernel/utility.h>
 #include <kernel/error.h>
 #include <kernel/lists.h>
 #include <kernel/globals.h>
@@ -32,7 +33,7 @@
  * final cleanup and release of its handle.
  */
 
-int Join (int handle, int *status)
+SYSCALL int WaitPid (int handle, int *status)
 {
     struct Process *child;
     struct Process *current;
@@ -50,17 +51,14 @@ int Join (int handle, int *status)
     if (child->state != PROC_STATE_ZOMBIE)
         return paramErr;
     
+    PmapDestroy (&child->as);
+    
     ArchFreeProcess (child);
     FreeProcess (child);
     FreeHandle (handle);
     
     return 0;
 }
-
-
-
-
-
 
 
 /*
@@ -78,9 +76,8 @@ int DoCloseProcess (int h)
 {
 	struct Process *child;
 	struct Process *current;
-	struct Handle *handle;
 	
-	
+		
 	current = GetCurrentProcess();
 	
 	if ((child = GetObject (current, h, HANDLE_TYPE_PROCESS)) == NULL)
@@ -88,28 +85,39 @@ int DoCloseProcess (int h)
 	
 	DisablePreemption();
 
-    handle = FindHandle (current, h);
-    
     if (child->state == PROC_STATE_ZOMBIE)
     {
         ArchFreeProcess (child);
+        FreeAddressSpace (&child->as);
         FreeProcess (child);
         FreeHandle (h);
         return 0;
     }
-    else if (handle->owner != root_process)
-    {
-        DoRaiseEvent (child->sighangup_handle);
-        handle->owner = root_process;
-        return 0;
-    }
-    else
-    {
-        return handleErr;
-    }
+	else
+	{
+		child->parent = NULL;
+		
+		// Something needs to reap these processes.
+		// Possible in continuation.
+		
+		// send sig_hangup event  ???????
+		// FIXME:  use negative error  sighangupErr
+		
+		FreeHandle (h);
+		return 0;
+	}
 }
 
 
+
+
+SYSCALL int Kill (int pid)
+{
+	// Will probably only allow root to handle kill syscall.
+	// Sessions will create a namespace handle /session to process manager
+	// allowing any process in session with handle to kill named processes in session.
+	return 0;
+}
 
 /*
  *
@@ -127,8 +135,10 @@ int TerminateProcess (int h)
 	    return paramErr;
 			
 	DisablePreemption();
-    
-    DoRaiseEvent (child->sigterm_handle);
+
+// FIXME:  Use negative event handles for signals?    
+//	replace with termErr
+//    DoRaiseEvent (child->sigterm_handle);
 
     return 0;
 }

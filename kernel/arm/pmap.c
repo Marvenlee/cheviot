@@ -31,57 +31,40 @@
 
 
 
+uint32 *PmapAllocPageTable (void);
+void PmapFreePageTable (uint32 *pt);
+
+uint32 *PmapAllocPageDirectory (void);
+void PmapFreePageDirectory (uint32 *pd);
+
+int PmapExtract (struct AddressSpace *as, vm_addr va, vm_addr *pa, uint32 *flags);
+bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr va);
+bool PmapIsPagePresent(struct AddressSpace *as,vm_addr va);
+
+
+int PmapPageTableIncRefCnt (uint32 *pt);
+int PmapPageTableDecRefCnt (uint32 *pt);
 
 
 
 
-/*
- *
- */
-
-void PmapPageFault (void)
+int PmapInit (struct AddressSpace *as)
 {
-    struct Process *current;
-    struct Segment *seg;
-    vm_addr addr;
-    bits32_t access;
+    struct Pmap *pmap;
+    uint32 *pd;
     
-    current = GetCurrentProcess();
-        
-    KASSERT (current != NULL);
-    KASSERT (!(current->flags & PROCF_DAEMON));
+    pmap = as->pmap;    
+    pd = PmapAllocPageDirectory();
     
-    addr = ALIGN_DOWN (current->task_state.fault_addr, PAGE_SIZE);
-    access = current->task_state.fault_access;
-    
-    seg = SegmentFind (addr);
-    
-    if (addr < user_base || addr >= user_ceiling
-        || seg == NULL || seg->owner != current
-        || MEM_TYPE(seg->flags) == MEM_FREE
-        || MEM_TYPE(seg->flags) == MEM_RESERVED
-        || (access & seg->flags) != access)
+    if (pd == NULL)
     {
-        current->task_state.flags |= TSF_EXCEPTION;
-        DoExit(EXIT_FATAL);
+        return -1;
     }
+    
+    pmap->l1_table = pd;
+    return 0;
+}   
 
-    DisablePreemption();
-    
-    if (seg->flags & SEG_COMPACT)
-        Sleep (&compact_rendez);
-            
-    if (seg->flags & MAP_VERSION && access & PROT_WRITE)
-    {
-        seg->flags &= ~MAP_VERSION;
-        seg->segment_id = next_unique_segment_id ++;
-    }
-    
-    PmapEnterRegion(seg, addr);
-    
-    current->task_state.flags &= ~TSF_PAGEFAULT;
-    KLog ("Returning from fault");
-}
 
 
 
@@ -98,37 +81,6 @@ int PmapSupportsCachePolicy (bits32_t flags)
 
 
 
-vm_size PmapAlignmentSize (ssize_t size)
-{
-    if (size >= 0x100000)
-        return 0x100000;
-    else if (size >= 0x10000)
-        return 0x10000;
-    else
-        return 0;
-}
-
-
-
-
-
-
-/*
- * Initializes the CPU dependent part of the virtual memory management that
- * converts the higher level MemArea and Segment abstractions into page tables.
- *
- * On ARM CPUs each Process has 16 1k page tables that are recycled based on
- * the least recently used.  These 16 entries are swapped into a single 16k
- * page table on task switches.
- */
-
-int PmapInit (struct Process *proc)
-{
-    proc->pmap = NULL;
-    
-    PmapFlushTLBs();
-    return 0;
-}   
     
 
 
@@ -137,8 +89,9 @@ int PmapInit (struct Process *proc)
  * Frees CPU dependent virtual memory management structures.
  */
 
-void PmapDestroy (struct Process *proc)
+void PmapDestroy (struct AddressSpace *as)
 {
+/*
     struct Pmap *pmap;
     
     pmap = proc->pmap;
@@ -150,281 +103,496 @@ void PmapDestroy (struct Process *proc)
     }
         
     PmapFlushTLBs();
+*/
 }
 
 
 
+/*
+*/
+
+int PmapFork (struct AddressSpace *new_as, struct AddressSpace *old_as)
+{
+//    int pde_idx;
+    vm_addr vpt, va, pa;
+    bits32_t flags;
+    struct Pageframe *pf;
+
+    
+    
+    for (vpt = VM_USER_BASE; vpt <= VM_USER_CEILING; vpt += PAGE_SIZE * N_PAGETABLE_PTE)
+    {
+        if (PmapIsPageTablePresent(old_as, vpt))
+        {
+            for (va = vpt; va < vpt + PAGE_SIZE * N_PAGETABLE_PTE; va += PAGE_SIZE)
+            {
+                if (PmapIsPagePresent(old_as, va))
+                {    
+                    PmapExtract (old_as, va, &pa, &flags);
+                    
+                    if ((flags & MAP_PHYS) == 0)
+                    {
+                        pf = &pageframe_table[pa/PAGE_SIZE];
+                        if (flags & PROT_WRITE)
+                        {
+                            // Mark page in both as read-only;                               
+                            flags |= MAP_COW;                                
+                            PmapEnter (old_as, va, pa, flags);                                
+                            PmapEnter (new_as, va, pa, flags);
+                        }
+                        else
+                        {
+                            // Read-only, 
+                            PmapEnter (new_as, va, pa, flags);                        
+                        }
+                            
+                        pf->reference_cnt ++;
+                    }
+                    else 
+                    {
+                        // Physical Mapping
+                        PmapEnter (new_as, va, pa, flags);                        
+                    }                    
+                }
+            }
+        }
+    }
+    
+	return 0;
+}
+
+
+int PmapKEnter (vm_addr va, vm_addr pa, bits32_t flags)
+{
+    return -1;
+}
+
 
 /*
- * Maps a segment into the address space pointed to by pmap.
- *
- * Converts the higher level VM description of MemAreas and Segments
- * into page tables.  Called whenever a memory map is changed through
- * the allocation, message passing or a page fault occurs.
- * Updates part of a process's page table with new page table entries
- * based on the specified address and the MemArea that contains it.
- * An optimization is to set several page table entries at once.
- *
- * Maps upto 256k on each call to PmapEnterRegion(), using the addr
- * argument as a starting point.  Supports ARM's large 64k page size
- * if the virtual and physical address of a segment are 64k aligned.
+ * FIXME:  Do allocation of ANON pages here ????????
+ * Matches freeing we do of existing page mapping
  *
  *
- * FIXME: Add support for 1MB ARM sections.
- *
- * AWOOGA FIXME: PmapEnter assumes we are updating pmap of current process
- * and modifying the page directory.
+ * 4k page tables,  1k real PTEs,  3k virtual-page linked list and flags (packed 12 bytes)
  */
 
-void PmapEnterRegion (struct Segment *seg, vm_addr addr)
+int PmapEnter (struct AddressSpace *as, vm_addr addr, vm_addr paddr, bits32_t flags)
 {
-    uint32 *pt;
+	struct Pmap *pmap;
+    uint32 *pt, *phys_pt;
     int pde_idx, pte_idx;
     uint32 pa_bits;
-    vm_addr va;
+//    bool present;
+    vm_addr current_paddr;
+    struct Pageframe *pf;
+    uint32 vpte_flags; 
+    struct PmapVPTE *vpte;
+    struct PmapVPTE *vpte_base;
     vm_addr pa;
-    vm_addr ceiling;
-    int t;
-    struct Pmap *pmap;
-    
-    
-    KASSERT (seg != NULL);
-    KASSERT ((addr & 0x00000fff) == 0);
-    KASSERT (addr >= 0x00800000);
-    KASSERT (seg->base <= addr && addr < seg->base + seg->size);
-    KASSERT ((seg->flags & MEM_MASK) == MEM_ALLOC || (seg->flags & MEM_MASK) == MEM_PHYS);
 
-    if (seg->owner == NULL || seg->owner->pmap == NULL)
-        return;
+    pmap = as->pmap;
 
-    pmap = seg->owner->pmap;
+    pa_bits = L2_TYPE_S;
     
-        
-    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
-    
-    pt = PmapGetPageTable (pmap, pde_idx);
-    
-    
-    if ((seg->flags & SEG_KERNEL) == 0)
-        pa_bits = L2_AP(AP_W);
-    else if ((seg->flags & (PROT_WRITE | MAP_VERSION)) == PROT_WRITE)
+    if ((flags & PROT_WRITE) == PROT_WRITE)
         pa_bits = L2_AP(AP_U | AP_W);
     else
         pa_bits = L2_AP(AP_U);
      
-    if ((seg->flags & MEM_MASK) == MEM_ALLOC)
+    if ((flags & MEM_MASK) == MEM_ALLOC)
         pa_bits |= L2_B | L2_C;
-    
-    if ((seg->base & 0x0ffff) == 0 && (seg->physical_addr & 0x0ffff) == 0)
-    {
-        addr = ALIGN_DOWN (addr, 0x10000);
 
-        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+    
+    // Could just copy the VM interface flags here
+    // Ensure some are available for system/pmap use.
+    vpte_flags= 0;
+    vpte_flags |= (flags & MAP_PHYS) ? VPTE_PHYS: 0;
+    vpte_flags |= (flags & MAP_LAZY) ? VPTE_LAZY: 0;
+    vpte_flags |= (flags & MAP_COW) ? VPTE_PROT_COW : 0;
+    vpte_flags |= (flags & PROT_READ) ? VPTE_PROT_R: 0;
+    vpte_flags |= (flags & PROT_WRITE) ? VPTE_PROT_W: 0;
+    vpte_flags |= (flags & PROT_EXEC) ? VPTE_PROT_X: 0;
+    vpte_flags |= (flags & MAP_WIRED) ? VPTE_WIRED: 0;
+
         
-        pa = seg->physical_addr + (addr - seg->base);
-        pa_bits |= L2_TYPE_L;
-        
-        ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
-        
-        if (ceiling >= seg->base + seg->size)
-            ceiling = seg->base + seg->size;
-        
-        if ((addr + 0x00040000) < ceiling)
-            ceiling = addr + 0x00040000;
-        
-        for (va = addr;
-            va < ceiling && ceiling - va >= 0x10000;
-            pa += 0x10000, pte_idx += 16)
-        {
-            for (t=0; t<16; t++)
-               pt[pte_idx+t] = pa | pa_bits;
-        }
-        
-        for (va = addr; va < ceiling; va += PAGE_SIZE, pa += PAGE_SIZE, pte_idx++)
-            pt[pte_idx] = pa | pa_bits;
+    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+    // FIXME:  Need a GetPagedir
+    
+    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
+    {
+		if ((pt = PmapAllocPageTable()) == NULL)
+		{
+			return memoryErr;
+		}
+
+        phys_pt = (uint32 *)PmapVaToPa ((vm_addr)pt);
+
+        pmap->l1_table[pde_idx] = (uint32)phys_pt | L1_TYPE_C;
     }
     else
     {
-        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+        // Need a GetPagedir (after releasing pagedir)
     
-        pa = seg->physical_addr + (addr - seg->base);
-        pa_bits |= L2_TYPE_S;
+        phys_pt = (uint32 *) (pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
         
-        ceiling = ALIGN_UP (addr + PAGE_SIZE, 0x00100000);
-        
-        if (ceiling >= seg->base + seg->size)
-            ceiling = seg->base + seg->size;
-        
-        if ((addr + 0x00040000) < ceiling)
-            ceiling = addr + 0x00040000;
+        pt = (uint32 *)PmapPaToVa ((vm_addr)phys_pt);
+    }
     
-        for (va = addr; va < ceiling; va += PAGE_SIZE, pa += PAGE_SIZE, pte_idx++)
-            pt[pte_idx] = pa | pa_bits;
-    }    
-        
-    PmapFlushTLBs();
-}
+    pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+    
+    
+    current_paddr = pt[pte_idx] & L2_ADDR_BITS;
+  
+    vpte_base = (struct PmapVPTE *)((uint8 *)pt + VPTE_TABLE_OFFS);
+    vpte = vpte_base + pte_idx;
 
+  
+    
+    // FIXME: ?? Do we need to check for COW here ???????????
+    // pa_bits needs to be read-only if COW set.
 
-
-
-/*
- *
- */
- 
-uint32 *PmapGetPageTable (struct Pmap *pmap, int pde_idx)
-{
-    uint32 *pt;
-    int t;
-
-    if ((pagedirectory[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
+    if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV && current_paddr == paddr)
     {
-        KASSERT (pmap->pde[pmap->lru].idx >= -1 && pmap->pde[pmap->lru].idx < 4096);
-        
-        if (pmap->pde[pmap->lru].idx != -1)
-        {
-            pagedirectory[pmap->pde[pmap->lru].idx] = L1_TYPE_INV;
-        }
+        // Change protections
 
-        pt = (uint32 *)((uint8*)pmap->addr + pmap->lru * L2_TABLE_SIZE);
-        KASSERT ((vm_addr)pt >= 0x00404000 && (vm_addr)pt < 0x00800000);
-
-        pmap->pde[pmap->lru].val = (uint32)pt | L1_TYPE_C;
-        pmap->pde[pmap->lru].idx = pde_idx;
-
-        pagedirectory[pde_idx] = pmap->pde[pmap->lru].val;
+        pt[pte_idx] = paddr | pa_bits;        
+        vpte->flags = vpte_flags;    
+    }
+    else
+    {
+        // Unmap any existing mapping, then map either anon or phys mem
+        if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
+        {   
+            if  ((vpte->flags & VPTE_PHYS) == 0)
+            {            
+                pf = PmapPaToPf (current_paddr);
                 
-        pmap->lru++;
-        pmap->lru %= NPDE;
+                LIST_REM_ENTRY (&pf->pmap_pageframe.vpte_list, vpte, link);
+                pf->reference_cnt --;
+                
+                if (pf->reference_cnt == 0)
+                {
+                    FreePageframe (pf);
+                }
+            }
 
-        for (t=0; t<256; t++)
-            *(pt + t) = L2_TYPE_INV;
-    }
-    else
-    {
-        pt = (uint32 *)(pagedirectory[pde_idx] & L1_C_ADDR_MASK);
-        KASSERT ((vm_addr)pt >= 0x00404000 && (vm_addr)pt < 0x00800000);
-    }
-
-    return pt;
+            pt[pte_idx] = L2_TYPE_INV;
+            PmapPageTableDecRefCnt (pt);    // Could potentially free pagetable/optimize ?
+        }
+        
+        if ((flags & VPTE_PHYS) == 0)
+        {
+            pf = AllocPageframe (PAGE_SIZE);
+            
+            if (pf == NULL)
+                return memoryErr;
+/* FIXME
+            if (pf->dirty)
+            {
+                MemSet();
+            }
+ */
+          
+            pa = PmapPfToPa (pf);     
+            vpte->flags = vpte_flags;
+            
+            LIST_ADD_HEAD (&pf->pmap_pageframe.vpte_list, vpte, link);
+            pf->reference_cnt ++;
+            pt[pte_idx] = pa | pa_bits;
+            PmapPageTableIncRefCnt (pt);    
+            
+        }
+        else
+        {
+            vpte->flags = vpte_flags;
+            pt[pte_idx] = paddr | pa_bits;                        
+            PmapPageTableDecRefCnt (pt);
+        }
+    }    
+            
+    return 0;
 }
-
-
 
 
 /*
  * Unmaps a segment from the address space pointed to by pmap. 
- * Removes page table entries of the first and last page tables that
- * partially intersect with the segment.  Checks the pmap's 16 page tables
- * to see if they are eclipsed and removes the page directory entry instead. 
- *
- *
- * AWOOGA FIXME:  May need some form of interprocessor interrupt for pagetable
- * teardown.
  */
 
-void PmapRemoveRegion (struct Segment *seg)
+int PmapRemove (struct AddressSpace *as, vm_addr va)
 {
-    uint32 *pt;
-    uint32 pde_idx, pte_idx;
-    vm_addr va;
-    vm_addr first_pagetable_ceiling;
-    vm_addr last_pagetable_base;
-    vm_addr temp_ceiling;
-    int t; 
-    struct Pmap *pmap;
-    
-    
-    KASSERT (seg != NULL);
-    KASSERT ((seg->flags & MEM_MASK) == MEM_ALLOC || (seg->flags & MEM_MASK) == MEM_PHYS);
+	struct Pmap *pmap;
+    uint32 *pt, *phys_pt;
+    int pde_idx, pte_idx;
+//    uint32 pa_bits;
+//    bool present;
+    vm_addr current_paddr;
+    struct Pageframe *pf;
+//    uint32 vpte_flags; 
+    struct PmapVPTE *vpte;
+    struct PmapVPTE *vpte_base;
+//    vm_addr pa;
 
-    if (seg->owner == NULL || seg->owner->pmap == NULL)
-        return;
+    pmap = as->pmap;
+    pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
     
-    pmap = seg->owner->pmap;
-    
-    first_pagetable_ceiling = ALIGN_UP (seg->base, 0x100000);
-    last_pagetable_base = ALIGN_DOWN (seg->base + seg->size, 0x100000);
-    
-    va = seg->base;
-    
-    if (seg->base + seg->size < first_pagetable_ceiling)
-        temp_ceiling = seg->base + seg->size;
-    else
-        temp_ceiling = first_pagetable_ceiling;    
-    
-    pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;    
-    pt = (uint32 *)(pagedirectory[pde_idx] & L1_C_ADDR_MASK);
-    pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-            
-    while (va < temp_ceiling)
+    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
     {
-        pt[pte_idx] = L2_TYPE_INV;
-        va += PAGE_SIZE;
-        pte_idx ++;
+        return memoryErr;
     }
-    
-    if (va == seg->base + seg->size)
-        return;
-    
-    if ((seg->base + seg->size - va) >= 0x100000)
+    else
     {
-        for (t=0; t<NPDE; t++)
+        phys_pt = (uint32 *) (pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+        pt = (uint32 *)PmapPaToVa ((vm_addr)phys_pt);
+
+        pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+        current_paddr = pt[pte_idx] & L2_ADDR_BITS;
+
+        vpte_base = (struct PmapVPTE *)((uint8 *)pt + VPTE_TABLE_OFFS);
+        vpte = vpte_base + pte_idx;
+
+        // Unmap any existing mapping, then map either anon or phys mem
+        if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
         {   
-            va = pmap->pde[t].idx * 0x100000;
-            
-            if (first_pagetable_ceiling <= va && va < last_pagetable_base)
+            if  ((vpte->flags & VPTE_PHYS) == 0)
             {
-                pagedirectory[pmap->pde[t].idx] = L1_TYPE_INV;
-                pmap->pde[t].idx = -1;
-                pmap->pde[t].val = L1_TYPE_INV;
+                pf = PmapPaToPf (current_paddr);
+                
+                LIST_REM_ENTRY (&pf->pmap_pageframe.vpte_list, vpte, link);
+                pf->reference_cnt --;
+                
+                if (pf->reference_cnt == 0)
+                {
+                    FreePageframe (pf);
+                }
             }
+
+            pt[pte_idx] = 0;
+            PmapPageTableDecRefCnt (pt);
         }
-    }    
     
-    va = last_pagetable_base;
-    
-    if (va == seg->base + seg->size)
-        return;
-    
-    pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;    
-    pt = (uint32 *)(pagedirectory[pde_idx] & L1_C_ADDR_MASK);
-    pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-    
-    while (va < seg->base + seg->size)
-    {
-        pt[pte_idx] = L2_TYPE_INV;
-        va += PAGE_SIZE;
-        pte_idx ++;
+        // decrement pt reference count,  check if pagetable needs freeing.
+        
+        if (PmapPageTableDecRefCnt (pt) == 0)
+        {
+            PmapFreePageTable (pt);
+        }    
+        
+        PmapFlushTLBs();
     }
         
-    PmapFlushTLBs();
+    return 0;
+}
+
+
+
+int PmapRemoveAll (struct AddressSpace *as)
+{
+    return 0;
+}
+
+
+
+int PmapProtect (struct AddressSpace *as, vm_addr addr, bits32_t flags)
+{
+    return 0;
+}
+
+void PmapPageframeInit (struct PmapPageframe *ppf)
+{
+    LIST_INIT (&ppf->vpte_list);
+}
+
+
+/*
+*/
+
+int PmapExtract (struct AddressSpace *as, vm_addr va, vm_addr *pa, uint32 *flags)
+{
+    // TODO: PmapExtract 
+
+    *pa = 0;
+    *flags = 0;
+	return memoryErr;
+}
+
+
+bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr addr)
+{
+	struct Pmap *pmap;
+    int pde_idx;
+    
+    pmap = as->pmap;
+
+    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+    
+    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
+    {
+        return FALSE;
+    }
+    else
+    {
+        return TRUE;
+    }    
+}
+
+
+
+bool PmapIsPagePresent(struct AddressSpace *as, vm_addr addr)
+{
+    struct Pmap *pmap;
+    uint32 *pt, *phys_pt;
+    int pde_idx, pte_idx;
+//    vm_addr pa;
+
+    pmap = as->pmap;
+    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+    
+    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
+    {
+        return FALSE;
+    }
+    else
+    {
+        phys_pt = (uint32 *) (pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+        pt = (uint32 *)PmapPaToVa ((vm_addr)phys_pt);
+    
+        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+
+        if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
+            return TRUE;
+        else
+            return FALSE;
+    }
 }
 
 
 
 
 /*
- *
- */
- 
-void PmapCachePreDMA (struct Segment *seg)
+*/
+
+uint32 *PmapAllocPageTable (void)
 {
-    FlushCaches();
+	int t;
+	uint32 *pt;
+	struct Pageframe *pf;
+	
+	if ((pf = AllocPageframe (VPAGETABLE_SZ)) == NULL)
+	    return NULL;
+	
+    pt = (uint32 *)PmapPfToVa (pf);
+	
+    for (t=0; t<256; t++)
+    {
+        *(pt + t) = L2_TYPE_INV;
+	}
+
+	return pt;
 }
-
-
 
 
 /*
- *
- */
+*/
 
-void PmapCachePostDMA (struct Segment *seg)
+void PmapFreePageTable (uint32 *pt)
 {
-    FlushCaches();
+    struct Pageframe *pf;
+    pf = PmapVaToPf ((vm_addr)pt);
+    FreePageframe (pf);
 }
 
+
+int PmapPageTableIncRefCnt (uint32 *pt)
+{
+    struct Pageframe *pf;
+    pf = PmapVaToPf ((vm_addr)pt);
+    pf->reference_cnt ++;
+    
+    return pf->reference_cnt;
+}
+
+int PmapPageTableDecRefCnt (uint32 *pt)
+{
+    struct Pageframe *pf;
+    pf = PmapVaToPf ((vm_addr)pt);
+    pf->reference_cnt --;
+    
+    return pf->reference_cnt;
+}
+
+
+/*
+*/
+
+uint32 *PmapAllocPageDirectory (void)
+{
+	uint32 *pd;
+	int t;
+    struct Pageframe *pf;
+    
+	if ((pf = AllocPageframe (PAGEDIR_SZ)) == NULL)
+	    return NULL;
+	    
+    pd = (uint32 *)PmapPfToVa (pf);	
+	
+    for (t=0; t<4096; t++)
+    {
+        *(pd + t) = L1_TYPE_INV;
+	}
+
+	return pd;
+}
+
+
+/*
+*/
+
+void PmapFreePageDirectory (uint32 *pd)
+{
+    struct Pageframe *pf;    
+    pf = PmapVaToPf ((vm_addr)pd);
+    FreePageframe (pf);
+}
+
+
+
+vm_addr PmapPfToPa (struct Pageframe *pf)
+{
+    return (vm_addr)pf->physical_addr;
+}
+
+struct Pageframe *PmapPaToPf (vm_addr pa)
+{    
+    return &pageframe_table[(vm_addr)pa / PAGE_SIZE];
+}
+
+
+vm_addr PmapPfToVa (struct Pageframe *pf)
+{
+    return PmapPaToVa ((pf->physical_addr));
+}
+
+struct Pageframe *PmapVaToPf (vm_addr va)
+{
+    return &pageframe_table[PmapVaToPa(va) / PAGE_SIZE];
+}
+
+
+
+
+vm_addr PmapVaToPa (vm_addr vaddr)
+{
+    return vaddr - 0x80000000;    
+}
+
+
+
+
+vm_addr PmapPaToVa (vm_addr paddr)
+{
+    return paddr + 0x80000000;    
+}
 
 
 
@@ -434,27 +602,15 @@ void PmapCachePostDMA (struct Segment *seg)
 
 void PmapFlushTLBs (void)
 {
+    //FIXME:  Could instead set a flag to InvalidateTLB on kernel exit or later point.
     InvalidateTLB();
 }
 
 
 
-
-/*
- *
- */
- 
-void PmapInvalidateAll (void)
+void PmapBarrier (void)
 {
-    int t;
-    
-    
-    for (t=0; t < max_process; t++)
-    {
-        // FIXME: For each alive process,  set the 16 pmap entries to -1
-    }
-    
-    InvalidateTLB();
+    // ensure page table entries are written out (to RAM if page table walk doesn't look in L1)
 }
 
 
@@ -462,57 +618,12 @@ void PmapInvalidateAll (void)
 
 /*
  * Switches the address space from the current process to the next process.
- * Each process uses only 16 1k page tables and these are swapped over
- * in a single page directory shared between all processes.
  */
 
 void PmapSwitch (struct Process *next, struct Process *current)
 {
-    int t;
- 
-    if (current->pmap != NULL)
-    {
-        for (t=0; t< NPDE; t++)
-        {
-            if (current->pmap->pde[t].idx != -1)
-                pagedirectory[current->pmap->pde[t].idx] = L1_TYPE_INV;
-        }
-    }
-    
-    LIST_REM_ENTRY (&pmap_lru_list, current->pmap, lru_link);
-    LIST_ADD_TAIL (&pmap_lru_list, current->pmap, lru_link);
-    
-    if (next->pmap == NULL)
-    {
-        next->pmap = LIST_TAIL (&pmap_lru_list);
-        LIST_REM_TAIL (&pmap_lru_list, lru_link);
-        LIST_ADD_HEAD (&pmap_lru_list, next->pmap, lru_link);
-    
-        for (t=0; t < NPDE; t++)
-        {
-            next->pmap->pde[t].idx = -1;
-            next->pmap->pde[t].val = L1_TYPE_INV;            
-        } 
-    }
-    else
-    {
-        for (t=0; t< NPDE; t++)
-        {
-            if (next->pmap->pde[t].idx != -1)
-                pagedirectory[next->pmap->pde[t].idx] = next->pmap->pde[t].val;
-        }
-    }
-        
-    // Reload Page Directory with physically mapped pagedir. if PROCF_DAEMON;
-    
-    if (next->flags & PROCF_DAEMON)
-        SetPageDirectory (phys_pagedirectory);
-    else
-        SetPageDirectory (pagedirectory);
+// FIXME:   reload page directory 
 }
-
-
-
 
 
 

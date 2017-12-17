@@ -28,94 +28,85 @@
 #include <kernel/dbg.h>
 #include <kernel/globals.h>
 
-
-
-
-
-
 /*
- * Allocates a clean area are virtual memory to the current process and
- * returns a pointer to it.  Returns NULL if unsuccessful.  Will sleep
- * for other tasks to free memory.
- *
- * The look up and creation of the vseg and pseg data structures
- * has preemption disabled.
- 
- * This could be optimized to allow preemption during the lookup/best fit
- * of suitable sized virtual and physical segments.  If the virtseg and
- * physseg arrays need to grow then there are two options:
- *
- * 1) Disable preemption and resize arrays.
- * 2) Double-buffer, create a new array, with any insertions added, then
- *    only disable preemption to update a pointer to the new array.
- *    This may need a time limit after which preemption is disabled.
+    Map an area of memory and unmap any existing mapping
  */
 
-SYSCALL vm_addr VirtualAlloc (vm_addr addr, ssize_t len, bits32_t flags)
+SYSCALL vm_size VirtualAlloc (vm_addr addr, vm_size len, bits32_t flags)
 {
-    struct Segment *seg;
+	struct Process *current;
+	struct AddressSpace *as;
+	vm_size nbytes_mapped;
+    vm_addr va;
+    	
+	current = GetCurrentProcess();
+    as = &current->as;
 
-    
     addr = ALIGN_DOWN (addr, PAGE_SIZE);
     len = ALIGN_UP (len, PAGE_SIZE);
-
-    if ((flags & CACHE_MASK) != CACHE_DEFAULT)
-        return (vm_addr)NULL;
-        
     flags = (flags & ~VM_SYSTEM_MASK) | MEM_ALLOC;
-    
+
     DisablePreemption();
+    nbytes_mapped = 0;
     
-    if (EnoughSpace() == FALSE)
-        RequestCompaction (len);
+    for (va = addr; va < addr + len; va += PAGE_SIZE)
+    {
+        if (PmapEnter (as, va, 0, flags) != 0)
+        {
+            break;
+        }
+        
+        nbytes_mapped += PAGE_SIZE;
     
-    if ((seg = SegmentAlloc ((vm_addr)NULL, len, flags)) == NULL)
-            return (vm_addr)NULL;
+//        PreeemptionPoint();
+    }
     
-    return seg->base;
+    return nbytes_mapped;
 }
 
 
 
-
-
-
-
 /*
- * Maps an area of physical memory such as IO devie or framebuffer into the
+ * Maps an area of physical memory such as IO device or framebuffer into the
  * address space of the calling process.
  */
 
-SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, ssize_t len, bits32_t flags, vm_addr paddr)
+SYSCALL vm_size VirtualAllocPhys (vm_addr addr, vm_size len, bits32_t flags, vm_addr paddr)
 {
-    struct Segment *seg;
-    struct Process *current;
+	struct Process *current;
+	struct AddressSpace *as;
+    vm_addr va;
+    vm_addr pa;
+    vm_size nbytes_mapped;
+    
+	current = GetCurrentProcess();
+	as = &current->as;
+	
+	addr = ALIGN_DOWN (addr, PAGE_SIZE);
+	paddr = ALIGN_DOWN (paddr, PAGE_SIZE);
+	len = ALIGN_UP (len, PAGE_SIZE);
+	flags = (flags & ~VM_SYSTEM_MASK) | MEM_PHYS;
 
-
-    current = GetCurrentProcess();
-
-    addr = ALIGN_DOWN (addr, PAGE_SIZE);
-    paddr = ALIGN_DOWN (paddr, PAGE_SIZE);
-    len = ALIGN_UP (len, PAGE_SIZE);
-    flags = (flags & ~VM_SYSTEM_MASK) | MEM_PHYS;
-
-    if (!(current->flags & PROCF_ALLOW_IO))
-        return (vm_addr)NULL;
-
-    if (PmapSupportsCachePolicy (flags) == -1)
-        return (vm_addr)NULL;
+	if (!(current->flags & PROCF_ALLOW_IO))
+    {
+    	return 0;
+    }
 
     DisablePreemption();
-
-    if (EnoughSegments() == FALSE)
-        ReclaimSegments();
+    nbytes_mapped = 0;
+    
+    for (va = addr, pa = paddr; va < addr + len; va += PAGE_SIZE, pa += PAGE_SIZE)
+    {
+        if (PmapEnter (as, va, pa, flags) != 0)
+        {
+            break;
+        }
         
-    if ((seg = SegmentAlloc (paddr, len, flags)) == NULL)
-        return (vm_addr)NULL;
-  
-    return seg->base;
+        nbytes_mapped += PAGE_SIZE;
+    }
+    
+    return nbytes_mapped;
 }
-
 
 
 
@@ -123,23 +114,30 @@ SYSCALL vm_addr VirtualAllocPhys (vm_addr addr, ssize_t len, bits32_t flags, vm_
  *
  */
 
-SYSCALL int VirtualFree (vm_offset addr)
+SYSCALL vm_size VirtualFree (vm_addr addr, vm_size size)
 {
-    struct Segment *seg;
-    struct Process *current;
-    
-    current = GetCurrentProcess();
-
-    addr = ALIGN_DOWN (addr, PAGE_SIZE);
-
-    if ((seg = SegmentFind (addr)) == NULL || seg->owner != current)
-        return memoryErr;
-    
-    DisablePreemption();
-    
-    PmapRemoveRegion (seg);
-    SegmentFree (seg);
-    return 0;
+	struct Process *current;
+	struct AddressSpace *as;
+	vm_addr va;
+	vm_size nbytes_freed;
+	
+	current = GetCurrentProcess();
+	as = &current->as;
+	
+	addr = ALIGN_DOWN (addr, PAGE_SIZE);
+	size = ALIGN_UP (size, PAGE_SIZE);
+	    
+    nbytes_freed = 0;
+        
+    for (va = addr; va < addr + size; va += PAGE_SIZE)
+    {
+        if (PmapRemove (as, va) == 0)
+        {
+            nbytes_freed += PAGE_SIZE;
+        }
+	}
+	
+	return nbytes_freed;
 }
 
 
@@ -148,333 +146,72 @@ SYSCALL int VirtualFree (vm_offset addr)
 /*
  * Changes the read/write/execute protection attributes of a virtual
  * memory segment pointed to by 'addr'..
- */
-
-SYSCALL int VirtualProtect (vm_addr addr, bits32_t flags)
-{
-    struct Segment *seg;
-    struct Process *current;
-
-    current = GetCurrentProcess();
-    addr = ALIGN_DOWN (addr, PAGE_SIZE);
-        
-    if ((seg = SegmentFind (addr)) == NULL)
-        return memoryErr;
-
-    if (seg->flags & SEG_COMPACT)
-        Sleep (&compact_rendez);
-
-    if (seg->owner != current || MEM_TYPE(seg->flags) == MEM_RESERVED)
-        return memoryErr;
-
-    DisablePreemption();
-
-    PmapRemoveRegion (seg);
-    seg->flags = (seg->flags & ~PROT_MASK) | (flags & PROT_MASK);
-    PmapEnterRegion (seg, seg->base);
-    return 0;
-}
-
-
-
-
-/*
- * Returns a 64-bit unique ID for a segment.  This ID is uniquely chosen
- * whenever a segment is allocated with VirtualAlloc() or VirtualAllocPhys().
- * The ID is updated to another unique value whenever a segment has the
- * MAP_segment_id flag set and a write is performed.  Once a write is performed
- * the MAP_segment_id flag has to be reenabled with a call to Virtualsegment_id().
- */
-
-SYSCALL int VirtualVersion (vm_addr addr, uint64 *segment_id)
-{
-    struct Segment *seg;
-    struct Process *current;
-
-    current = GetCurrentProcess();
-    addr = ALIGN_DOWN (addr, PAGE_SIZE);
-    
-    if ((seg = SegmentFind (addr)) == NULL || seg->owner != current
-        || !(MEM_TYPE(seg->flags) == MEM_ALLOC || MEM_TYPE(seg->flags) == MEM_PHYS))
-    {
-        return memoryErr;
-    }
-
-    if (seg->flags & SEG_COMPACT)
-        Sleep (&compact_rendez);
-    
-    CopyOut (segment_id, &seg->segment_id, sizeof (uint64));
-
-    DisablePreemption();
-    
-    seg->flags |= MAP_VERSION;
-    return 0;
-}
-
-
-
-
-/*
- * Returns the size of a segment pointed to by addr
- */
-
-SYSCALL ssize_t VirtualSizeOf (vm_addr addr)
-{
-    struct Segment *seg;
-    struct Process *current;
-    
-    current = GetCurrentProcess();
-    
-    if ((seg = SegmentFind (addr)) == NULL || seg->owner != current)
-        return memoryErr;
-    
-    return seg->size;
-}
-
-
-
-
-/*
- * Marks a segment of memory pointed to by 'addr' as immovable to prevent this
- * segment from being compacted. Returns the physical address of the segment
- * for DMA purposes.
  *
- * Sleeps if the compactor marks segment as busy, which indicates it either
- * intends to compact the memory once the wired flag is cleared or is currently
- * performing segment compaction.
+ * A bit harder, as we only want to change segment permissions for a range,  no PADDR changes
+ 
  */
 
-SYSCALL int WireMem (vm_addr addr, vm_addr *ret_phys)
+SYSCALL vm_size VirtualProtect (vm_addr addr, vm_size size, bits32_t flags)
 {
-    struct Process *current;
-    struct Segment *seg;
-    vm_addr phys;
+	struct Process *current;
+	struct AddressSpace *as;
+	vm_addr va;
+	vm_size nbytes_protected = 0;
+	
+	current = GetCurrentProcess();
+	as = &current->as;
+	
+	addr = ALIGN_DOWN (addr, PAGE_SIZE);
+	size = ALIGN_UP (size, PAGE_SIZE);
 
-    current = GetCurrentProcess();
+//    new_flags = flags | MAP_FIXED | PROT_CHANGE;
+    
+    // TODO:
 
-    if (!(current->flags & PROCF_ALLOW_IO))
-        return privilegeErr;
-        
-    if ((seg = SegmentFind (addr)) == NULL || seg->owner != current
-        || MEM_TYPE(seg->flags) != MEM_ALLOC)
+    for (va = addr; va < addr + size; va += PAGE_SIZE)
     {
-        return memoryErr;
-    }
-
-    if (seg->flags & SEG_WIRED)
-        return memoryErr;
-
-    if (seg->flags & SEG_COMPACT)
-        Sleep (&compact_rendez);
-        
-    phys = seg->physical_addr + (addr - seg->base);
-    CopyOut (ret_phys, &phys, sizeof (vm_addr));
-
-    DisablePreemption();
-        
-    seg->flags |= SEG_WIRED;
-    
-    PmapCachePreDMA (seg);
-    
-    return 0;
-}
-
-
-
-
-/*
- * Unwires a segment of memory previously flagged by WireMem()
- */
-
-SYSCALL int UnwireMem (vm_addr addr)
-{
-    struct Process *current;
-    struct Segment *seg;
-    
-    current = GetCurrentProcess();
-    
-    if (!(current->flags & PROCF_ALLOW_IO))
-        return privilegeErr;
-        
-    addr = ALIGN_DOWN (addr, PAGE_SIZE);
-        
-    if ((seg = SegmentFind (addr)) == NULL || seg->owner != current
-        || MEM_TYPE(seg->flags) != MEM_ALLOC)
-    {
-        return memoryErr;
-    }
-    
-    if ((seg->flags & SEG_WIRED) == 0)
-        return memoryErr;
-    
-    DisablePreemption();
-
-    seg->flags &= ~SEG_WIRED;
-
-    PmapCachePostDMA (seg);
-    
-    WakeupAll (&compact_rendez);
-    return 0;
-}
-
-
-
-
-
-/*
- * Searches the cache for a segment belonging to the current process
- * and matching the segment_id parameter.
- */
-
-SYSCALL vm_addr GetCachedSegment (uint64 *in_segment_id)
-{
-    struct Process *current;
-    struct Segment *seg;
-    uint64 segment_id;
-    uint64 key;
-    
-    current = GetCurrentProcess();
-    
-    CopyIn (&segment_id, in_segment_id, sizeof (segment_id));
-    
-    key = segment_id % CACHE_HASH_SZ;
-    
-    seg = LIST_HEAD (&cache_hash[key]);
-
-    DisablePreemption();
-                
-    while (seg != NULL)
-    {
-        if (seg->segment_id == segment_id && seg->owner == current)
+        if (PmapProtect (as, va, flags) != 0)
         {
-            LIST_REM_ENTRY (&cache_lru_list, seg, lru_link);
-            LIST_REM_ENTRY (&cache_hash[key], seg, hash_link);
-
-            if (seg == last_aged_seg)
-                last_aged_seg = NULL;
-                
-            return seg->base;
+            break;
         }
         
-        seg = LIST_NEXT (seg, hash_link);
-    }        
+        nbytes_protected += PAGE_SIZE;
+	}
 
-    return (vm_addr)NULL;
+
+	return nbytes_protected;
 }
 
 
 
 
 /*
- * Stores a segment in the cache, marks the current owner
- */
-
-SYSCALL int PutCachedSegment (vm_addr addr, bits32_t flags, uint64 *out_segment_id)
-{
-    struct Process *current;
-    struct Segment *seg;
-    uint64 segment_id;
-    uint64 key;
-    
-    current = GetCurrentProcess();
-    
-   
-    seg = SegmentFind (addr);
-    
-    if (seg == NULL || MEM_TYPE(seg->flags) != MEM_ALLOC || seg->owner != current)
-        return paramErr;
-
-    segment_id = seg->segment_id;
-    key = segment_id % CACHE_HASH_SZ;
-    CopyOut (out_segment_id, &segment_id, sizeof (segment_id));
-
-    DisablePreemption();
-
-    LIST_ADD_HEAD (&cache_hash[key], seg, hash_link);
-
-    if (flags & CACHE_AGE)
-    {
-        if (last_aged_seg != NULL) {
-            LIST_INSERT_BEFORE (&cache_lru_list, last_aged_seg,  seg, lru_link);
-        }
-        else { 
-            LIST_ADD_TAIL (&cache_lru_list, seg, lru_link);
-        }
-        
-        last_aged_seg = seg;
-    }
-    else {
-        LIST_ADD_HEAD (&cache_lru_list, seg, lru_link);    
-    }
-    
-    PmapRemoveRegion (seg);
-
-    return 0;
-}
-
-
-
-
-/* 
  *
  */
 
-SYSCALL int ExpungeCachedSegment (uint64 *in_segment_id)
+int ForkAddressSpace (struct AddressSpace *new_as, struct AddressSpace *old_as)
 {
-    struct Process *current;
-    struct Segment *seg;
-    uint64 segment_id;
-    uint64 key;
-    
-    current = GetCurrentProcess();
-    
-    CopyIn (&segment_id, in_segment_id, sizeof (segment_id));
-    
-    key = segment_id % CACHE_HASH_SZ;
-    
-    seg = LIST_HEAD (&cache_hash[key]);
+	if (PmapInit (new_as) != 0)
+	{
+		return resourceErr;
+	}
 
-    DisablePreemption();
-                
-    while (seg != NULL)
+    if (PmapFork(new_as, old_as) != 0)
     {
-        if (seg->segment_id == segment_id && seg->owner == current)
-        {
-            LIST_REM_ENTRY (&cache_lru_list, seg, lru_link);
-            LIST_REM_ENTRY (&cache_hash[key], seg, hash_link);
-
-            if (seg == last_aged_seg)
-                last_aged_seg = NULL;
-            
-            HEAP_ADD_HEAD (&free_segment_list[seg->bucket_q], seg, link);
-            seg->size = 0;
-            seg->physical_addr = (vm_addr)NULL;
-            seg->flags = MEM_FREE;
-            seg->owner = NULL;
-            
-            PmapRemoveRegion (seg);
-            return 0;
-        }
-        else if (seg->segment_id == segment_id && seg->owner != current)
-        {
-            return memoryErr;
-        }
-        
-        seg = LIST_NEXT (seg, hash_link);
+        PmapDestroy (new_as);
+        return resourceErr;
     }
-    
-    return memoryErr;        
+
+	return 0;
 }
 
 
 
 
 
-
-
-
-
-
+void FreeAddressSpace (struct AddressSpace *as)
+{
+}
 
 
 

@@ -10,12 +10,8 @@ struct BootInfo bootinfo;
 
 struct Module *module_table;
 int module_cnt;
-void *module_heap;
 
 vm_addr user_base;
-
-struct Segment segment_table[NSEGMENT];
-int segment_cnt;
 
 Elf32_EHdr ehdr;
 Elf32_PHdr phdr_table[MAX_PHDR];
@@ -66,11 +62,11 @@ uint8 file_buf[512];
 
 /* Debugger stuff */
 
- volatile uint32 *gpio;
- uint32 screen_width;
- uint32 screen_height;
- uint32 screen_buf;
- uint32 screen_pitch;
+volatile struct bcm2835_gpio_registers *gpio_regs;
+uint32 screen_width;
+uint32 screen_height;
+uint32 screen_pitch;
+void *screen_buf;
 
  bool __debug_enabled;
 

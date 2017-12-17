@@ -15,39 +15,28 @@ static void KScrollScreen (void);
 static void KPrintString (char *s);
 static void PrintChar (int x, int y, char ch);
 
-
 #define KLOG_ENTRIES	256
 #define KLOG_WIDTH   	256
 
 extern unsigned char font8x8_basic[128][8];
-
 
 bool debug_enabled = TRUE;
 char klog_entry[KLOG_ENTRIES][KLOG_WIDTH];
 int32 current_log;
 uint16 pen_color = 0xffff;
 uint16 bg_color = 0x0000;
-
 int dbg_y = 0;
-
 int	klog_to_screen = TRUE;
 int log_idx = 0;
 
 
-
-
-
-
-/*
- * InitDebug();
- */
- 
+/*!
+    Initialise debug log buffer and clear screen
+ */ 
 void dbg_init (void)
 {
 	int32 t;
 	
-	BlinkLEDs(10);
-		
 	current_log = 0;
 	klog_to_screen = TRUE;
 	__debug_enabled = TRUE;
@@ -66,10 +55,9 @@ void dbg_init (void)
 }
 
 
-
-
-
-
+/*
+    Print panic message and halt boot process
+*/
 void KPanic (char *string)
 {
 	if (string != NULL)
@@ -79,12 +67,6 @@ void KPanic (char *string)
 	
 	while (1);
 }
-
-
-
-
-
-
 
 /*
  * KLog();
@@ -124,16 +106,9 @@ void KLog (const char *format, ...)
 }
 
 
-
-
-
-
-
-
-/*
- * KPrintString();
- */
-
+/*!
+    KPrintString();
+*/
 static void KPrintString (char *s)
 {
 	int x = 0;
@@ -155,12 +130,9 @@ static void KPrintString (char *s)
 }
 
 
-
-
-/* 
- * ClearScreen();
- */
-
+/*!
+    Clear screen and set x/y to top left corner
+*/
 static void KClearScreen (uint16 color)
 {
 	int x,y;
@@ -169,7 +141,7 @@ static void KClearScreen (uint16 color)
 	{
 		for (x=0; x<screen_width; x++)
 		{
-			*(uint16 *)(screen_buf + y * screen_pitch + x*2) = color;
+			*(uint16 *)((vm_addr)screen_buf + y * screen_pitch + x*2) = color;
 		}
 	}
 
@@ -177,12 +149,10 @@ static void KClearScreen (uint16 color)
 }
 
 
-
-
 /*
- * ScrollScreen();
+    Scrolls the screen by a character height.  A bit slow as reading from screen buffer
+    memory and then writing back to screen buffer memory.
  */
-
 static void KScrollScreen (void)
 {
 	long x,y;
@@ -191,8 +161,8 @@ static void KScrollScreen (void)
 	{
 		for (x=0; x<screen_width; x++)
 		{
-			*(uint16 *)(screen_buf + y * screen_pitch + x*2) =
-							*(uint16 *)(screen_buf + (y+8) * screen_pitch + x*2);
+			*(uint16 *)((vm_addr)screen_buf + y * screen_pitch + x*2) =
+							*(uint16 *)((vm_addr)screen_buf + (y+8) * screen_pitch + x*2);
 		}
 	}
 	
@@ -201,19 +171,15 @@ static void KScrollScreen (void)
 	{
 		for (x=0; x<screen_width; x++)
 		{
-			*(uint16 *)(screen_buf + y * screen_pitch + x*2) = 0;
+			*(uint16 *)((vm_addr)screen_buf + y * screen_pitch + x*2) = 0;
 		}
 	}
 }
 
 
-
-
-
-
-
-
-
+/*!
+    Print a single character onto the screen.
+*/
 static void PrintChar (int x, int y, char ch)
 {
 	uint8 r, c;
@@ -227,18 +193,16 @@ static void PrintChar (int x, int y, char ch)
 			
 			if ((1<<c) & bit_row)
 			{
-				*(uint16*)(screen_buf + (y+r) * screen_pitch + ((x + c)  * 2)) = pen_color;
+				*(uint16*)((vm_addr)screen_buf + (y+r) * screen_pitch + ((x + c)  * 2)) = pen_color;
 			}
 		}
 	}
 }
 
 
-
-
-
-
-
+/*!
+    Blink LEDs continuously,
+*/
 void BlinkError (void)
 {
 	int c;
@@ -253,13 +217,11 @@ void BlinkError (void)
 		
 		for (c=0; c<800000; c++);
 	}
-	
-
 }
 
 
-
-
+/*!
+*/
 uint32 *FindTag (uint32 tag, uint32 *msg)
 {
 	uint32 skip_size;
@@ -279,7 +241,8 @@ uint32 *FindTag (uint32 tag, uint32 *msg)
 }
 
 
-
+/*!
+*/
 void BlankScreen(void)
 {
 	uint32 result;
@@ -300,12 +263,8 @@ void BlankScreen(void)
 }
 
 
-
-
-
-
-
-
+/*!
+*/
 void GetScreenDimensions(void)
 {
 	uint32 result;
@@ -333,10 +292,8 @@ void GetScreenDimensions(void)
 }
 
 
-
-
-
-
+/*!
+*/
 void SetScreenMode(void)
 {
 	uint32 result;
@@ -370,20 +327,17 @@ void SetScreenMode(void)
 		MailBoxWrite ((uint32)mailbuffer, 8);
 		result = MailBoxRead (8);
 	} while (result == 0);
-	
 
 	if (mailbuffer[1] != 0x80000000)
 		BlinkError();
-	
-	
+    
 	tva = FindTag (0x00040001, mailbuffer);
 
 	if (tva == NULL)
 		BlinkError();
 
-	screen_buf = *(tva+3);
-	
-	
+	screen_buf = (void *) *(tva+3);
+		
 	mailbuffer[0] = 8 * 4;
 	mailbuffer[1] = 0;
 	mailbuffer[2] = 0x00040008;		// Get Pitch
@@ -393,7 +347,6 @@ void SetScreenMode(void)
 	mailbuffer[6] = 0;				// End Tag
 	mailbuffer[7] = 0;
 	
-
 	do
 	{
 		MailBoxWrite ((uint32)mailbuffer, 8);
@@ -410,15 +363,8 @@ void SetScreenMode(void)
 }
 
 
-
-
-
-
-
-
-
-
-
+/*!
+*/
 uint16 CalcColor (uint8 r, uint8 g, uint8 b)
 {
 	uint16 c;
@@ -433,19 +379,16 @@ uint16 CalcColor (uint8 r, uint8 g, uint8 b)
 }
 
 
-
+/*!
+*/
 void PutPixel (int x, int y, uint16 color)
 {
-	*(uint16*)(screen_buf + y*(screen_pitch) + x*2) = color;
+	*(uint16*)((vm_addr)screen_buf + y*(screen_pitch) + x*2) = color;
 }
 
 
-
-
-/*
- *
- */
-
+/*!
+*/
 void MailBoxWrite (uint32 v, uint32 id)
 {
    uint32 s;
@@ -467,12 +410,8 @@ void MailBoxWrite (uint32 v, uint32 id)
 }
 
 
-
-
-/*
- *
- */
-
+/*!
+*/
 uint32 MailBoxRead(uint32 id)
 {
    uint32 s;
@@ -501,12 +440,8 @@ uint32 MailBoxRead(uint32 id)
 }
 
 
-
-
-/*
- *
- */
-
+/*!
+*/
 uint32 MailBoxStatus()
 {
    volatile uint32 v;
@@ -518,12 +453,8 @@ uint32 MailBoxStatus()
 }
 
 
-
-
-
-
-
-
+/*!
+*/
 __attribute__((naked))	void MemoryBarrier()
 {
 	__asm("mov r0, #0");
@@ -537,8 +468,6 @@ __attribute__((naked))	void DataCacheFlush()
 	__asm("mcr p15, #0, r0, c7, c14, #0");
 	__asm("mov pc, lr");
 }
-
-
 
 __attribute__((naked))	void SynchronisationBarrier()
 {
@@ -558,43 +487,31 @@ __attribute__((naked))	void DataSynchronisationBarrier()
 }
 
 
-
-
-
-
-
-
+/*!
+*/
 void LedOn(void)
 {
-	gpio = (uint32*)GPIO_BASE;
-	gpio[GPIO_GPFSEL1] = (1 << 18);
-	gpio[GPIO_GPCLR0] = (1 << 16);
+	gpio_regs->gpfsel1 = (1 << 18);
+	gpio_regs->gpclr0 = (1 << 16);
 }
 
-    
 
-
-
-
-
-
+/*!
+*/
 void LedOff(void)
 {
-	gpio = (uint32*)GPIO_BASE;
-	gpio[GPIO_GPFSEL1] = (1 << 18);
-	gpio[GPIO_GPSET0] = (1 << 16);
+	gpio_regs->gpfsel1 = (1 << 18);
+	gpio_regs->gpset0 = (1 << 16);
 }
 
 
-
-
-
-
-
-
+/*!
+*/
 
 static volatile uint32 tim;
 
+/*!
+*/
 void BlinkLEDs (int cnt)
 {
 	int t;

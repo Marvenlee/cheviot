@@ -29,41 +29,10 @@
 
 
 /*
- * System call to exit a process.  The actual work of exiting a process is
- * performed at the end of a system call in the KernelExit function.
+ * System call to exit a process.
  */
 
 SYSCALL void Exit (int status)
-{
-    struct Process *current;
-    
-    current = GetCurrentProcess();
-    
-    current->exit_status = status;
-    current->task_state.flags |= TSF_EXIT;
-}
-
-
-
-
-
-/*
- * DoExit();
- *
- * Called by the KernelExit routine.to terminate the process.
- * Exits a process and saves the exit status in the process structure
- * for Join to retrieve.
- *
- * Currently we scan through the entire handle table with preemption
- * disabled and it continues to be disabled for the rest of DoExit().
- * Maintaining a current_exit_handle field in the Process structure
- * would allow preemption points inside that loop.
- *
- * FreeAddressSpace() could also have preemption points, again maintaining
- * a virtual address pointer of the next segment to check.
- */
-
-void DoExit (int status)
 {
     int t;
     struct Process *current;
@@ -77,9 +46,7 @@ void DoExit (int status)
     for (t=0; t < max_handle; t++)
         CloseHandle(t); 
 
-    FreeAddressSpace();             
-    
-    ClosePendingHandles();    
+    PmapRemoveAll(&current->as);
                 
     DisableInterrupts();
     current->state = PROC_STATE_ZOMBIE; 
@@ -89,8 +56,7 @@ void DoExit (int status)
     SchedUnready (current);
     EnableInterrupts();
     
-    __KernelExit();         // FIXME: Use pragma/attribute to indicate
-                            // This __KernelExit doesn't return
+    // Kernel exit path will reschedule threads.    
 }
 
 

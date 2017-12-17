@@ -15,16 +15,9 @@
  */
 
 /*
- * Event handling. Raising and receiving notification of events relating
- * to handles such as process termination, messages arriving on a Channel,
- * the state of a Condition changing, the opposite end of a Channel
- * or Condition closing, timers expiring and interrupts being raised.
- *
- * WaitFor() is a system call that puts a process to sleep until an event
- * is raised by one of the aforementioned events.  A specific handle can be
- * chosen to wait for or all handles belonging to a process.
+ * Functions and system calls for handle management
  */
-  
+
 #include <kernel/types.h>
 #include <kernel/proc.h>
 #include <kernel/dbg.h>
@@ -39,7 +32,7 @@
  * Checks to see if an event has been raised on a specific handle
  */
  
-SYSCALL int CheckFor (int h)
+SYSCALL int CheckEvent (int h)
 {
     struct Process *current;
     
@@ -68,18 +61,17 @@ SYSCALL int CheckFor (int h)
 
 
 
-/*
+/*!
  * Waits for an event to occur on a specific handle or if 'h' is set to -1 it
  * waits for any object owned by the process to raise an event.  If an event
  * has already been raised the function returns immediately.
  */
 
-SYSCALL int WaitFor (int h)
+SYSCALL int WaitEvent (int h)
 {
     struct Process *current;
     struct Handle *hp;
-
-        
+    
     current = GetCurrentProcess();
 
     if (h < -1 || h >= max_handle)
@@ -129,8 +121,6 @@ SYSCALL int WaitFor (int h)
 }
 
 
-
-
 /*
  * Raises an event.  Common code used by various parts of the kernel to raise
  * an event on a specific handle.
@@ -145,6 +135,7 @@ void DoRaiseEvent (int h)
 
     
     proc = handle_table[h].owner;
+    KASSERT (handle_table[h].owner != NULL);
     
     if (handle_table[h].pending == 0)
     {
