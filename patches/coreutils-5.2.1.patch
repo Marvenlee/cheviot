@@ -1,0 +1,132 @@
+diff -urN third_party/coreutils-5.2.1/lib/dirfd.c third_party_new_z/coreutils-5.2.1/lib/dirfd.c
+--- third_party/coreutils-5.2.1/lib/dirfd.c
++++ third_party_new_z/coreutils-5.2.1/lib/dirfd.c
+@@ -28,3 +28,4 @@
+ {
+   return DIR_TO_FD (dir_p);
+ }
++
+diff -urN third_party/coreutils-5.2.1/lib/getopt.c third_party_new_z/coreutils-5.2.1/lib/getopt.c
+--- third_party/coreutils-5.2.1/lib/getopt.c
++++ third_party_new_z/coreutils-5.2.1/lib/getopt.c
+@@ -51,6 +51,8 @@
+ # endif
+ #endif
+ 
++#define ELIDE_CODE
++
+ #ifndef ELIDE_CODE
+ 
+ 
+diff -urN third_party/coreutils-5.2.1/lib/Makefile.am third_party_new_z/coreutils-5.2.1/lib/Makefile.am
+--- third_party/coreutils-5.2.1/lib/Makefile.am
++++ third_party_new_z/coreutils-5.2.1/lib/Makefile.am
+@@ -33,7 +33,6 @@
+   posixtm.c posixtm.h \
+   posixver.c posixver.h \
+   strftime.c strftime.h \
+-  getopt.c getopt.h getopt1.c \
+   hash.c hash.h \
+   hash-pjw.c hash-pjw.h \
+   __fpending.h \
+diff -urN third_party/coreutils-5.2.1/lib/Makefile.in third_party_new_z/coreutils-5.2.1/lib/Makefile.in
+--- third_party/coreutils-5.2.1/lib/Makefile.in
++++ third_party_new_z/coreutils-5.2.1/lib/Makefile.in
+@@ -42,7 +42,7 @@
+ subdir = lib
+ DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+ 	ChangeLog TODO __fpending.c alloca.c asnprintf.c asprintf.c \
+-	atexit.c canonicalize.c chown.c dirfd.c dup2.c error.c error.h \
++	atexit.c canonicalize.c chown.c dup2.c error.c error.h \
+ 	euidaccess.c fchdir-stub.c fchown-stub.c fileblocks.c \
+ 	fnmatch.c free.c fsusage.c ftruncate.c getcwd.c getdate.c \
+ 	getgroups.c gethostname.c getline.c getloadavg.c getndelim2.c \
+@@ -66,7 +66,6 @@
+ 	$(top_srcdir)/m4/check-decl.m4 $(top_srcdir)/m4/chown.m4 \
+ 	$(top_srcdir)/m4/clock_time.m4 $(top_srcdir)/m4/closeout.m4 \
+ 	$(top_srcdir)/m4/codeset.m4 $(top_srcdir)/m4/d-ino.m4 \
+-	$(top_srcdir)/m4/d-type.m4 $(top_srcdir)/m4/dirfd.m4 \
+ 	$(top_srcdir)/m4/dirname.m4 $(top_srcdir)/m4/dos.m4 \
+ 	$(top_srcdir)/m4/dup2.m4 $(top_srcdir)/m4/error.m4 \
+ 	$(top_srcdir)/m4/euidaccess.m4 $(top_srcdir)/m4/exclude.m4 \
+@@ -79,7 +78,6 @@
+ 	$(top_srcdir)/m4/getcwd-path-max.m4 $(top_srcdir)/m4/getcwd.m4 \
+ 	$(top_srcdir)/m4/getdate.m4 $(top_srcdir)/m4/getgroups.m4 \
+ 	$(top_srcdir)/m4/gethostname.m4 $(top_srcdir)/m4/getline.m4 \
+-	$(top_srcdir)/m4/getndelim2.m4 $(top_srcdir)/m4/getopt.m4 \
+ 	$(top_srcdir)/m4/getpagesize.m4 $(top_srcdir)/m4/getpass.m4 \
+ 	$(top_srcdir)/m4/gettext.m4 $(top_srcdir)/m4/gettimeofday.m4 \
+ 	$(top_srcdir)/m4/getugroups.m4 \
+@@ -165,7 +163,7 @@
+ am__DEPENDENCIES_2 = @ALLOCA@
+ am_libfetish_a_OBJECTS = acl.$(OBJEXT) getdate.$(OBJEXT) \
+ 	posixtm.$(OBJEXT) posixver.$(OBJEXT) strftime.$(OBJEXT) \
+-	getopt.$(OBJEXT) getopt1.$(OBJEXT) hash.$(OBJEXT) \
++	hash.$(OBJEXT) \
+ 	hash-pjw.$(OBJEXT) addext.$(OBJEXT) argmatch.$(OBJEXT) \
+ 	backupfile.$(OBJEXT) basename.$(OBJEXT) c-strtod.$(OBJEXT) \
+ 	canon-host.$(OBJEXT) cloexec.$(OBJEXT) closeout.$(OBJEXT) \
+@@ -199,7 +197,7 @@
+ @AMDEP_TRUE@DEP_FILES = $(DEPDIR)/__fpending.Po $(DEPDIR)/alloca.Po \
+ @AMDEP_TRUE@	$(DEPDIR)/asnprintf.Po $(DEPDIR)/asprintf.Po \
+ @AMDEP_TRUE@	$(DEPDIR)/atexit.Po $(DEPDIR)/canonicalize.Po \
+-@AMDEP_TRUE@	$(DEPDIR)/chown.Po $(DEPDIR)/dirfd.Po \
++@AMDEP_TRUE@	$(DEPDIR)/chown.Po \
+ @AMDEP_TRUE@	$(DEPDIR)/dup2.Po $(DEPDIR)/error.Po \
+ @AMDEP_TRUE@	$(DEPDIR)/euidaccess.Po $(DEPDIR)/fchdir-stub.Po \
+ @AMDEP_TRUE@	$(DEPDIR)/fchown-stub.Po $(DEPDIR)/fileblocks.Po \
+@@ -246,7 +244,6 @@
+ @AMDEP_TRUE@	./$(DEPDIR)/filemode.Po ./$(DEPDIR)/fopen-safer.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/fts.Po ./$(DEPDIR)/full-read.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/full-write.Po ./$(DEPDIR)/getdate.Po \
+-@AMDEP_TRUE@	./$(DEPDIR)/getopt.Po ./$(DEPDIR)/getopt1.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/gettime.Po ./$(DEPDIR)/getugroups.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/hard-locale.Po ./$(DEPDIR)/hash-pjw.Po \
+ @AMDEP_TRUE@	./$(DEPDIR)/hash.Po ./$(DEPDIR)/human.Po \
+@@ -412,7 +409,6 @@
+   posixtm.c posixtm.h \
+   posixver.c posixver.h \
+   strftime.c strftime.h \
+-  getopt.c getopt.h getopt1.c \
+   hash.c hash.h \
+   hash-pjw.c hash-pjw.h \
+   __fpending.h \
+@@ -423,6 +419,7 @@
+   c-strtod.c c-strtod.h \
+   canon-host.c \
+   canonicalize.h \
++  chown.c \
+   cloexec.c cloexec.h \
+   closeout.c closeout.h \
+   cycle-check.c cycle-check.h \
+@@ -586,7 +583,6 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/atexit.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/canonicalize.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/chown.Po@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/dirfd.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/dup2.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/error.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/euidaccess.Po@am__quote@
+@@ -678,8 +674,6 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/full-read.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/full-write.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getdate.Po@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getopt.Po@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getopt1.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gettime.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getugroups.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hard-locale.Po@am__quote@
+diff -urN third_party/coreutils-5.2.1/lib/mktime.c third_party_new_z/coreutils-5.2.1/lib/mktime.c
+--- third_party/coreutils-5.2.1/lib/mktime.c
++++ third_party_new_z/coreutils-5.2.1/lib/mktime.c
+@@ -127,8 +127,8 @@
+ 	    int year0, int yday0, int hour0, int min0, int sec0)
+ {
+   verify (C99_integer_division, -1 / 2 == 0);
+-  verify (long_int_year_and_yday_are_wide_enough,
+-	  INT_MAX <= LONG_MAX / 2 || TIME_T_MAX <= UINT_MAX);
++//  verify (long_int_year_and_yday_are_wide_enough,
++//	  INT_MAX <= LONG_MAX / 2 || TIME_T_MAX <= UINT_MAX);
+ 
+   /* Compute intervening leap days correctly even if year is negative.
+      Take care to avoid integer overflow here.  */

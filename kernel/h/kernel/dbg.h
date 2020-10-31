@@ -1,10 +1,9 @@
 #ifndef KERNEL_DBG_H
 #define KERNEL_DBG_H
 
-
-#include <kernel/types.h>
-#include <kernel/proc.h>
 #include <kernel/arch.h>
+#include <kernel/proc.h>
+#include <kernel/types.h>
 #include <kernel/vm.h>
 #include <stdarg.h>
 
@@ -24,68 +23,96 @@ extern struct Process *root_process;
  *
  *
  * Use -DNDEBUG in the makefile CFLAGS to remove debugging.
+ * Use -DDEBUG_LEVEL=x to set debugging level.
+ * Or define DEBUG_LEVEL at top of source file.
  */
 
+//#define NDEBUG
 
-#ifndef NDEBUG
+#ifdef KDEBUG
 
-
-#define KLOG( fmt, args...)                                             \
-        KLog (fmt , ##args)
-
-
-#define KPRINTF( fmt, args...)                                          \
-        KLog (fmt , ##args);                                            
+#ifndef DEBUG_LEVEL
+#define DEBUG_LEVEL 2
+#endif
 
 
-#define KTRACE                                                      \
-        KLog ("E: %s", __FUNCTION__);
+#define Error(fmt, args...) DoLog(fmt, ##args)
+
+#if DEBUG_LEVEL >= 1
+#define Warn(fmt, args...) DoLog(fmt, ##args)
+#else
+#define Warn(fmt, args...)
+#endif
+
+#if DEBUG_LEVEL >= 2
+#define Info(fmt, args...) DoLog(fmt, ##args)
+#else
+#define Info(fmt, args...)
+#endif
+
+#if DEBUG_LEVEL >= 3
+#define KLog(fmt, args...) DoLog(fmt, ##args)
+#else
+#define KLog(fmt, args...)
+#endif
+
+#define KASSERT(expr)                                                          \
+  {                                                                            \
+    if (!(expr)) {                                                             \
+      PrintKernelPanic(#expr ", %s, %d, %s", __FILE__, __LINE__, __FUNCTION__);\
+    }                                                                          \
+  }
 
 
-#define KLOG_LINE                                                       \
-        KLog ("Line: %s, %d, %s", __FILE__, __LINE__, __FUNCTION__);
+#define KernelPanic()                                                          \
+  {                                                                            \
+    DisableInterrupts();                                                       \
+    PrintKernelPanic("panic, %s, %d, %s", __FILE__, __LINE__, __FUNCTION__);   \
+  }
 
 
-#define KRETURN( rc)                                                    \
-        while(1)                                                        \
-        {                                                               \
-        KLog ("L: %s, rc = %d", __FUNCTION__, (int)rc);                 \
-        return rc;                                                      \
-        }
+#else
 
-        
-#define KASSERT(expr)                                                   \
-        {                                                               \
-            if (!(expr))                                                \
-            {                                                           \
-                KLog("@ %s, %d, %s",__FILE__, __LINE__, __FUNCTION__);  \
-                KernelPanic("KASSERT (" #expr  ") failed");             \
-            }                                                           \
-        }
+#define Error(fmt, args...)
+#define Warn(fmt, args...)
+#define Info(fmt, args...)
+#define KLog(fmt, args...)
 
-/* FIXME, alter or remove KPANIC */
-#define KPANIC(str)                                                     \
-        {                                                               \
-            DisableInterrupts();                                        \
-            KLog("@ %s, %d, %s",__FILE__, __LINE__, __FUNCTION__);      \
-            KernelPanic(str);                                           \
-        }
-
-
-
-
-#else   
-
-#define KPRINTF( fmt, args...)
-#define KLOG( fmt, args...)
-#define KTRACE
-#define KLOG_PLACE
-#define KLOG_LEAVE
-#define KASSERT( expr)
-#define KPANIC( str)        KernelPanic (str);
-
+#define KASSERT(expr)
+#define KernelPanic()                                                          \
+  {                                                                            \
+    DisableInterrupts();                                                       \
+    while(1);                                                                  \
+  }
 
 #endif
+
+
+/*
+ * TODO: 
+ */
+
+#define DEBUG_INIT
+#define DEBUG_ARCH
+
+#define DEBUG_SCHED
+#define DEBUG_PROC
+#define DEBUG_TIMER
+
+#define DEBUG_MOUNT
+#define DEBUG_LOOKUP
+#define DEBUG_CACHE
+#define DEBUG_CHAR
+#define DEBUG_BLK
+#define DEBUG_PIPE
+#define DEBUG_ACCESS
+#define DEBUG_DIR
+#define DEBUG_VFS
+#define DEBUG_VNODE
+#define DEBUG_FILE
+#define DEBUG_OPEN
+#define DEBUG_HANDLE
+#define DEBUG_POLL
 
 
 
@@ -95,12 +122,14 @@ extern struct Process *root_process;
  * macros above.
  */
 
-void KLog (const char *format, ...);
-void KLog2 (const char *format, va_list ap);
-void KernelPanic(char *str);
+void DoLog(const char *format, ...);
+void KLog2(const char *format, va_list ap);
+void PrintKernelPanic(char *format, ...);
 void KLogToScreenDisable(void);
-void KPrintXY (int x, int y, char *s);
+void KPrintXY(int x, int y, char *s);
 
+void ProcessesInitialized(void);
 
+void MemDump(void *addr, size_t sz);
 
 #endif

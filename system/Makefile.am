@@ -1,0 +1,1 @@
+SUBDIRS = boot drivers init

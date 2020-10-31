@@ -2,31 +2,55 @@
 // Assembly equivalent of struct TaskState
 
 
-.equ TASK_CPSR,                 0
-.equ TASK_R0,                   4       
-.equ TASK_PC,                   8
-.equ TASK_R1,                   12
-.equ TASK_R2,                   16
-.equ TASK_R3,                   20
-.equ TASK_R4,                   24
-.equ TASK_R5,                   28
-.equ TASK_R6,                   32
-.equ TASK_R7,                   36
-.equ TASK_R8,                   40
-.equ TASK_R9,                   44
-.equ TASK_R10,                  48
-.equ TASK_R11,                  52
-.equ TASK_R12,                  56
-.equ TASK_SP,                   60
-.equ TASK_LR,                   64
-.equ TASK_FLAGS,                68
-.equ TASK_CPU,                  72
-.equ TASK_EXCEPTION,            76
-.equ TASK_PAGEFAULT_ADDR,       80
-.equ TASK_PAGEFAULT_PROT,       84
-.equ TASK_DFSR,                 88
+.equ CONTEXT_SP,                   0        // USR_MODE SP
+.equ CONTEXT_LR,                   4        // USR_MODE LR
+.equ CONTEXT_CPSR,                 8        // USR_MODE CPSR 
+.equ CONTEXT_R1,                   12
+.equ CONTEXT_R2,                   16
+.equ CONTEXT_R3,                   20
+.equ CONTEXT_R4,                   24
+.equ CONTEXT_R5,                   28
+.equ CONTEXT_R6,                   32
+.equ CONTEXT_R7,                   36
+.equ CONTEXT_R8,                   40
+.equ CONTEXT_R9,                   44
+.equ CONTEXT_R10,                  48
+.equ CONTEXT_R11,                  52
+.equ CONTEXT_R12,                  56
+.equ CONTEXT_R0,                   60      
+.equ CONTEXT_PC,                   64       // PC return address  (current LR)
+.equ CONTEXT_pad,                  68       // PAD
+.equ SIZEOF_CONTEXT,               72       // Align up to 8 bytes
 
-.equ PROCESS_SZ,                1024
+
+.equ ALT_PC,                        0
+.equ ALT_R0,                        4
+.equ ALT_R1,                        8
+.equ ALT_R2,                        12
+.equ ALT_CPSR,                      16
+.equ SIZEOF_ALT,                    20
+
+
+.equ TASK_CATCH_PC, 0
+.equ SIZEOF_TASK_CATCH_CONTEXT,     4
+
+
+
+
+.equ PROC_CPU,                  4
+
+
+
+.equ EXCEPTION_FLAGS,                0
+.equ EXCEPTION_EXCEPTION,            4
+.equ EXCEPTION_PAGEFAULT_ADDR,       8
+.equ EXCEPTION_PAGEFAULT_PROT,       12
+.equ EXCEPTION_DFSR,                 16
+
+
+
+
+.equ PROCESS_SZ,                8192
 
 
 
@@ -39,7 +63,6 @@
 .equ TSF_KILL,                  (1<<1)
 .equ TSF_PAGEFAULT,             (1<<2)
 .equ TSF_UNDEFINSTR,            (1<<3)
-
 
 
 

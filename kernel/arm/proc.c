@@ -4,7 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -14,16 +14,25 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * ARM-specific process creation and deletion code.
  */
  
-#include <kernel/types.h>
-#include <kernel/proc.h>
-#include <kernel/utility.h>
-#include <kernel/dbg.h>
+//#define KDEBUG
+
+#include <kernel/arm/arm.h>
+#include <kernel/arm/globals.h>
 #include <kernel/arm/init.h>
+#include <kernel/arm/task.h>
+#include <kernel/dbg.h>
 #include <kernel/globals.h>
+#include <kernel/proc.h>
+#include <kernel/types.h>
+#include <kernel/utility.h>
+#include <string.h>
+
+extern void StartForkProcess(void);
+extern void StartExecProcess(void);
 
 
 
@@ -34,38 +43,108 @@
  * of the new process.
  */
 
-int ArchForkProcess (struct Process *proc, struct Process *current)
-{
-    int sc;
-    
-    KLog ("ArchForkProcess()");
-    
-    proc->task_state.cpu = &cpu_table[0];
-    proc->task_state.flags = 0;
+int ArchForkProcess(struct Process *proc, struct Process *current) {
+  struct UserContext *uc_current;
+  struct UserContext *uc_proc;
+  uint32_t *context;
 
-    if ((sc = PmapInit (&proc->as)) != 0)
-    {
-        return sc;
-    }
+  Info ("ArchForkProcess proc = %08x, current = %08x", (vm_addr)proc, (vm_addr)current);
+  
+  uc_current = (struct UserContext *)((vm_addr)current + PROCESS_SZ -
+                                      sizeof(struct UserContext));
+  uc_proc = (struct UserContext *)((vm_addr)proc + PROCESS_SZ -
+                                   sizeof(struct UserContext));
 
-    MemCpy (proc, current, sizeof *current);
-    proc->task_state.r0 = proc->handle;
-    return 0;
+  Info ("pc = %08x, sp = %08x, lr = %08x", uc_current->pc, uc_current->sp, uc_current->lr);
+
+  uc_proc->r0 = 0;
+  uc_proc->r1 = uc_current->r1;
+  uc_proc->r2 = uc_current->r2;
+  uc_proc->r3 = uc_current->r3;
+  uc_proc->r4 = uc_current->r4;
+  uc_proc->r5 = uc_current->r5;
+  uc_proc->r6 = uc_current->r6;
+  uc_proc->r7 = uc_current->r7;
+  uc_proc->r8 = uc_current->r8;
+  uc_proc->r9 = uc_current->r9;
+  uc_proc->r10 = uc_current->r10;
+  uc_proc->r11 = uc_current->r11;
+  uc_proc->r12 = uc_current->r12;
+  uc_proc->sp = uc_current->sp;
+  uc_proc->lr = uc_current->lr;
+  uc_proc->pc = uc_current->pc;
+  uc_proc->cpsr = uc_current->cpsr;
+
+  // Simple question, Is uc_current pointing to actual context of root process,
+  // or not?
+
+  context = ((uint32_t *)uc_proc) - 15;
+
+  KASSERT(uc_proc->pc != 0);
+
+  for (int t = 0; t < 13; t++) {
+    context[t] = 0xdeadbee0 + t;
+  }
+
+  context[13] = (uint32_t)uc_proc;
+  context[14] = (uint32_t)StartForkProcess;
+
+  proc->context = context;
+  proc->cpu = current->cpu;
+
+  proc->catch_state.pc = current->catch_state.pc;
+
+  return 0;
 }
-
-
-
-
-
 
 /*
  *
  */
 
-void ArchFreeProcess (struct Process *proc)
-{
+void ArchFreeProcess(struct Process *proc) {
 }
 
+//int execing = 0;
 
+void ArchInitExec(struct Process *proc, void *entry_point,
+                  void *stack_pointer, struct execargs *args) {
+  struct UserContext *uc;
+  uint32_t *context;
+  uint32_t cpsr;
 
+  Info ("ArchInitExec entry_point %08x, sp = %08x", (uint32_t)entry_point, (uint32_t)stack_pointer);
 
+  // FIXME : Change back to USR mode.
+
+  cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS; 
+  uc = (struct UserContext *)((vm_addr)proc + PROCESS_SZ -
+                              sizeof(struct UserContext));
+
+  memset(uc, 0, sizeof(*uc));
+
+  uc->r0 = args->argc;
+  uc->r1 = (uint32_t)args->argv;
+  uc->r2 = args->envc;
+  uc->r3 = (uint32_t)args->envv;
+  uc->pc = (uint32_t)entry_point;
+  uc->sp = (uint32_t)stack_pointer;
+  uc->cpsr = cpsr;
+
+  context = ((uint32_t *)uc) - 15;
+
+  for (int t = 0; t < 13; t++) {
+    context[t] = 0;
+  }
+
+  context[13] = (uint32_t)uc;
+  context[14] = (uint32_t)StartExecProcess;
+  proc->context = context;
+
+  proc->catch_state.pc = 0xdeadbeef;
+
+//  execing = 1;
+
+//  if (proc != root_process) {
+    GetContext(proc->context);
+//  }
+}

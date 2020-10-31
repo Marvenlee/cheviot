@@ -4,7 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -14,154 +14,365 @@
  * limitations under the License.
  */
  
-/*
- * Process creation system calls
- */
+//#define KDEBUG
 
-#include <kernel/types.h>
-#include <kernel/proc.h>
+#include <kernel/arm/elf.h>
 #include <kernel/dbg.h>
-#include <kernel/utility.h>
 #include <kernel/error.h>
+#include <kernel/filesystem.h>
 #include <kernel/globals.h>
+#include <kernel/proc.h>
+#include <kernel/signal.h>
+#include <kernel/types.h>
+#include <kernel/utility.h>
 #include <kernel/vm.h>
-
+#include <string.h>
+#include <sys/execargs.h>
 
 
 /*
- * Create a new process, Only Executive.has permission to create a new process.
- * Takes a table of pointers to segments and a table of handles to pass to the
- * child process.
  *
- * If removing page table entries in PmapRemove operations are atomic we can
- * move it before disabling preemption.
- *
-
  */
+int Fork(void) {
+  struct Process *current;
+  struct Process *proc;
 
-SYSCALL int Fork (bits32_t flags)
-{
-    struct Process *proc, *current;
-    int h;
-    
-    
-    current = GetCurrentProcess();
-    
-    DisablePreemption();
-    
-    if ((h = AllocHandle()) == -1)
-        return resourceErr;
-        
-    if ((proc = AllocProcess()) == NULL)
-    {
-        FreeHandle (h);
-        return resourceErr;
-    }
+  current = GetCurrentProcess();
 
-    proc->handle = h;
-    proc->flags = 0;
-    
-    if (ArchForkProcess(proc, current) != 0)
-    {
-        FreeProcess (proc);
-        FreeHandle (h);
-        return resourceErr;
-    } 
-    
-    if (ForkAddressSpace (&proc->as, &current->as) != 0)
-    {
-        FreeProcess(proc);
-        FreeHandle(h);
-        return resourceErr;
-    }
-    
-    SetObject (current, h, HANDLE_TYPE_PROCESS, proc);    
-        
-    proc->state = PROC_STATE_READY;
-    SchedReady(proc);
+  if ((proc = AllocProcess()) == NULL) {
+    return -ENOMEM;
+  }
 
-    return h;
+  ForkProcessHandles(proc, current);
+
+  if (ArchForkProcess(proc, current) != 0) {
+    FreeProcessHandles(proc);
+    FreeProcess(proc);
+    return -ENOMEM;
+  }
+
+  if (ForkAddressSpace(&proc->as, &current->as) != 0) {
+    FreeProcessHandles(proc);
+    FreeProcess(proc);
+    return -ENOMEM;
+  }
+
+  DisableInterrupts();
+  LIST_ADD_TAIL(&current->child_list, proc, child_link);
+  proc->state = PROC_STATE_READY;
+  SchedReady(proc);
+  EnableInterrupts();
+
+  return GetProcessPid(proc);
 }
 
+/*
+ * System call to exit a process.
+ */
+void Exit(int status) {
+  struct Process *current;
+  struct Process *parent;
+  struct Process *child;
+  struct Process *proc;
+  
+  current = GetCurrentProcess();
+  parent = current->parent;
 
+  KASSERT (parent != NULL);
 
+  current->exit_status = status;
 
+  FreeProcessHandles(current);
+  CleanupAddressSpace(&current->as);
 
+  while ((child = LIST_HEAD(&current->child_list)) != NULL) {
+    LIST_REM_HEAD(&current->child_list, child_link);
 
+    if (child->state == PROC_STATE_ZOMBIE) {
 
+      // Or attach to root
+      FreeAddressSpace(&child->as);
+      ArchFreeProcess(child);
+      FreeProcess(child);
+    } else {
+      LIST_ADD_TAIL(&root_process->child_list, child, child_link);
+      child->parent = root_process;
+    }
+  }
 
+// TODO: Cancel any alarms to interrupt handlers
 
+//	parent->usignal.sig_pending |= SIGFCHLD;	
+//	parent->usignal.siginfo_data[SIGCHLD-1].si_signo = SIGCHLD;
+//	parent->usignal.siginfo_data[SIGCHLD-1].si_code = 0;
+//	parent->usignal.siginfo_data[SIGCHLD-1].si_value.sival_int = 0;
 
+  if (current->pid == current->pgrp) {
+	// Kill (-current->pgrp, SIGHUP);
+  }
+    
+  TaskWakeup(&parent->rendez);
 
+  DisableInterrupts();
+  KASSERT(bkl_locked == TRUE);
+  
+  if (bkl_owner != current) {
+      Info ("bkl_owner = %08x", (vm_addr)bkl_owner);
+      KASSERT(bkl_owner == current);
+  }
+  
+  proc = LIST_HEAD(&bkl_blocked_list);
 
+  if (proc != NULL) {
+    LIST_REM_HEAD(&bkl_blocked_list, blocked_link);
+    proc->state = PROC_STATE_READY;
+    bkl_owner = proc;
+    SchedReady(proc);
+  } else {
+    bkl_locked = FALSE;
+    bkl_owner = NULL;
+  }
 
+  current->state = PROC_STATE_ZOMBIE;
+  SchedUnready(current);
+  Reschedule();
+  EnableInterrupts();
+}
 
+/*
+ * TODO: Need to handle signals
+ */
+int WaitPid(int pid, int *status, int options) {
+  struct Process *current;
+  struct Process *child;
+  bool found = FALSE;
+  int found_in_pgrp = 0;
+  int err = 0;
+  
+  current = GetCurrentProcess();
 
+  if (-pid >= max_process || pid >= max_process) {
+    return -EINVAL;
+  }
 
+  while (!found) // && pending_signals
+  {
+    if (pid > 0) {
+      found = FALSE;
 
+      child = GetProcess(pid);
+      if (child != NULL && child->in_use != false && child->parent == current) {
+        if (child->state == PROC_STATE_ZOMBIE) {
+          found = TRUE;
+        }
+      } else {
+        err = -EINVAL;
+        goto exit;
+      }
+    } else if (pid == 0) {
+      // Look for any child process that is a zombie and belongs to current
+      // process group
+      // check if any belong to current process group, exit if none.e
 
+      child = LIST_HEAD(&current->child_list);
 
+      if (child == NULL) {
+        err = -EINVAL;
+        goto exit;
+      }
+
+      found = FALSE;
+      found_in_pgrp = 0;
+
+      while (child != NULL) {
+        if (child->pgrp == current->pgrp) {
+          found_in_pgrp++;
+
+          if (child->state == PROC_STATE_ZOMBIE) {
+            found = TRUE;
+            break;
+          }
+        }
+
+        child = LIST_NEXT(child, child_link);
+      }
+
+      if (found_in_pgrp == 0) {
+        err = -EINVAL;
+        goto exit;
+      }
+    } else if (pid == -1) {
+      // Look for any child process.
+
+      child = LIST_HEAD(&current->child_list);
+
+      if (child == NULL && current != root_process) {
+        err = -EINVAL;        
+        goto exit;
+      }
+
+      found = FALSE;
+
+      while (child != NULL) {
+        if (child->state == PROC_STATE_ZOMBIE) {
+          found = TRUE;
+          break;
+        }
+
+        child = LIST_NEXT(child, child_link);
+      }
+    } else {
+      // Look for any child process with a specific process group id.
+      // Check if any belongs to process group.
+
+      child = LIST_HEAD(&current->child_list);
+
+      if (child == NULL) {
+        err = -EINVAL;
+        goto exit;
+      }
+
+      found = FALSE;
+      found_in_pgrp = 0;
+
+      while (child != NULL) {
+        if (child->pgrp == -pid) {
+          found_in_pgrp++;
+
+          if (child->state == PROC_STATE_ZOMBIE) {
+            found = TRUE;
+            break;
+          }
+        }
+
+        child = LIST_NEXT(child, child_link);
+      }
+
+      if (found_in_pgrp == 0) {
+        err = -EINVAL;
+        goto exit;
+      }
+    }
+
+    if (!found && (options & WNOHANG)) {
+        err = -EAGAIN;
+        goto exit;
+    } else if (!found) {
+      TaskSleep(&current->rendez);
+    }
+  }
+
+  if (!found) // && pending_signals
+  {
+    err = -EINTR;
+    goto exit;
+  }
+
+  pid = GetProcessPid(child);
+
+  if (status != NULL) {
+    current = GetCurrentProcess();
+
+    if (CopyOut(status, &child->exit_status, sizeof *status) != 0) {
+        err = -EFAULT;
+        goto exit;
+    }
+  }
+
+  LIST_REM_ENTRY(&current->child_list, child, child_link);
+
+  FreeAddressSpace(&child->as);
+  ArchFreeProcess(child);
+  FreeProcess(child);
+  
+  return pid;
+
+exit:
+  return err;
+}
 
 /*
  * AllocProcess();
  */
- 
-struct Process *AllocProcess (void)
-{
-    struct Process *proc;
+struct Process *AllocProcess(void) {
+  struct Process *proc = NULL;
+  struct Process *current;
+  int pid;
     
-    
-    proc = LIST_HEAD (&free_process_list);
-        
-    KASSERT (proc != NULL);
-    
-    LIST_REM_HEAD (&free_process_list, free_entry);
-    
-    MemSet (proc, 0, sizeof *proc);
+  current = GetCurrentProcess();
 
-    proc->state = PROC_STATE_INIT;
-    proc->exit_status = 0;
-    proc->quanta_used = 0;
-    proc->sched_policy = SCHED_OTHER;
-    proc->tickets = STRIDE_DEFAULT_TICKETS;
-    proc->stride = STRIDE1 / proc->tickets;
-    proc->remaining = 0;
-    proc->pass = global_pass;
-    proc->continuation_function = NULL;
-//    proc->virtualalloc_sz = 0;
+  for (pid=0; pid < max_process; pid++) {
+    proc = GetProcess(pid);
     
-    InitRendez(&proc->waitfor_rendez);
-    
-    LIST_INIT (&proc->pending_handle_list);
-    LIST_INIT (&proc->close_handle_list);
-    
-    free_process_cnt --;
-    
-    return proc;
-}       
+    if (proc->in_use == false) {
+      break;
+    }
+  }
 
+  if (pid == max_process) {
+    return NULL;
+  }
+  
+  memset(proc, 0, PROCESS_SZ);
+  proc->in_use = true;
+  proc->pid = pid;
+  proc->parent = current;
+  proc->state = PROC_STATE_INIT;
+  proc->exit_status = 0;
+  proc->flags = 0;
+  proc->log_level = current->log_level;
+  proc->quanta_used = current->quanta_used;
+  proc->sched_policy = current->sched_policy;
+  proc->rr_priority = current->rr_priority;
+  proc->stride_tickets = current->stride_tickets;
+  proc->stride = current->stride;
+  proc->stride_pass = global_pass;
+  proc->msg = NULL;
+  proc->inkernel = FALSE;
 
+// FIXME: SigInit(proc);
 
+  InitProcessHandles(proc);
+  InitRendez(&proc->rendez);
+  LIST_INIT(&proc->child_list);
+
+  return proc;
+}
 
 /*
  * FreeProcess();
  *
  * Only parent can free process struct.
  */
-
-void FreeProcess (struct Process *proc)
-{   
-    LIST_ADD_HEAD (&free_process_list, proc, free_entry);
-    proc->state = PROC_STATE_UNALLOC;
-
-    free_process_cnt ++;
+void FreeProcess(struct Process *proc) {
+  proc->in_use = false;
 }
 
+struct Process *GetProcess(int pid) {
+  if (pid < 0 || pid >= max_process) {
+    return NULL;
+  }
 
+  return (struct Process *)((uint8_t *)process_table + (pid * PROCESS_SZ));
+}
 
-struct Process *GetProcess (int idx)
+/*
+ *
+ */
+int GetProcessPid(struct Process *proc)
 {
-    KASSERT (idx >= 0 && idx < max_process);
-    
-    return (struct Process *)((vm_addr)process_table + idx * PROCESS_SZ);
+  return proc->pid;
 }
+
+/*
+ *
+ */
+int GetPid(void)
+{
+  struct Process *current;
+  
+  current = GetCurrentProcess();
+  return current->pid;
+}
+
+

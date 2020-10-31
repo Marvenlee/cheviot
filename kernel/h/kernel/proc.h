@@ -1,301 +1,214 @@
 #ifndef KERNEL_PROC_H
 #define KERNEL_PROC_H
 
-#include <kernel/types.h>
-#include <kernel/lists.h>
-#include <kernel/vm.h>
-#include <kernel/timer.h>
 #include <kernel/arch.h>
-
-
+#include <kernel/lists.h>
+#include <kernel/timer.h>
+#include <kernel/types.h>
+#include <kernel/vm.h>
+#include <sys/execargs.h>
+#include <sys/interrupts.h>
+#include <kernel/signal.h>
 
 /*
  * Forward declarations
  */
- 
+
 struct Process;
+struct VNode;
+struct Filp;
+struct Pid;
+struct Msg;
 
-
-/*
- *
- */
-
-typedef struct ProcessInfo
-{
-	int dummy;
-} processinfo_t;
-
-
-
-
-/*
- *
- */
-
-typedef struct  SysInfo
-{
-    bits32_t flags;
-  
-    size_t page_size;
-    size_t mem_alignment;
-    
-    int max_pseg;
-    int pseg_cnt;
-    int max_vseg;
-    int vseg_cnt;
-
-    size_t avail_mem_sz;
-    size_t total_mem_sz;
-    
-    int max_process;
-    int max_handle;
-    int free_process_cnt;
-    int free_handle_cnt;
-    
-    int cpu_cnt;
-    int cpu_usage[MAX_CPU];  
-  
-    int power_state;
-
-    int max_ticket;
-    int default_ticket;
-    
-} sysinfo_t;
-
-
-
-
-
-
-
-/*
- * Exit and Join status
- */
-
-#define EXIT_SUCCESS    0
-#define EXIT_FAILURE    1
-#define EXIT_FATAL      2
-#define EXIT_KILLED     3
-
-
-
-
-/*
- * Process states
- */
-
-#define PROC_STATE_UNALLOC              0
-#define PROC_STATE_INIT                 100
-#define PROC_STATE_ZOMBIE               200
-#define PROC_STATE_RUNNING              300
-#define PROC_STATE_READY                500
-#define PROC_STATE_SLEEP                800
-
-
-
-
-/*
- * Scheduling policy flags and kernel constants
- */
-
-
-#define SCHED_OTHER                     0
-#define SCHED_RR                        1
-#define SCHED_FIFO                      2
-#define SCHED_IDLE                      -1
-
- 
-#define STRIDE1                         1000000
-#define STRIDE_DEFAULT_TICKETS          100
-#define STRIDE_MAX_TICKETS              800
-#define PROCESS_QUANTA                  2
-
+LIST_TYPE(Process) process_list_t;
+CIRCLEQ_TYPE(Process) process_circleq_t;
+LIST_TYPE(Pid) pid_list_t;
 
 
 /*
  * Kernel condition variable for Sleep()/Wakeup() calls
  */
- 
-struct Rendez
-{
-    LIST (Process) process_list;
+
+struct Rendez {
+  LIST(Process) blocked_list;
 };
 
+
+struct Mutex {
+  int locked;
+  struct Process *owner;
+  LIST(Process) blocked_list;
+};
+
+
+struct VNode;
 
 
 
 /*
- * Interrupt Service Routine kernel object
+ *
  */
 
-struct ISRHandler
-{
-    LIST_ENTRY (ISRHandler) isr_handler_entry;
-    int irq;
-    int handle;
-};
+typedef struct SysInfo {
+  bits32_t flags;
 
+  size_t page_size;
+  size_t mem_alignment;
 
+  int max_pseg;
+  int pseg_cnt;
+  int max_vseg;
+  int vseg_cnt;
 
+  size_t avail_mem_sz;
+  size_t total_mem_sz;
+
+  int max_process;
+  int max_handle;
+  int free_process_cnt;
+  int free_handle_cnt;
+
+  int cpu_cnt;
+  int cpu_usage[MAX_CPU];
+
+  int power_state;
+
+  int max_ticket;
+  int default_ticket;
+
+} sysinfo_t;
 
 /*
- * Handle types and flags
+ * Exit and Join status
  */
 
-#define HANDLE_TYPE_FREE                0
-#define HANDLE_TYPE_PROCESS             1
-#define HANDLE_TYPE_ISR                 2
-#define HANDLE_TYPE_FILESYSTEM			3
-#define HANDLE_TYPE_PIPE                4
-#define HANDLE_TYPE_SOCKETPAIR          5
-#define HANDLE_TYPE_TIMER               6
-
-
-
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
+#define EXIT_FATAL 2
+#define EXIT_KILLED 3
 
 /*
- * struct Handle;
+ * Process states
  */
 
-struct Handle
-{
-    int type;                       // Type of kernel object handle points to
-    int pending;                    // Event is pending
-    struct Process *owner;          // Owner process or NULL if in message
-    void *object;                   // Pointer to kernel object
-    bits32_t flags;                 
-    LIST_ENTRY (Handle) link;       // On free or process's pending list
-    
-    struct Parcel *parcel;          // Pointer to Parcel if being sent as message
-};
+#define PROC_STATE_UNALLOC 0
+#define PROC_STATE_INIT 100
+#define PROC_STATE_ZOMBIE 200
+#define PROC_STATE_RUNNING 300
+#define PROC_STATE_READY 500
+#define PROC_STATE_SEND 600
+
+//#define PROC_STATE_WAITPID              700
+
+#define PROC_STATE_RENDEZ_BLOCKED 800
+#define PROC_STATE_BKL_BLOCKED 1200
+
+/*
+ * Scheduling policy flags and kernel constants
+ */
+
+#define SCHED_OTHER 0
+#define SCHED_RR 1
+#define SCHED_FIFO 2
+#define SCHED_IDLE -1
+
+#define STRIDE1 1000000
+#define STRIDE_DEFAULT_TICKETS 100
+#define STRIDE_MAX_TICKETS 800
+#define PROCESS_QUANTA 2
 
 
+#define PROCF_USER 0          // User process
+#define PROCF_KERNEL (1 << 0) // Kernel task: For kernel daemons
+#define PROCF_ALLOW_IO (1 << 1)
 
+/*
+ * waitpid options
+ */
+#define WNOHANG 1
+#define WUNTRACED 2
 
+#define MAX_TIMER 8
+#define MAX_INTERRUPT 8
 
-#define PROCF_KERNELTASK	(1<<0)
-#define PROCF_ALLOW_IO		(1<<1)
+#define NPROC_FD 32
 
 /*
  * struct Process;
  */
 
-struct Process
-{
-    struct TaskState task_state;        // Arch-specific state
-    int handle;                         // Handle ID for this process
-	struct Process *parent;    
-    
-    CIRCLEQ_ENTRY (Process) sched_entry; // real-time run-queue
-    LIST_ENTRY (Process) stride_entry;     
-    
-    int sched_policy;                   
-    int state;                          // Process state
-    int priority;                       // real-time task priority
-    int quanta_used;                    
-    int tickets;                        // Stride scheduler state
-    int stride;
-    int remaining;
-    int64 pass;
-    
-    struct AddressSpace as;
-//    struct Pmap *pmap;                  // Arch-Specific page tables
-    
-    bits32_t flags;                     // Spawn() flags
-    
-    struct TimeVal syscall_start_time;  // Time of start of syscall for VM watchdog purposes.
-    int watchdog_state;
-    
-    
-    
-    size_t virtualalloc_size;             // Size of memory requested by virtualalloc
-    bits32_t virtualalloc_flags;
-    struct Segment *virtualalloc_segment;
-    int virtualalloc_state;
-    
-    
-    void (*continuation_function)(void); // Deferred procedure called from
-                                         // KernelExit().
-    
-    union                               // Continuation/deferred procedure state
-    {
-        struct                          // VirtualAlloc memory cleansing state
-        {
-            vm_addr addr;
-            bits32_t flags;
-        } virtualalloc;
-    } continuation;
-    
-    
-    LIST_ENTRY (Process) alloc_link;
-    
-    
-    LIST_ENTRY (Process) free_entry;
-    
-    int exit_status;                     // Exit() error code
+struct Process {
+  struct TaskCatch catch_state;
+  struct CPU *cpu;
+  struct ExceptionState exception_state;
+  void *context; // Reschedule context
+  struct Process *parent;
 
-    struct Rendez *sleeping_on;
-    LIST_ENTRY (Process) rendez_link;
-    
-    struct Rendez waitfor_rendez;
-    int waiting_for;
-    LIST (Handle) pending_handle_list;
-    LIST (Handle) close_handle_list;     // To be closed in KernelExit()
-    
-    int vm_retries;
+  struct Rendez *sleeping_on;
+  LIST_ENTRY(Process) blocked_link;
+  struct Mutex *rendez_mutex;
+  
+  bool eintr;
+
+  struct Rendez rendez;
+  struct Timer sleep_timer;
+  struct Timer timeout_timer;
+  bool timeout_expired;
+  struct Timer alarm;
+  
+  CIRCLEQ_ENTRY(Process) sched_entry; // real-time run-queue
+  LIST_ENTRY(Process) stride_entry;
+
+  int state; // Process state
+  bits32_t flags;
+  
+  int log_level;
+
+  struct Signal signal;
+
+  int sched_policy;
+  int quanta_used;
+  int rr_priority;    // real-time task priority
+  int stride_tickets; // Stride scheduler state
+  int stride;
+  int stride_remaining;
+  int64_t stride_pass;
+
+  struct AddressSpace as;
+
+  int exit_status; // Exit() error code
+  LIST(Process) child_list;
+  LIST_ENTRY(Process) child_link;
+
+  int pid;
+  int uid;
+  int gid;
+  int euid;
+  int egid;
+  int pgrp;
+//  int sid;
+  bool in_use; 
+
+  mode_t default_mode;
+  struct VNode *current_dir;
+  struct VNode *root_dir;
+
+  struct Msg *msg;
+
+  short poll_pending;
+  short poll_interested_in;
+
+  // TODO: Move these out of process, make array of uint16_t.
+  // Perhaps 2 timers per process, separate structs, alarm and freerunning.
+  // Interrupts could be small array
+  // Or single interrupt handler, passed the interrupt in question.
+
+  bool inkernel;
+  
+//  int max_fd;
+  struct Filp *fd_table[NPROC_FD];
+  uint32_t close_on_exec[NPROC_FD/32];
 };
-
-
-typedef struct MsgInfo
-{
-	int client_pid;
-} msginfo_t;
-
-
-/*
- * Message passing link between two handles
- * CONSIDER: Split into two Port structures pointing to each other.
- */
- 
-struct Port
-{
-	bits32_t flags;
-	int handle;
-	struct Process *owner;
-	
-	LIST_ENTRY (Process) connection_list;
-};
-
- 
-struct Channel
-{
-	struct Channel *dst;
-	LIST_ENTRY (Channel) link;
-
-//	struct MsgHdr msg_queue[NMSG];
-
-// FIXME: How to reply to a message?   Do need unique handle for each channel?  rcv_id
-// Could be handle of port used on client side?
-// symmetric ??    putmsg/getmsg????
-
-// Channels separate from ports?
-	int handle;
-	struct Process *owner;
-};
-
-
-
-/*
- * Typedefs for linked lists
- */
-
-LIST_TYPE (Channel) channel_list_t;
-LIST_TYPE (Port) port_list_t;
-LIST_TYPE (Handle) handle_list_t;
-LIST_TYPE (ISRHandler) isrhandler_list_t;
-LIST_TYPE (Process) process_list_t;
-CIRCLEQ_TYPE (Process) process_circleq_t;
-
 
 
 
@@ -303,109 +216,78 @@ CIRCLEQ_TYPE (Process) process_circleq_t;
  * Function Prototypes
  */
 
-
-// event.c
-
-SYSCALL int CheckEvent (int handle);
-SYSCALL int WaitEvent (int handle);
-void DoRaiseEvent (int handle);
-void DoClearEvent (struct Process *proc, int handle);
-
-
-// handle.c
-
-SYSCALL int CloseHandle (int handle);
-void ClosePendingHandles (void);
-void *GetObject (struct Process *proc, int handle, int type);
-void SetObject (struct Process *proc, int handle, int type, void *object);
-struct Handle *FindHandle (struct Process *proc, int h);
-int PeekHandle (int index);
-int AllocHandle (void);
-void FreeHandle (int handle);
-
-
-// file.c
-
-struct stat
-{
-    int dummy;
-};
-
-
-SYSCALL int mount (int dir_fd, int mountpoint_fd, char *name);
-SYSCALL int unmount (int dir_fd, char *name);
-SYSCALL int CreatePipe (int fd[2]);
-SYSCALL int CreateFilesystem (int fd[2]);
-SYSCALL int CreateSocketpair (int fd[2]);
-SYSCALL ssize_t Ioctl (int fd, void *buf, size_t sz, void *reply_buf, size_t reply_sz);
-SYSCALL int Write (int fd, void *msg, size_t sz);
-SYSCALL ssize_t Read (int fd, void *buf, size_t sz);
-SYSCALL ssize_t Seek (int fd, int whence, size_t pos);
-SYSCALL ssize_t Readdir (int fd, void *buf, size_t sz);
-SYSCALL int Symlink (int root_fd, char *path, char *linktopath);
-SYSCALL int Authenticate (int mount_fd);
-SYSCALL int Deauthenticate (int mount_fd);
-SYSCALL int OpenAt (int dir_fd, char *pathname, int flags, mode_t mode);
-SYSCALL int Stat (int fd, struct stat *stat);
-SYSCALL int RemoveAt (int dir_fd, char *pathname);
-SYSCALL int ChMod (int fd, mode_t mode);
-int DoCloseFileHandle (int fd);
-
-
-// info.c
- 
-SYSCALL int SystemInfo (sysinfo_t *si);
-
-
 // interrupt.c
 
-SYSCALL int CreateInterrupt (int irq);
-int DoCloseInterruptHandler (int handle);
-struct ISRHandler *AllocISRHandler(void);
-void FreeISRHandler (struct ISRHandler *isr_handler);
 
+int CreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api));
+
+
+// TODO: Move Exec protos into filesystem.c
+int Exec(char *filename, struct execargs *args);
+int KExecImage(void *image, struct execargs *_args);
+int Kexec(char *filename);
+
+void Exit(int status);
+int WaitPid(int handle, int *status, int options);
 
 // proc.c
 
-SYSCALL int Fork (bits32_t flags);
-SYSCALL int WaitPid (int pid, int *status);
-SYSCALL void Exit (int status);
-struct Process *AllocProcess (void);
-void FreeProcess (struct Process *proc);
-struct Process *GetProcess (int idx);
-int DoCloseProcess (int handle);
-void DoExit (int status);
+int Fork(void);
+
+struct Process *AllocProcess(void);
+void FreeProcess(struct Process *proc);
+struct Process *GetProcess(int idx);
+
+struct Process *GetProcess(int pid);
+int GetProcessPid(struct Process *proc);
+int GetPid(void);
 
 
 // sched.c
 
-void SchedLock (void);
-void SchedUnlock (void);
+void SchedLock(void);
+void SchedUnlock(void);
 
-void Reschedule (void);
-void SchedReady (struct Process *proc);
-void SchedUnready (struct Process *proc);
-SYSCALL int ChangePriority (int32 priority);
-void DisablePreemption(void);
-void EnablePreemption(void);
-void InitRendez (struct Rendez *rendez);
-void Sleep (struct Rendez *rendez);
-void Wakeup (struct Rendez *rendez);
-void WakeupAll (struct Rendez *rendez);
-void WakeupProcess (struct Process *proc);
+void Reschedule(void);
+void SchedReady(struct Process *proc);
+void SchedUnready(struct Process *proc);
+SYSCALL int ChangePriority(int priority);
+//void RaiseSignal(struct Process *proc, uint32_t signals);
+
+void InitRendez(struct Rendez *rendez);
+void TaskSleep(struct Rendez *rendez);
+void TaskWakeup(struct Rendez *rendez);
+void TaskWakeupAll(struct Rendez *rendez);
+void TaskWakeupFromISR(struct Rendez *rendez);
+
+// void WakeupProcess (struct Process *proc);
+void InitMutex(struct Mutex *mutex);
+void MutexLock(struct Mutex *mutex);
+void MutexUnlock(struct Mutex *mutex);
+
+void KernelLock(void);
+void KernelUnlock(void);
+bool IsKernelLocked(void);
+
+// Architecture-specific
+
+void GetContext(uint32_t *context);
+int SetContext(uint32_t *context);
+
+int ArchForkProcess(struct Process *proc, struct Process *current);
+void ArchInitExec(struct Process *proc, void *entry_point,
+                  void *stack_pointer, struct execargs *args);
+void ArchFreeProcess(struct Process *proc);
+// void SwitchTasks (struct  *current, struct TaskState *next, struct CPU *cpu);
+
+int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events);
+int UnmaskInterrupt(int irq);
+int MaskInterrupt(int irq);
 
 
-// Architecture-specific 
-             
+void InterruptLock(void); // Effectively spinlock_irq_save(&intr_spinlock);
+void InterruptUnlock(void);
 
-int ArchForkProcess (struct Process *proc, struct Process *current);
-void ArchFreeProcess (struct Process *proc);             
-void SwitchTasks (struct TaskState *current, struct TaskState *next, struct CPU *cpu);
-int MaskInterrupt (int irq);
-int UnmaskInterrupt (int irq);
-
-
-
+struct Process *CreateProcess(void (*entry)(void), int policy, int priority, bits32_t flags, struct CPU *cpu);
 
 #endif
-

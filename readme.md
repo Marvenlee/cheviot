@@ -1,59 +1,43 @@
-Cheviot Microkernel
-(c) 2014 Marven Gilhespie
 
-*****************************************************************************
+# Cheviot Microkernel
 
-The Microkenel is under the Apache license, see source code for details.
+## Licensing
 
-The boot loader makes use of code by John Cronnin to access the SD card
+Cheviot Microkernel (c) 2014 Marven Gilhespie
+
+The Microkernel is under the Apache license, see source code for details.
+
+The sdcard driver makes use of code by John Cronnin to access the SD card
 and bootstrap the kernel.  It has it's own copyright.
 
 The safe-string copying functions, Strlcat and Strlcpy are the
 copyright of Todd C. Miller.
 
-*****************************************************************************
 
-The Cheviot Microkernel is in a project in a state of flux.  The original
-goal back in around 2011 was to experiment with SASOS (Single Address Space
-Operating System) ideas on x86 hardware.  This was to have a message passing
-scheme where an area of memory was unmapped from one process and into another
-at the same virtual address.
+## Build instructions
 
-Then I got a Raspberry Pi in 2013 and wanted to start experimenting with it.
-The code was ported over so that I could have a basic scheduler and some memory
-management code working.  The SASOS and message passing code were ripped out
-and I began converting to a normal process address space model whilst I thought
-of alternate ways of doing message passing.
+CMake needs to be installed to build the project. Once installed enter the following
+commands to build the GCC Cross Compiler, Newlib library and the kernel along with
+several basic drivers, ksh shell and coreutils.
 
-At the time I was also experimenting with coroutines to multithread servers
-such as the filesystem.  That code is still there but does not align with any
-plans for message passing.  It is left in as it may be a basis for future
-designs.
+    $ mkdir build
+    $ cd build
+    $ source ../setup-env-sh
+    $ cmake ..
+    $ make
 
-In 2014 I decided to park the code as I concentrated on other things.
+## Build the kernel.img 
 
-This commit has been to clean up the code and get whatever is in the code
-actually running.
+Build the kernel.img with an embedded Image File System (IFS). The IFS is a simple
+filesystem used to bootstrap the system and contains the kernel, init, IFS handler
+and device drivers needed at startup.
 
-Currently I have kernel mapped at 2GB in virtual address space, timers and
-interrupts appear to be working.  Syscalls are also working, though not all
-are implemented.
+From the build directory run the build-kernel-img.sh script to build the kernel.img
+file in the build/boot_partition directory. This also places the required bootcode.bin
+and start.elf files inside the same directory.  Copy all 3 files to the FAT boot
+partition on the Raspberry Pi model A.
 
-Process creation and joining calls currently do not work, neither does
-dynamic memory allocation.  The only processes are the idle task and the
-root process.
-
-The root process in part of the bootloader which in turn is responsible for
-setting up initial page tables to bootstrap the kernel into a high virtual
-address.
-
-Some work on setting up the build environment in setupdev needs to be done.
-
-Future notes will be posted on my blog at www.gilhespie.com.
-
-
-
-
+    $ ../build-kernel-img.sh
 
 
 

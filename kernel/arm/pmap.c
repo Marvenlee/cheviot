@@ -4,7 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -17,613 +17,558 @@
 /*
  * ARM-Specific memory management code.  Deals with converting high-level
  * VirtSeg and PhysSeg segment tables into CPU page tables.
+ *
+ * The CPU's page directories are 16k and the page tables are 1k.  We use 4K
+ * page size and so are able to fit 1K of page tables plus a further 12 bytes
+ * per page table entry for flags and linked list next/prev pointers to keep
+ * track of page table entries referencing a Pageframe.
  */
 
-#include <kernel/types.h>
-#include <kernel/vm.h>
+#define KDEBUG
+
 #include <kernel/arm/arm.h>
+#include <kernel/arm/globals.h>
 #include <kernel/dbg.h>
-#include <kernel/utility.h>
-#include <kernel/proc.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
+#include <kernel/proc.h>
+#include <kernel/types.h>
+#include <kernel/utility.h>
+#include <kernel/vm.h>
 
+uint32_t *PmapAllocPageTable(void);
+void PmapFreePageTable(uint32_t *pt);
 
+uint32_t *PmapAllocPageDirectory(void);
+void PmapFreePageDirectory(uint32_t *pd);
 
+int PmapPageTableIncRefCnt(uint32_t *pt);
+int PmapPageTableDecRefCnt(uint32_t *pt);
 
-uint32 *PmapAllocPageTable (void);
-void PmapFreePageTable (uint32 *pt);
+static uint32_t PmapCalcPABits(bits32_t flags) {
+  uint32_t pa_bits;
 
-uint32 *PmapAllocPageDirectory (void);
-void PmapFreePageDirectory (uint32 *pd);
+  pa_bits = L2_TYPE_S;
 
-int PmapExtract (struct AddressSpace *as, vm_addr va, vm_addr *pa, uint32 *flags);
-bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr va);
-bool PmapIsPagePresent(struct AddressSpace *as,vm_addr va);
+  if ((flags & PROT_WRITE) && !(flags & MAP_COW)) {
+    pa_bits |= L2_AP(AP_U | AP_W);
+  } else {
+    pa_bits |= L2_AP(AP_U); // | L2_APX;
+  }
 
+  if ((flags & PROT_EXEC) != PROT_EXEC) {
+    // FIXME: Support PROT_EXEC
+    //        pa_bits |= L2_NX;
+  }
 
-int PmapPageTableIncRefCnt (uint32 *pt);
-int PmapPageTableDecRefCnt (uint32 *pt);
+  if ((flags & MEM_MASK) == MEM_ALLOC) {
+    if ((flags & CACHE_MASK) == CACHE_DEFAULT)
+      pa_bits |= L2_B | L2_C;
+    else if ((flags & CACHE_MASK) == CACHE_WRITEBACK)
+      pa_bits |= L2_B | L2_C;
+    else if ((flags & CACHE_MASK) == CACHE_WRITETHRU)     // can IO be write-thru?
+      pa_bits |= L2_C;
+    else if ((flags & CACHE_MASK) == CACHE_WRITECOMBINE)
+      pa_bits |= L2_B;
+    else if ((flags & CACHE_MASK) == CACHE_UNCACHEABLE)
+      pa_bits |= 0;
+    else
+      pa_bits |= L2_B | L2_C;
+  }
 
+  if ((flags & MEM_MASK) == MEM_PHYS) {
+    if ((flags & CACHE_MASK) == CACHE_DEFAULT)
+      pa_bits |= 0;
+    else if ((flags & CACHE_MASK) == CACHE_WRITEBACK)
+      pa_bits |= L2_B | L2_C;
+    else if ((flags & CACHE_MASK) == CACHE_WRITETHRU)
+      pa_bits |= L2_C;
+    else if ((flags & CACHE_MASK) == CACHE_WRITECOMBINE)
+      pa_bits |= L2_B;
+    else if ((flags & CACHE_MASK) == CACHE_UNCACHEABLE)
+      pa_bits |= 0;
+    else
+      pa_bits |= 0;
+  }
 
+  return pa_bits;
+}
 
+/*
+ * 4k page tables,  1k real PTEs,  3k virtual-page linked list and flags (packed
+ * 12 bytes)
+ */
+int PmapEnter(struct AddressSpace *as, vm_addr addr, vm_addr paddr,
+              bits32_t flags) {
+  struct Pmap *pmap;
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+  uint32_t pa_bits;
+  struct Pageframe *pf;
+  struct Pageframe *ptpf;
+  struct PmapVPTE *vpte;
+  struct PmapVPTE *vpte_base;
 
-int PmapInit (struct AddressSpace *as)
-{
-    struct Pmap *pmap;
-    uint32 *pd;
-    
-    pmap = as->pmap;    
-    pd = PmapAllocPageDirectory();
-    
-    if (pd == NULL)
-    {
-        return -1;
+  if (addr == 0) {
+    return -EFAULT;
+  }
+
+  pa_bits = PmapCalcPABits(flags);
+  pmap = &as->pmap;
+  pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+    if ((pt = PmapAllocPageTable()) == NULL) {
+      return -ENOMEM;
     }
-    
-    pmap->l1_table = pd;
+
+    phys_pt = (uint32_t *)PmapVaToPa((vm_addr)pt);
+    pmap->l1_table[pde_idx] = (uint32_t)phys_pt | L1_TYPE_C;
+  } else {
+    phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+    pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+  }
+
+  pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+  vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
+  vpte = vpte_base + pte_idx;
+
+  if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV) {
+    PmapFreePageTable(pt);
+    pmap->l1_table[pde_idx] = L1_TYPE_INV;
+    return -EINVAL;
+  }
+
+  if ((flags & MEM_MASK) != MEM_PHYS) {
+    pf = &pageframe_table[paddr / PAGE_SIZE];
+    vpte->flags = flags;
+
+    LIST_ADD_HEAD(&pf->pmap_pageframe.vpte_list, vpte, link);
+    pt[pte_idx] = paddr | pa_bits;
+  } else {
+    vpte->flags = flags;
+    pt[pte_idx] = paddr | pa_bits;
+  }
+
+  ptpf = PmapVaToPf((vm_addr)pt);
+  ptpf->reference_cnt++;
+
+  return 0;
+}
+
+/*
+ * Unmaps a segment from the address space pointed to by pmap.
+ */
+int PmapRemove(struct AddressSpace *as, vm_addr va) {
+  struct Pmap *pmap;
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+  vm_addr current_paddr;
+  struct Pageframe *pf;
+  struct Pageframe *ptpf;
+  struct PmapVPTE *vpte;
+  struct PmapVPTE *vpte_base;
+
+  // TODO : Check user base user ceiling
+  if (va == 0) {
+    return -EFAULT;
+  }
+
+  pmap = &as->pmap;
+  pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+    return -EINVAL;
+  }
+
+  phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+  pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+
+  pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+  current_paddr = pt[pte_idx] & L2_ADDR_MASK;
+
+  vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
+  vpte = vpte_base + pte_idx;
+
+  // Unmap any existing mapping, then map either anon or phys mem
+  if ((pt[pte_idx] & L2_TYPE_MASK) == L2_TYPE_INV) {
+    return -EINVAL;
+  }
+
+  if ((vpte->flags & VPTE_PHYS) == 0) {
+    pf = PmapPaToPf(current_paddr);
+    LIST_REM_ENTRY(&pf->pmap_pageframe.vpte_list, vpte, link);
+  }
+
+  vpte->flags = 0;
+  pt[pte_idx] = L2_TYPE_INV;
+
+  ptpf = PmapVaToPf((vm_addr)pt);
+  ptpf->reference_cnt--;
+
+  if (ptpf->reference_cnt == 0) {
+    PmapFreePageTable(pt);
+    pmap->l1_table[pde_idx] = L1_TYPE_INV;
+  }
+
+  return 0;
+}
+
+/*
+ * Change protections on a page
+ */
+int PmapProtect(struct AddressSpace *as, vm_addr addr, bits32_t flags) {
+  struct Pmap *pmap;
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+  struct PmapVPTE *vpte;
+  struct PmapVPTE *vpte_base;
+  uint32_t pa_bits;
+  vm_addr pa;
+
+  pmap = &as->pmap;
+
+  if (addr == 0) {
     return 0;
-}   
+  }
 
+  pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
 
+  if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+    return -1;
+  } else {
+    phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+    pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+  }
 
+  pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+  vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
+  vpte = vpte_base + pte_idx;
+  pa = pt[pte_idx] & L2_ADDR_MASK;
 
+  if ((pt[pte_idx] & L2_TYPE_MASK) == L2_TYPE_INV) {
+    return -1;
+  }
+
+  vpte->flags = flags;
+  pa_bits = PmapCalcPABits(vpte->flags);
+  pt[pte_idx] = pa | pa_bits;
+  return 0;
+}
+
+/*
+ * Extract the physical address and flags associates with a virtual address
+ */
+int PmapExtract(struct AddressSpace *as, vm_addr va, vm_addr *pa,
+                uint32_t *flags) {
+  struct Pmap *pmap;
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+  vm_addr current_paddr;
+  struct PmapVPTE *vpte;
+  struct PmapVPTE *vpte_base;
+
+  pmap = &as->pmap;
+  pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+    return -1;
+  } else {
+    phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+    pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+  }
+
+  pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+  vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
+  vpte = vpte_base + pte_idx;
+  current_paddr = pt[pte_idx] & L2_ADDR_MASK;
+
+  if ((pt[pte_idx] & L2_TYPE_MASK) == L2_TYPE_INV) {
+    return -1;
+  }
+
+  *pa = current_paddr;
+  *flags = vpte->flags;
+  return 0;
+}
+
+/*
+ *
+ */
+bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr addr) {
+  struct Pmap *pmap;
+  int pde_idx;
+
+  pmap = &as->pmap;
+  pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+    return FALSE;
+  } else {
+    return TRUE;
+  }
+}
+
+/*
+ *
+ */
+bool PmapIsPagePresent(struct AddressSpace *as, vm_addr addr) {
+  struct Pmap *pmap;
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+
+  pmap = &as->pmap;
+  pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+    return FALSE;
+  } else {
+    phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
+    pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+
+    pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+
+    if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
+      return TRUE;
+    else
+      return FALSE;
+  }
+}
+
+/*
+ *
+ */
+uint32_t *PmapAllocPageTable(void) {
+  int t;
+  uint32_t *pt;
+  struct Pageframe *pf;
+
+  if ((pf = AllocPageframe(VPAGETABLE_SZ)) == NULL)
+    return NULL;
+
+  pt = (uint32_t *)PmapPfToVa(pf);
+
+  for (t = 0; t < 256; t++) {
+    *(pt + t) = L2_TYPE_INV;
+  }
+
+  return pt;
+}
+
+/*
+ *
+ */
+void PmapPageframeInit(struct PmapPageframe *ppf) {
+  LIST_INIT(&ppf->vpte_list);
+}
+
+/*
+ *
+ */
+void PmapFreePageTable(uint32_t *pt) {
+  struct Pageframe *pf;
+  pf = PmapVaToPf((vm_addr)pt);
+
+  FreePageframe(pf);
+}
+
+/*
+ *
+ */
+int PmapCreate(struct AddressSpace *as) {
+  uint32_t *pd;
+  int t;
+  struct Pageframe *pf;
+
+  if ((pf = AllocPageframe(PAGEDIR_SZ)) == NULL) {
+    return -1;
+  }
+
+  pd = (uint32_t *)PmapPfToVa(pf);
+
+  for (t = 0; t < 2048; t++) {
+    *(pd + t) = L1_TYPE_INV;
+  }
+
+  for (t = 2048; t < 4096; t++) {
+    *(pd + t) = root_pagedir[t];
+  }
+
+  as->pmap.l1_table = pd;
+  return 0;
+}
+
+/*
+ *
+ */
+void PmapDestroy(struct AddressSpace *as) {
+  uint32_t *pd;
+  struct Pageframe *pf;
+
+  pd = as->pmap.l1_table;
+  pf = PmapVaToPf((vm_addr)pd);
+  FreePageframe(pf);
+}
 
 /*
  * Checks if the flags argument of VirtualAlloc() and VirtualAllocPhys() is
  * valid and supported.  Returns 0 on success, -1 otherwise.
  */
-
-int PmapSupportsCachePolicy (bits32_t flags)
-{
-    return 0;
+int PmapSupportsCachePolicy(bits32_t flags) {
+  return 0;
 }
 
-
-
-    
-
-
-
 /*
- * Frees CPU dependent virtual memory management structures.
- */
-
-void PmapDestroy (struct AddressSpace *as)
-{
-/*
-    struct Pmap *pmap;
-    
-    pmap = proc->pmap;
-
-    if (pmap != NULL)
-    {
-        LIST_ADD_TAIL (&pmap_lru_list, pmap, lru_link);
-        proc->pmap = NULL;
-    }
-        
-    PmapFlushTLBs();
-*/
-}
-
-
-
-/*
-*/
-
-int PmapFork (struct AddressSpace *new_as, struct AddressSpace *old_as)
-{
-//    int pde_idx;
-    vm_addr vpt, va, pa;
-    bits32_t flags;
-    struct Pageframe *pf;
-
-    
-    
-    for (vpt = VM_USER_BASE; vpt <= VM_USER_CEILING; vpt += PAGE_SIZE * N_PAGETABLE_PTE)
-    {
-        if (PmapIsPageTablePresent(old_as, vpt))
-        {
-            for (va = vpt; va < vpt + PAGE_SIZE * N_PAGETABLE_PTE; va += PAGE_SIZE)
-            {
-                if (PmapIsPagePresent(old_as, va))
-                {    
-                    PmapExtract (old_as, va, &pa, &flags);
-                    
-                    if ((flags & MAP_PHYS) == 0)
-                    {
-                        pf = &pageframe_table[pa/PAGE_SIZE];
-                        if (flags & PROT_WRITE)
-                        {
-                            // Mark page in both as read-only;                               
-                            flags |= MAP_COW;                                
-                            PmapEnter (old_as, va, pa, flags);                                
-                            PmapEnter (new_as, va, pa, flags);
-                        }
-                        else
-                        {
-                            // Read-only, 
-                            PmapEnter (new_as, va, pa, flags);                        
-                        }
-                            
-                        pf->reference_cnt ++;
-                    }
-                    else 
-                    {
-                        // Physical Mapping
-                        PmapEnter (new_as, va, pa, flags);                        
-                    }                    
-                }
-            }
-        }
-    }
-    
-	return 0;
-}
-
-
-int PmapKEnter (vm_addr va, vm_addr pa, bits32_t flags)
-{
-    return -1;
-}
-
-
-/*
- * FIXME:  Do allocation of ANON pages here ????????
- * Matches freeing we do of existing page mapping
  *
+ */
+vm_addr PmapPfToPa(struct Pageframe *pf) {
+  return (vm_addr)pf->physical_addr;
+}
+
+/*
  *
- * 4k page tables,  1k real PTEs,  3k virtual-page linked list and flags (packed 12 bytes)
  */
+struct Pageframe *PmapPaToPf(vm_addr pa) {
+  return &pageframe_table[(vm_addr)pa / PAGE_SIZE];
+}
 
-int PmapEnter (struct AddressSpace *as, vm_addr addr, vm_addr paddr, bits32_t flags)
-{
-	struct Pmap *pmap;
-    uint32 *pt, *phys_pt;
-    int pde_idx, pte_idx;
-    uint32 pa_bits;
-//    bool present;
-    vm_addr current_paddr;
-    struct Pageframe *pf;
-    uint32 vpte_flags; 
-    struct PmapVPTE *vpte;
-    struct PmapVPTE *vpte_base;
-    vm_addr pa;
-
-    pmap = as->pmap;
-
-    pa_bits = L2_TYPE_S;
-    
-    if ((flags & PROT_WRITE) == PROT_WRITE)
-        pa_bits = L2_AP(AP_U | AP_W);
-    else
-        pa_bits = L2_AP(AP_U);
-     
-    if ((flags & MEM_MASK) == MEM_ALLOC)
-        pa_bits |= L2_B | L2_C;
-
-    
-    // Could just copy the VM interface flags here
-    // Ensure some are available for system/pmap use.
-    vpte_flags= 0;
-    vpte_flags |= (flags & MAP_PHYS) ? VPTE_PHYS: 0;
-    vpte_flags |= (flags & MAP_LAZY) ? VPTE_LAZY: 0;
-    vpte_flags |= (flags & MAP_COW) ? VPTE_PROT_COW : 0;
-    vpte_flags |= (flags & PROT_READ) ? VPTE_PROT_R: 0;
-    vpte_flags |= (flags & PROT_WRITE) ? VPTE_PROT_W: 0;
-    vpte_flags |= (flags & PROT_EXEC) ? VPTE_PROT_X: 0;
-    vpte_flags |= (flags & MAP_WIRED) ? VPTE_WIRED: 0;
-
-        
-    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
-
-    // FIXME:  Need a GetPagedir
-    
-    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
-    {
-		if ((pt = PmapAllocPageTable()) == NULL)
-		{
-			return memoryErr;
-		}
-
-        phys_pt = (uint32 *)PmapVaToPa ((vm_addr)pt);
-
-        pmap->l1_table[pde_idx] = (uint32)phys_pt | L1_TYPE_C;
-    }
-    else
-    {
-        // Need a GetPagedir (after releasing pagedir)
-    
-        phys_pt = (uint32 *) (pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
-        
-        pt = (uint32 *)PmapPaToVa ((vm_addr)phys_pt);
-    }
-    
-    pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-    
-    
-    current_paddr = pt[pte_idx] & L2_ADDR_BITS;
-  
-    vpte_base = (struct PmapVPTE *)((uint8 *)pt + VPTE_TABLE_OFFS);
-    vpte = vpte_base + pte_idx;
-
-  
-    
-    // FIXME: ?? Do we need to check for COW here ???????????
-    // pa_bits needs to be read-only if COW set.
-
-    if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV && current_paddr == paddr)
-    {
-        // Change protections
-
-        pt[pte_idx] = paddr | pa_bits;        
-        vpte->flags = vpte_flags;    
-    }
-    else
-    {
-        // Unmap any existing mapping, then map either anon or phys mem
-        if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
-        {   
-            if  ((vpte->flags & VPTE_PHYS) == 0)
-            {            
-                pf = PmapPaToPf (current_paddr);
-                
-                LIST_REM_ENTRY (&pf->pmap_pageframe.vpte_list, vpte, link);
-                pf->reference_cnt --;
-                
-                if (pf->reference_cnt == 0)
-                {
-                    FreePageframe (pf);
-                }
-            }
-
-            pt[pte_idx] = L2_TYPE_INV;
-            PmapPageTableDecRefCnt (pt);    // Could potentially free pagetable/optimize ?
-        }
-        
-        if ((flags & VPTE_PHYS) == 0)
-        {
-            pf = AllocPageframe (PAGE_SIZE);
-            
-            if (pf == NULL)
-                return memoryErr;
-/* FIXME
-            if (pf->dirty)
-            {
-                MemSet();
-            }
+/*
+ *
  */
-          
-            pa = PmapPfToPa (pf);     
-            vpte->flags = vpte_flags;
-            
-            LIST_ADD_HEAD (&pf->pmap_pageframe.vpte_list, vpte, link);
-            pf->reference_cnt ++;
-            pt[pte_idx] = pa | pa_bits;
-            PmapPageTableIncRefCnt (pt);    
-            
-        }
-        else
-        {
-            vpte->flags = vpte_flags;
-            pt[pte_idx] = paddr | pa_bits;                        
-            PmapPageTableDecRefCnt (pt);
-        }
-    }    
-            
-    return 0;
+vm_addr PmapPfToVa(struct Pageframe *pf) {
+  return PmapPaToVa((pf->physical_addr));
 }
 
-
 /*
- * Unmaps a segment from the address space pointed to by pmap. 
+ *
  */
-
-int PmapRemove (struct AddressSpace *as, vm_addr va)
-{
-	struct Pmap *pmap;
-    uint32 *pt, *phys_pt;
-    int pde_idx, pte_idx;
-//    uint32 pa_bits;
-//    bool present;
-    vm_addr current_paddr;
-    struct Pageframe *pf;
-//    uint32 vpte_flags; 
-    struct PmapVPTE *vpte;
-    struct PmapVPTE *vpte_base;
-//    vm_addr pa;
-
-    pmap = as->pmap;
-    pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
-    
-    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
-    {
-        return memoryErr;
-    }
-    else
-    {
-        phys_pt = (uint32 *) (pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
-        pt = (uint32 *)PmapPaToVa ((vm_addr)phys_pt);
-
-        pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-        current_paddr = pt[pte_idx] & L2_ADDR_BITS;
-
-        vpte_base = (struct PmapVPTE *)((uint8 *)pt + VPTE_TABLE_OFFS);
-        vpte = vpte_base + pte_idx;
-
-        // Unmap any existing mapping, then map either anon or phys mem
-        if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
-        {   
-            if  ((vpte->flags & VPTE_PHYS) == 0)
-            {
-                pf = PmapPaToPf (current_paddr);
-                
-                LIST_REM_ENTRY (&pf->pmap_pageframe.vpte_list, vpte, link);
-                pf->reference_cnt --;
-                
-                if (pf->reference_cnt == 0)
-                {
-                    FreePageframe (pf);
-                }
-            }
-
-            pt[pte_idx] = 0;
-            PmapPageTableDecRefCnt (pt);
-        }
-    
-        // decrement pt reference count,  check if pagetable needs freeing.
-        
-        if (PmapPageTableDecRefCnt (pt) == 0)
-        {
-            PmapFreePageTable (pt);
-        }    
-        
-        PmapFlushTLBs();
-    }
-        
-    return 0;
+struct Pageframe *PmapVaToPf(vm_addr va) {
+  return &pageframe_table[PmapVaToPa(va) / PAGE_SIZE];
 }
-
-
-
-int PmapRemoveAll (struct AddressSpace *as)
-{
-    return 0;
-}
-
-
-
-int PmapProtect (struct AddressSpace *as, vm_addr addr, bits32_t flags)
-{
-    return 0;
-}
-
-void PmapPageframeInit (struct PmapPageframe *ppf)
-{
-    LIST_INIT (&ppf->vpte_list);
-}
-
 
 /*
-*/
-
-int PmapExtract (struct AddressSpace *as, vm_addr va, vm_addr *pa, uint32 *flags)
-{
-    // TODO: PmapExtract 
-
-    *pa = 0;
-    *flags = 0;
-	return memoryErr;
+ *
+ */
+vm_addr PmapVaToPa(vm_addr vaddr) {
+  return vaddr - 0x80000000;
 }
-
-
-bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr addr)
-{
-	struct Pmap *pmap;
-    int pde_idx;
-    
-    pmap = as->pmap;
-
-    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
-    
-    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
-    {
-        return FALSE;
-    }
-    else
-    {
-        return TRUE;
-    }    
-}
-
-
-
-bool PmapIsPagePresent(struct AddressSpace *as, vm_addr addr)
-{
-    struct Pmap *pmap;
-    uint32 *pt, *phys_pt;
-    int pde_idx, pte_idx;
-//    vm_addr pa;
-
-    pmap = as->pmap;
-    pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
-    
-    if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV)
-    {
-        return FALSE;
-    }
-    else
-    {
-        phys_pt = (uint32 *) (pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
-        pt = (uint32 *)PmapPaToVa ((vm_addr)phys_pt);
-    
-        pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
-
-        if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
-            return TRUE;
-        else
-            return FALSE;
-    }
-}
-
-
-
 
 /*
-*/
-
-uint32 *PmapAllocPageTable (void)
-{
-	int t;
-	uint32 *pt;
-	struct Pageframe *pf;
-	
-	if ((pf = AllocPageframe (VPAGETABLE_SZ)) == NULL)
-	    return NULL;
-	
-    pt = (uint32 *)PmapPfToVa (pf);
-	
-    for (t=0; t<256; t++)
-    {
-        *(pt + t) = L2_TYPE_INV;
-	}
-
-	return pt;
+ *
+ */
+vm_addr PmapPaToVa(vm_addr paddr) {
+  return paddr + 0x80000000;
 }
-
-
-/*
-*/
-
-void PmapFreePageTable (uint32 *pt)
-{
-    struct Pageframe *pf;
-    pf = PmapVaToPf ((vm_addr)pt);
-    FreePageframe (pf);
-}
-
-
-int PmapPageTableIncRefCnt (uint32 *pt)
-{
-    struct Pageframe *pf;
-    pf = PmapVaToPf ((vm_addr)pt);
-    pf->reference_cnt ++;
-    
-    return pf->reference_cnt;
-}
-
-int PmapPageTableDecRefCnt (uint32 *pt)
-{
-    struct Pageframe *pf;
-    pf = PmapVaToPf ((vm_addr)pt);
-    pf->reference_cnt --;
-    
-    return pf->reference_cnt;
-}
-
-
-/*
-*/
-
-uint32 *PmapAllocPageDirectory (void)
-{
-	uint32 *pd;
-	int t;
-    struct Pageframe *pf;
-    
-	if ((pf = AllocPageframe (PAGEDIR_SZ)) == NULL)
-	    return NULL;
-	    
-    pd = (uint32 *)PmapPfToVa (pf);	
-	
-    for (t=0; t<4096; t++)
-    {
-        *(pd + t) = L1_TYPE_INV;
-	}
-
-	return pd;
-}
-
-
-/*
-*/
-
-void PmapFreePageDirectory (uint32 *pd)
-{
-    struct Pageframe *pf;    
-    pf = PmapVaToPf ((vm_addr)pd);
-    FreePageframe (pf);
-}
-
-
-
-vm_addr PmapPfToPa (struct Pageframe *pf)
-{
-    return (vm_addr)pf->physical_addr;
-}
-
-struct Pageframe *PmapPaToPf (vm_addr pa)
-{    
-    return &pageframe_table[(vm_addr)pa / PAGE_SIZE];
-}
-
-
-vm_addr PmapPfToVa (struct Pageframe *pf)
-{
-    return PmapPaToVa ((pf->physical_addr));
-}
-
-struct Pageframe *PmapVaToPf (vm_addr va)
-{
-    return &pageframe_table[PmapVaToPa(va) / PAGE_SIZE];
-}
-
-
-
-
-vm_addr PmapVaToPa (vm_addr vaddr)
-{
-    return vaddr - 0x80000000;    
-}
-
-
-
-
-vm_addr PmapPaToVa (vm_addr paddr)
-{
-    return paddr + 0x80000000;    
-}
-
-
 
 /*
  * Flushes the CPU's TLBs once page tables are updated.
  */
 
-void PmapFlushTLBs (void)
-{
-    //FIXME:  Could instead set a flag to InvalidateTLB on kernel exit or later point.
-    InvalidateTLB();
+void PmapFlushTLBs(void) {
+  //    struct Process *current;
+  // NEED an IPI invvalidate for multicore
+  //    current = GetCurrentProcess();
+  //    SetPageDirectory ((void *)(PmapVaToPa
+  //    ((vm_addr)current->as.pmap.l1_table)));
+  InvalidateTLB();
+  FlushAllCaches();
 }
-
-
-
-void PmapBarrier (void)
-{
-    // ensure page table entries are written out (to RAM if page table walk doesn't look in L1)
-}
-
-
-
 
 /*
  * Switches the address space from the current process to the next process.
+ * TODO: Need to update code, probably don't need to flush caches. 
  */
 
-void PmapSwitch (struct Process *next, struct Process *current)
-{
-// FIXME:   reload page directory 
+void PmapSwitch(struct Process *next, struct Process *current) {
+  //    if (next != NULL && next != current) {
+  SetPageDirectory((void *)(PmapVaToPa((vm_addr)next->as.pmap.l1_table)));
+  InvalidateTLB();
+  FlushAllCaches();
+  //    }
 }
 
+/*
+ * 4k page tables,  1k real PTEs,  3k virtual-page linked list and flags (packed
+ * 12 bytes)
+ */
+int PmapCacheEnter(vm_addr addr, vm_addr paddr) {
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+  uint32_t pa_bits;
+  struct Pageframe *pf;
+  struct PmapVPTE *vpte;
+  struct PmapVPTE *vpte_base;
 
+  pa_bits = L2_TYPE_S | L2_AP(AP_U);
+  pa_bits |= L2_AP(AP_W);
+  pa_bits |= L2_NX;
+  pa_bits |= L2_B | L2_C;
 
+  pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  phys_pt = (uint32_t *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
+
+  pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+
+  pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+
+  vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
+  vpte = vpte_base + pte_idx;
+  pf = &pageframe_table[paddr / PAGE_SIZE];
+  vpte->flags = PROT_READ | PROT_WRITE;
+  LIST_ADD_HEAD(&pf->pmap_pageframe.vpte_list, vpte, link);
+  // TODO: Increment/Decrement pf reference cnt or not?
+
+  pt[pte_idx] = paddr | pa_bits;
+  return 0;
+}
+
+/*
+ * Unmaps a segment from the address space pointed to by pmap.
+ */
+int PmapCacheRemove(vm_addr va) {
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+  vm_addr current_paddr;
+  struct Pageframe *pf;
+  struct PmapVPTE *vpte;
+  struct PmapVPTE *vpte_base;
+
+  pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  phys_pt = (uint32_t *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
+  pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+
+  pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+  current_paddr = pt[pte_idx] & L2_ADDR_MASK;
+
+  vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
+  vpte = vpte_base + pte_idx;
+
+  pf = PmapPaToPf(current_paddr);
+  LIST_REM_ENTRY(&pf->pmap_pageframe.vpte_list, vpte, link);
+
+  vpte->flags = 0;
+  pt[pte_idx] = L2_TYPE_INV;
+
+  // TODO: Increment/Decrement pf reference cnt or not?
+
+  return 0;
+}
+
+/*
+ * Get the physcial address of a page in the file cache
+ */
+int PmapCacheExtract(vm_addr va, vm_addr *pa) {
+  uint32_t *pt, *phys_pt;
+  int pde_idx, pte_idx;
+
+  pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
+
+  phys_pt = (uint32_t *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
+  pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
+
+  pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
+  *pa = pt[pte_idx] & L2_ADDR_MASK;
+  return 0;
+}

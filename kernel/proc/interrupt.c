@@ -1,10 +1,11 @@
+#define KDEBUG
 /*
  * Copyright 2014  Marven Gilhespie
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -17,118 +18,147 @@
 /*
  * Architecture-neutral code to create and close InterruptHandler objects
  * Used by device drivers to receive notification of interrupts.
- *
- * handle = AddInterruptHandle(IRQ_OF_DEVICE);
- *
- * while (1)
- * {
- *     WaitEvent (handle);
- *
- *     // Interrupt is masked when it occurs and must be unmasked by process.
- *     // Handle interrupt before unmasking interrupt
- *
- *     UnmaskInterrupt (IRQ_OF_DEVICE);
- *
- *     // Other processing if needed
- * }
- *
  */
- 
-#include <kernel/types.h>
-#include <kernel/proc.h>
+
+#include <kernel/arm/globals.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
-
-
+#include <kernel/proc.h>
+#include <kernel/types.h>
 
 /*
  * Creates and adds an interrupt handler notification object for the
  * specified IRQ. Interrupt handler returns the event handle that will
  * be raised when an interrupt occurs.
  */
- 
-SYSCALL int CreateInterrupt (int irq)
-{
-    struct ISRHandler *isr_handler;
-    struct Process *current;
-    int handle;
-    
-    current = GetCurrentProcess();
-    
-    if (!(current->flags & PROCF_ALLOW_IO))
-        return privilegeErr;
 
-    if (free_handle_cnt < 1 || free_isr_handler_cnt < 1)
-        return resourceErr;
-        
-    handle = AllocHandle();
+int CreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api)) {
+  struct Process *current;
+  struct Filp *filp;
+  struct SuperBlock *sb;
+  struct VNode *vnode;
+  int fd;
+  int error;
+  
+  current = GetCurrentProcess();
 
-    isr_handler = LIST_HEAD (&free_isr_handler_list);
-    LIST_REM_HEAD (&free_isr_handler_list, isr_handler_entry);
-    free_isr_handler_cnt --;
-    
-    isr_handler->irq = irq;
-    isr_handler->handle = handle;
-                
-    SetObject (current, handle, HANDLE_TYPE_ISR, isr_handler);
-    
-    DisableInterrupts();
-                
-    LIST_ADD_TAIL (&isr_handler_list[isr_handler->irq], isr_handler, isr_handler_entry);
-    irq_handler_cnt[irq] ++;
-    
-    if (irq_handler_cnt[irq] == 1)
-        UnmaskInterrupt(irq);
-    
-    EnableInterrupts();
-                
-    return handle;
+/*
+  if (!(current->flags & PROCF_ALLOW_IO)) {
+    Info ("irq EPERM");
+    return -EPERM;
+  }
+*/
+
+  if (irq < 0) {
+    return -EINVAL;
+  }
+  
+  sb = AllocSuperBlock();
+
+  if (sb == NULL) {
+    error = -ENOMEM;
+    goto exit;
+  }
+
+  // Server vnode set to -1.
+  vnode = VNodeNew(sb, -1);
+
+  if (vnode == NULL) {
+    error = -ENOMEM;
+    goto exit;
+  }
+  
+  fd = AllocHandle();
+  
+  if (fd < 0) {
+    error = -ENOMEM;
+    goto exit;
+  }
+  
+  filp = GetFilp(fd);
+
+  vnode->flags = V_VALID;
+  vnode->reference_cnt = 1;
+  vnode->mode = 0777 | _IFIRQ;    // FIXME:  read/write only user  (not used?)
+  vnode->isr_irq = irq;
+  vnode->isr_callback = callback;
+  vnode->isr_process = current;
+  filp->vnode = vnode;
+  
+  DisableInterrupts();
+  
+  LIST_ADD_TAIL(&isr_handler_list[irq], vnode,
+                isr_handler_entry);
+
+  // Convert to list empty test
+//  if (irq_handler_cnt[irq] == 0) {
+    UnmaskInterrupt(irq);
+//  }
+
+  irq_handler_cnt[irq]++;
+  EnableInterrupts();  
+  return fd;
+  
+exit:
+  FreeHandle(fd);
+  VNodeFree(vnode);
+  FreeSuperBlock(sb);  
+  return error;
 }
-
- 
-
 
 /*
  * Called by CloseHandle() to free an interrupt handler.  If there are no
  * handlers for a given IRQ the interrupt is masked.
+ *
+ * TODO: Need to prevent forking of interrupt descriptors (dup in same process is ok)
  */
 
-int DoCloseInterruptHandler (int handle)
-{
-    struct ISRHandler *isr_handler;
-    struct Process *current;
-    int irq;
-    
-    current = GetCurrentProcess();
+int DoCloseInterrupt(int fd) {
+  struct Process *current;
+  struct VNode *vnode;
+  struct SuperBlock *sb;
+  struct Filp *filp;
+  int irq;
+  
+  current = GetCurrentProcess();
 
-    if ((isr_handler = GetObject(current, handle, HANDLE_TYPE_ISR)) == NULL)
-        return paramErr;
+/*
+  if (!(current->flags & PROCF_ALLOW_IO)) {
+    return -EPERM;
+  }
+*/
 
-    DisablePreemption();    
-    
-    irq = isr_handler->irq;
+  filp = GetFilp(fd);
+  
+  if (filp == NULL) {
+    return -EINVAL;
+  }
 
-    DisableInterrupts();
+  vnode = filp->vnode;
 
-    LIST_REM_ENTRY (&isr_handler_list[irq], isr_handler, isr_handler_entry);
-    irq_handler_cnt[irq] --;
-    
-    if (irq_handler_cnt[irq] == 0)
-        MaskInterrupt(irq);
-    
-    EnableInterrupts();
-        
-    LIST_ADD_HEAD (&free_isr_handler_list, isr_handler, isr_handler_entry);
-    free_isr_handler_cnt ++;
-    
-    FreeHandle (handle);
+  if (S_ISIRQ(vnode->mode) == false) {
+    return -EINVAL;
+  }
 
-    return 0;
+  irq = vnode->isr_irq;
+
+  DisableInterrupts();
+
+  LIST_REM_ENTRY(&isr_handler_list[irq], vnode, isr_handler_entry);
+  irq_handler_cnt[irq]--;
+
+  if (irq_handler_cnt[irq] == 0)
+  {
+    MaskInterrupt(irq);
+  }
+
+  EnableInterrupts();
+
+  FreeHandle(fd);
+  VNodeFree(vnode);
+  FreeSuperBlock(sb);
+
+  return 0;
 }
-
-
-
-
-
 

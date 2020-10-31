@@ -1,20 +1,19 @@
 
-SEARCH_DIR("/home/marven/build_tools/lib/gcc/arm-none-eabi/4.9.2/fpu");
+SEARCH_DIR("/home/marven/build_tools/lib/gcc/arm-none-eabi/4.9.2/");
 
 ENTRY (_start);
 
 SECTIONS 
-{     	
-	. = 0x80100000;						/* Virtual address of kernel */
-                                        /* Kernel loaded at 1MB physical addr */
+{
+    . = SEGMENT_START("text-segment", 0x80010000) + SIZEOF_HEADERS;     	
 
-	.text : AT (_stext - 0x80000000)
+	.text ALIGN (0x1000) : AT (_stext - 0x80000000)
 	{ 
 		_stext = .;
   		_stext_phys = _stext - 0x80000000;
 	}	
 	
-  	.rodata : AT (_srodata - 0x80000000)
+  	.rodata ALIGN (0x1000): AT (_srodata - 0x80000000)
   	{
 		_srodata = .;
 		*(.rodata)

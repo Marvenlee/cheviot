@@ -27,12 +27,11 @@
 // Kernel - User VM Boundaries
 
 
-.equ VM_KERNEL_BASE,            0xF0000000
-.equ VM_KERNEL_CEILING,         0xFFFFF000
-.equ VM_USER_BASE,              0x00001000
-.equ VM_USER_CEILING,           0xEFC00000 
-.equ VM_VSYS_BASE,              0xEFFF0000
-.equ VM_VSYS_CEILING,           0xF0000000
+.equ VM_KERNEL_BASE,              0x80000000
+.equ VM_KERNEL_CEILING,           0x8FFF0000
+.equ VM_USER_BASE,                0x00400000
+.equ VM_USER_CEILING,             0x7F000000
+
 
 
 .equ MAX_CPU,               8

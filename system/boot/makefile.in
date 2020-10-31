@@ -1,0 +1,91 @@
+BOOT_OBJ:=  $(patsubst %.c,%.o, $(wildcard boot/*.c)) \
+			$(patsubst %.cc,%.o, $(wildcard boot/*.cc)) \
+			$(patsubst %.s,%.o, $(wildcard boot/*.s)) \
+			$(patsubst %.S,%.o, $(wildcard boot/*.S))
+			
+			
+
+# ----------------------------------------------------------------------------
+
+.PHONY:= boot
+boot : boot/kernel.img
+boot/kernel.img : boot/boot.exe
+	$(OBJCOPY) boot/boot.exe -O binary boot/kernel.img
+
+boot/boot.exe : $(BOOT_OBJ) boot/linker.ls
+	$(LINK) $(BOOT_OBJ) -lgcc -lc -T boot/linker.ls -o boot/boot.exe
+	
+	
+	
+# ----------------------------------------------------------------------------
+
+.PHONY : boot/depend
+boot/depend : 
+	$(DEPEND) $(DFLAGS) -f boot/makefile.in $(wildcard boot/*.c)
+
+# ----------------------------------------------------------------------------
+
+.PHONY : boot/clean
+boot/clean :
+	rm -f boot/boot.exe
+	rm -f boot/kernel.img
+	rm -f boot/*.o
+	rm -f boot/dump.txt
+	rm -f boot/makefile.in.bak
+
+.PHONY : boot/dump
+boot/dump :
+	$(OBJDUMP) $(DUMPFLAGS) boot/boot.exe >boot/dump.txt
+
+.PHONY : boot/strip
+boot/strip :
+	$(STRIP) -s --remove-section=.comment boot/boot
+
+# ----------------------------------------------------------------------------	
+	
+# DO NOT DELETE
+
+boot/elf.o: boot/elf.h boot/types.h boot/dbg.h boot/arm.h boot/globals.h
+boot/elf.o: boot/bootinfo.h /usr/include/stdint.h /usr/include/features.h
+boot/elf.o: /usr/include/stdc-predef.h /usr/include/sys/cdefs.h
+boot/elf.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+boot/elf.o: /usr/include/bits/wchar.h boot/memory.h /usr/include/string.h
+boot/elf.o: /usr/include/xlocale.h
+boot/doprintf.o: boot/types.h
+boot/mmio.o: boot/mmio.h /usr/include/stdint.h /usr/include/features.h
+boot/mmio.o: /usr/include/stdc-predef.h /usr/include/sys/cdefs.h
+boot/mmio.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+boot/mmio.o: /usr/include/bits/wchar.h
+boot/globals.o: boot/globals.h boot/bootinfo.h boot/types.h
+boot/globals.o: /usr/include/stdint.h /usr/include/features.h
+boot/globals.o: /usr/include/stdc-predef.h /usr/include/sys/cdefs.h
+boot/globals.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+boot/globals.o: /usr/include/bits/wchar.h boot/elf.h boot/memory.h
+boot/memory.o: boot/memory.h boot/types.h boot/arm.h boot/dbg.h
+boot/memory.o: boot/globals.h boot/bootinfo.h /usr/include/stdint.h
+boot/memory.o: /usr/include/features.h /usr/include/stdc-predef.h
+boot/memory.o: /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h
+boot/memory.o: /usr/include/gnu/stubs.h /usr/include/bits/wchar.h boot/elf.h
+boot/main.o: boot/bootstrap.h boot/types.h boot/dbg.h boot/arm.h boot/elf.h
+boot/main.o: boot/globals.h boot/bootinfo.h /usr/include/stdint.h
+boot/main.o: /usr/include/features.h /usr/include/stdc-predef.h
+boot/main.o: /usr/include/sys/cdefs.h /usr/include/bits/wordsize.h
+boot/main.o: /usr/include/gnu/stubs.h /usr/include/bits/wchar.h boot/memory.h
+boot/main.o: /usr/include/string.h /usr/include/xlocale.h
+boot/bootstrap.o: boot/bootstrap.h boot/types.h boot/arm.h boot/bootinfo.h
+boot/bootstrap.o: /usr/include/stdint.h /usr/include/features.h
+boot/bootstrap.o: /usr/include/stdc-predef.h /usr/include/sys/cdefs.h
+boot/bootstrap.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+boot/bootstrap.o: /usr/include/bits/wchar.h boot/dbg.h boot/globals.h
+boot/bootstrap.o: boot/elf.h boot/memory.h /usr/include/string.h
+boot/bootstrap.o: /usr/include/xlocale.h
+boot/debug.o: boot/dbg.h boot/arm.h boot/types.h boot/globals.h
+boot/debug.o: boot/bootinfo.h /usr/include/stdint.h /usr/include/features.h
+boot/debug.o: /usr/include/stdc-predef.h /usr/include/sys/cdefs.h
+boot/debug.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+boot/debug.o: /usr/include/bits/wchar.h boot/elf.h boot/memory.h
+boot/debug.o: /usr/include/string.h /usr/include/xlocale.h
+boot/mbox.o: boot/mbox.h /usr/include/stdint.h /usr/include/features.h
+boot/mbox.o: /usr/include/stdc-predef.h /usr/include/sys/cdefs.h
+boot/mbox.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+boot/mbox.o: /usr/include/bits/wchar.h boot/mmio.h

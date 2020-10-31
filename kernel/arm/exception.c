@@ -4,7 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -14,171 +14,217 @@
  * limitations under the License.
  */
 
-#include <kernel/types.h>
-#include <kernel/proc.h>
-#include <kernel/error.h>
-#include <kernel/dbg.h>
-#include <kernel/timer.h>
+#define KDEBUG
+
 #include <kernel/arm/arm.h>
+#include <kernel/arm/globals.h>
+#include <kernel/dbg.h>
+#include <kernel/error.h>
+#include <kernel/globals.h>
+#include <kernel/proc.h>
+#include <kernel/signal.h>
+#include <kernel/timer.h>
+#include <kernel/types.h>
 #include <kernel/utility.h>
 #include <kernel/vm.h>
-#include <kernel/arm/globals.h>
+#include <sys/signal.h>
+#include <ucontext.h>
 
 
 
-
-/*
- *
- */
- 
-void ResetHandler (void)
-{
-    KernelPanic ("Reset Handler ");
+void PrintUserContext(struct UserContext *uc) {
+  Info("pc = %08x,   sp = %08x", uc->pc, uc->sp);
+  Info("lr = %08x, cpsr = %08x", uc->lr, uc->cpsr);
+  Info("r0 = %08x,   r1 = %08x", uc->r0, uc->r1);
+  Info("r2 = %08x,   r3 = %08x", uc->r2, uc->r3);
+  Info("r4 = %08x,   r5 = %08x", uc->r4, uc->r5);
+  Info("r6 = %08x,   r7 = %08x", uc->r6, uc->r7);
+  Info("r8 = %08x,   r9 = %08x", uc->r8, uc->r9);
+  Info("r10 = %08x,  r11 = %08x   r12 = %08x", uc->r10, uc->r11, uc->r12);
 }
 
-
-
-
 /*
  *
  */
 
-void FiqHandler (void)
-{
-    KernelPanic ("FIQ Interrupt Handler ");
+void ResetHandler(void) {
+  KernelPanic();
 }
 
-
-
-
 /*
  *
  */
 
-void UnknownSyscall (void)
-{
-    struct Process *current;
-    
-    KLog ("Unknown Syscall");
-    
-    current = GetCurrentProcess();
-        
-    current->task_state.exception = EI_UNDEFSYSCALL;
-    current->task_state.fault_addr = current->task_state.pc;
-    current->task_state.fault_access = 0;
-    current->task_state.flags |= TSF_EXCEPTION;
+void ReservedHandler(void) {
+  KernelPanic();
 }
 
+/*
+ *
+ */
 
-
+void FiqHandler(void) {
+  KernelPanic();
+}
 
 /*
  *
  */
 
-void UndefInstrHandler (void)
-{
-    struct Process *current;
-    bits32_t spsr;
+void UnknownSyscallHandler(struct UserContext *context) {
+  struct Process *current;
+  
+  current = GetCurrentProcess();
+  current->signal.si_code[SIGSYS-1] = 0;
+  Kill(current->pid, SIGSYS);
+}
 
-    spsr = GetSPSR();
-    current = GetCurrentProcess();
-    
-    
-    KLog ("Undefined Instruction");
-    KLog ("pc = %#010x, sp = %#010x", current->task_state.pc, current->task_state.sp);
-    
-    
-    if (!((spsr & CPSR_MODE_MASK) == USR_MODE
-        || (spsr & CPSR_MODE_MASK) == SYS_MODE))
-    {
-        KernelPanic ("Undefined instruction in kernel");
+/*
+ *
+ */
+
+void UndefInstrHandler(struct UserContext *context) {
+  struct Process *current;
+  
+  current = GetCurrentProcess();
+
+  if ((context->cpsr & CPSR_MODE_MASK) != USR_MODE &&
+      (context->cpsr & CPSR_MODE_MASK) != SYS_MODE) {
+    KernelPanic();
+  }
+
+  current->signal.si_code[SIGILL-1] = 0;
+  current->signal.sigill_ptr = context->pc;
+  Kill(current->pid, SIGILL);
+}
+
+/*
+ *
+ */
+
+void PrefetchAbortHandler(struct UserContext *context) {
+  vm_addr fault_addr;
+  uint32_t mode;
+  struct Process *current;
+  
+  current = GetCurrentProcess();
+
+  fault_addr = context->pc;
+
+  mode = context->cpsr & CPSR_MODE_MASK;
+  if (mode == USR_MODE || mode == SYS_MODE) {
+    KernelLock();
+  } else if (bkl_owner != current) {
+    DisableInterrupts();
+    PrintUserContext(context);
+    Info("Prefetch Abort bkl not owner, fault addr = %08x", fault_addr);
+    KernelPanic();
+  } else {
+    DisableInterrupts();
+    PrintUserContext(context);
+    Info("Prefetch Abort in kernel, fault addr = %08x", fault_addr);
+    KernelPanic();
+  }
+
+  if (PageFault(fault_addr, PROT_EXEC) != 0) {
+    if (mode == USR_MODE || mode == SYS_MODE) {
+      PrintUserContext(context);
+      Info("fault addr = %08x", fault_addr);
+
+      current->signal.si_code[SIGSEGV-1] = 0;    // TODO: Could be access bit?
+      current->signal.sigsegv_ptr = fault_addr;
+      Kill(current->pid, SIGSEGV);
+      
+    } else {
+      PrintUserContext(context);
+      Info("fault addr = %08x", fault_addr);
+      KernelPanic();
     }
-    
-    current->task_state.exception = EI_UNDEFINSTR;
-    current->task_state.fault_addr = current->task_state.pc;
-    current->task_state.fault_access = 0;
-    current->task_state.flags |= TSF_EXCEPTION;
+  }
 
+  KASSERT(context->pc != 0);
 
-    // FIXME: Return straight to __KernelExit();
+  if (mode == USR_MODE || mode == SYS_MODE) {
+    CheckSignals(context);
 
-    __KernelExit();
+    if (bkl_locked == FALSE) {
+      DisableInterrupts();
+      PrintUserContext(context);
+      KernelPanic();
+    }
+    KernelUnlock();
+  }
 }
 
-
-
-
 /*
- *
+ * Page fault when accessing data.
+ * When the previous mode is USR or SYS acquire the kernel mutex
+ * Only other time is in SVC mode with kernel lock already acquired by
+ * this process AND the try/catch pc/sp is initialized.
+ * Other modes and times it is a kernel panic.
  */
 
-void PrefetchAbortHandler (void)
-{
-    struct Process *current;
-    bits32_t spsr;
-	vm_addr fault_addr;
-	bits32_t access;
-	
-    current = GetCurrentProcess();  
-        
-    KLog ("Prefetch Abort Handler");
-    KLog ("pc = %#010x, sp = %#010x", current->task_state.pc, current->task_state.sp);
-        
-    spsr = GetSPSR();
-        
-    if (!((spsr & CPSR_MODE_MASK) == USR_MODE || (spsr & CPSR_MODE_MASK) == SYS_MODE))
-    {
-        KernelPanic ("Instruction prefetch fault in kernel");
-    }
-        
-    fault_addr = current->task_state.pc;
-    access = PROT_EXEC;
-    PageFault(fault_addr, access);
-}
+void DataAbortHandler(struct UserContext *context) {
+  bits32_t dfsr;
+  bits32_t access;
+  vm_addr fault_addr;
+  uint32_t mode;
+  struct Process *current;
+  
+  current = GetCurrentProcess();
 
+  dfsr = GetDFSR();
+  fault_addr = GetFAR();
 
+  // FIXME: Must not enable interrupts before getting above registers?
 
+  mode = context->cpsr & CPSR_MODE_MASK;
+  if (mode == USR_MODE || mode == SYS_MODE) {
+    KernelLock();
+  } else if (bkl_owner != current) {
+    DisableInterrupts();
+    PrintUserContext(context);
+    Error("fault addr = %08x", fault_addr);
+    KernelPanic();
+  }
+  
+  if (dfsr & DFSR_RW)
+    access = PROT_WRITE;
+  else
+    access = PROT_READ;
 
-/*
- *
- */
+  if (PageFault(fault_addr, access) != 0) {
+    if (mode == SVC_MODE && current->catch_state.pc != 0xdeadbeef) {
+      Error("Page fault failed during copyin/copyout");
+      context->pc = current->catch_state.pc;
+      current->catch_state.pc = 0xdeadbeef;
+    } else if (mode == USR_MODE || mode == SYS_MODE) {
+      PrintUserContext(context);
+      Error("? USER Data Abort: fault addr = %08x", fault_addr);
 
-void DataAbortHandler (void)
-{
-    struct Process *current;
-    bits32_t spsr;
-    bits32_t dfsr;
-    bits32_t access;
-    vm_addr fault_addr;
-    
-    current = GetCurrentProcess();
-    KLog ("Data Abort Handler");
-    KLog ("pc = %#010x, sp = %#010x", current->task_state.pc, current->task_state.sp);
-
-    if (inkernel_lock == 1)
-    {
-        KernelPanic ("Kernel page fault with inkernel_lock held");
-    }
-    
-    dfsr = GetDFSR();
-    spsr = GetSPSR();
-    fault_addr = GetFAR();
-
-    if (dfsr & DFSR_RW)
-        access = PROT_WRITE;
-    else
-        access = PROT_READ;
+      current->signal.si_code[SIGSEGV-1] = 0;    // TODO: Could be access bit?
+      current->signal.sigsegv_ptr = fault_addr;
+      Kill(current->pid, SIGSEGV);
             
-    // TODO:  Kernel panic if in interrupt or other privileged non SVS mode.
-    if (!((spsr & CPSR_MODE_MASK) == USR_MODE || (spsr & CPSR_MODE_MASK) == SYS_MODE)
-        && fault_addr >= KERNEL_BASE)
-    {
-        KernelPanic ("Page fault in kernel at a kernel address");
+    } else {
+      PrintUserContext(context);
+      Error("fault addr = %08x", fault_addr);
+      KernelPanic();
     }
-    
-    PageFault(fault_addr, access);
+  }
+
+  KASSERT(context->pc != 0);
+
+  if (mode == USR_MODE || mode == SYS_MODE) {
+    CheckSignals(context);
+
+    if (bkl_locked == FALSE) {
+      DisableInterrupts();
+      PrintUserContext(context);
+      KernelPanic();
+    }
+
+    KernelUnlock();
+  }
 }
-
-
 

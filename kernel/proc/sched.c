@@ -4,7 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -18,258 +18,381 @@
  * Scheduling related functions
  */
 
-#include <kernel/types.h>
-#include <kernel/proc.h>
+#define KDEBUG
+
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
-
-
+#include <kernel/msg.h>
+#include <kernel/proc.h>
+#include <kernel/types.h>
 
 
 /*
- * Picks the next process to run next. If a process's quanta has expired it
- * advances the appropriate schedule queue.
- *
- * The microkernel supports 2 scheduling policies.
- *
- * SCHED_RR is a 32-priority,round-robin scheduler for real-time or device
- * drivers.  These have priority over SCHED_OTHER processes.
- *
- * SCHED_OTHER is proportional fair share scheduler that uses the
- * Stride Scheduler algorithm of Carl A. Waldspurger as described in
- * "Lottery and Stride Scheduling: Flexible Proportional-Share Resource
- * Management"
+ * Task Scheduler : Currently implements round-robin scheduling and a stride
+ * scheduler which needs work. 
  */
- 
-void Reschedule (void)
-{
-    struct Process *current, *next, *proc;
-    struct CPU *cpu;
-    int q;
+void Reschedule(void) {
+  uint32_t context[15];
+  struct Process *current, *next, *proc;
+  struct CPU *cpu;
+  int q;
 
-    cpu = GetCPU();
-    current = GetCurrentProcess();
+  cpu = GetCPU();
+  current = GetCurrentProcess();
 
-    if (current->sched_policy == SCHED_RR)
-    {
-        CIRCLEQ_FORWARD (&realtime_queue[current->tickets], sched_entry);
+  if (current != NULL) {
+    if (current->sched_policy == SCHED_RR) {
+      KASSERT(current->rr_priority >= 0 && current->rr_priority < 32);
+
+      if ((CIRCLEQ_HEAD(&realtime_queue[current->rr_priority])) != NULL) {
+        CIRCLEQ_FORWARD(&realtime_queue[current->rr_priority], sched_entry);
         current->quanta_used = 0;
-    }
-    else if (current->sched_policy == SCHED_OTHER)
-    {
-        global_stride = STRIDE1 / global_tickets;
-        global_pass += global_stride;
-        current->pass += current->stride;
-                
-        LIST_REM_ENTRY (&stride_queue, current, stride_entry);
-        proc = LIST_HEAD(&stride_queue);
+      }
+    } else if (current->sched_policy == SCHED_OTHER) {
+      global_stride = STRIDE1 / global_tickets;
+      global_pass += global_stride;
+      current->stride_pass += current->stride;
 
-        if (proc != NULL && global_pass < proc->pass)
-            global_pass = proc->pass;
+      LIST_REM_ENTRY(&stride_queue, current, stride_entry);
+      proc = LIST_HEAD(&stride_queue);
 
-        while (proc != NULL)
-        {
-            if (proc->pass > current->pass)
-            {
-                LIST_INSERT_BEFORE (&stride_queue, proc, current, stride_entry);
-                break;
-            }
-        
-            proc = LIST_NEXT (proc, stride_entry);
+      if (proc != NULL && global_pass < proc->stride_pass)
+        global_pass = proc->stride_pass;
+
+      while (proc != NULL) {
+        if (proc->stride_pass > current->stride_pass) {
+          LIST_INSERT_BEFORE(&stride_queue, proc, current, stride_entry);
+          break;
         }
-        
-        if (proc == NULL)
-            LIST_ADD_TAIL (&stride_queue, current, stride_entry);
-        
-        current->quanta_used = 0;
+
+        proc = LIST_NEXT(proc, stride_entry);
+      }
+
+      if (proc == NULL) {
+        LIST_ADD_TAIL(&stride_queue, current, stride_entry);
+      }
+
+      current->quanta_used = 0;
+    } else if (current->sched_policy == SCHED_IDLE) {
     }
-    else if (current->sched_policy == SCHED_IDLE)
-    {
+  }
+
+  next = NULL;
+
+  if (realtime_queue_bitmap != 0) {
+    for (q = 31; q >= 0; q--) {
+      if ((realtime_queue_bitmap & (1 << q)) != 0)
+        break;
     }
 
-    
-    next = NULL;
+    next = CIRCLEQ_HEAD(&realtime_queue[q]);
+  }
 
-    if (realtime_queue_bitmap != 0)
-    {
-        for (q = 31; q >= 0; q--)
-        {
-            if ((realtime_queue_bitmap & (1<<q)) != 0)
-                break;
-        }
-        
-        next = CIRCLEQ_HEAD (&realtime_queue[q]);
-    }
-        
-    if (next == NULL)
-        next = LIST_HEAD (&stride_queue);
-                            
-    if (next == NULL)
-    {
-        next = cpu->idle_process;
-    }
-    current->state = PROC_STATE_READY;
+  if (next == NULL) {
+    next = LIST_HEAD(&stride_queue);
+  }
+
+  if (next == NULL) {
+    next = cpu->idle_process;
+  }
+
+  if (next != NULL) {
     next->state = PROC_STATE_RUNNING;
-    PmapSwitch (next, current);
+    PmapSwitch(next, current);
+  }
+
+  if (next != current) {
+    current->context = &context;
     cpu->current_process = next;
+
+    if (SetContext(&context[0]) == 0) {
+      GetContext(next->context);
+    }
+  }
 }
-
-
-
 
 /*
  * SchedReady();
  *
  * Add process to a ready queue based on its scheduling policy and priority.
  */
+void SchedReady(struct Process *proc) {
+  struct Process *next;
+  struct CPU *cpu;
 
-void SchedReady (struct Process *proc)
-{
-    struct Process *next;
+  cpu = GetCPU();
 
+  if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO) {
+    CIRCLEQ_ADD_TAIL(&realtime_queue[proc->rr_priority], proc, sched_entry);
+    realtime_queue_bitmap |= (1 << proc->rr_priority);
+  } else if (proc->sched_policy == SCHED_OTHER) {
+    global_tickets += proc->stride_tickets;
+    global_stride = STRIDE1 / global_tickets;
+    proc->stride_pass = global_pass - proc->stride_remaining;
 
-    if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO)
-    {
-        CIRCLEQ_ADD_TAIL (&realtime_queue[proc->tickets], proc, sched_entry);
-        realtime_queue_bitmap |= (1<<proc->tickets);
-    }
-    else if (proc->sched_policy == SCHED_OTHER)
-    {
-        global_tickets += proc->tickets;
-        global_stride = STRIDE1 / global_tickets;
-        proc->pass = global_pass - proc->remaining;
-        
-        next = LIST_HEAD(&stride_queue);
-                
-        while (next != NULL)
-        {
-            if (next->pass > proc->pass)
-            {
-                LIST_INSERT_BEFORE (&stride_queue, next, proc, stride_entry);
-                break;
-            }
-                
-            next = LIST_NEXT (next, stride_entry);
-        }
-                
-        if (next == NULL)
-        {
-            LIST_ADD_TAIL (&stride_queue, proc, stride_entry);
-        }
-    }
-    else
-    {
-        KLog ("Ready: Unknown sched policy *****");   
+    next = LIST_HEAD(&stride_queue);
+
+    while (next != NULL) {
+      if (next->stride_pass > proc->stride_pass) {
+        LIST_INSERT_BEFORE(&stride_queue, next, proc, stride_entry);
+        break;
+      }
+
+      next = LIST_NEXT(next, stride_entry);
     }
 
-    proc->quanta_used = 0;          
-    reschedule_request = TRUE;
+    if (next == NULL) {
+      LIST_ADD_TAIL(&stride_queue, proc, stride_entry);
+    }
+  } else {
+    Error("Ready: Unknown sched policy %d", proc->sched_policy);
+    KernelPanic();
+  }
+
+  proc->quanta_used = 0;
+  cpu->reschedule_request = TRUE;
 }
-
-
-
 
 /*
  * SchedUnready();
  *
  * Removes process from the ready queue.  See SchedReady() above.
  */
+void SchedUnready(struct Process *proc) {
+  struct CPU *cpu;
 
-void SchedUnready (struct Process *proc)
-{
-    if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO)
-    {
-        CIRCLEQ_REM_ENTRY (&realtime_queue[proc->tickets], proc, sched_entry);
-        
-        if (CIRCLEQ_HEAD (&realtime_queue[proc->tickets]) == NULL)
-            realtime_queue_bitmap &= ~(1<<proc->tickets);
-    }
-    else if (proc->sched_policy == SCHED_OTHER)
-    {
-        global_tickets -= proc->tickets;
-        proc->remaining = global_pass - proc->pass;
-        LIST_REM_ENTRY (&stride_queue, proc, stride_entry);
-    }
-    else
-    {
-        KLog ("Unready: Unknown sched policy *****");   
-    }
+  cpu = GetCPU();
 
-    proc->quanta_used = 0;
-    reschedule_request = TRUE;
+  if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO) {
+    CIRCLEQ_REM_ENTRY(&realtime_queue[proc->rr_priority], proc, sched_entry);
+    proc->sched_entry.next = NULL;
+    proc->sched_entry.prev = NULL;    
+    if (CIRCLEQ_HEAD(&realtime_queue[proc->rr_priority]) == NULL)
+      realtime_queue_bitmap &= ~(1 << proc->rr_priority);
+  } else if (proc->sched_policy == SCHED_OTHER) {
+    global_tickets -= proc->stride_tickets;
+    proc->stride_remaining = global_pass - proc->stride_pass;
+    LIST_REM_ENTRY(&stride_queue, proc, stride_entry);
+  } else {
+    Error("Unready: Unknown sched policy *****");
+    KernelPanic();
+  }
+
+  proc->quanta_used = 0;
+  cpu->reschedule_request = TRUE;
 }
-
-
-
 
 /*
  * Sets the scheduling policy, either round-robin or stride scheduler
  */
+SYSCALL int SetSchedParams(int policy, int priority) {
+  struct Process *current;
+  current = GetCurrentProcess();
 
-SYSCALL int SetSchedParams (int policy, int tickets)
-{
-    struct Process *current;
-    
-    
-    current = GetCurrentProcess();
+  if (policy == SCHED_RR || policy == SCHED_FIFO) {
+    if (!(current->flags & PROCF_ALLOW_IO)) {
+      return -EPERM;
+    }
 
-    DisablePreemption();
-        
-    if (policy == SCHED_RR || policy == SCHED_FIFO)
-    {
-        if (!(current->flags & PROCF_ALLOW_IO))
-            return privilegeErr;
-        
-        if (tickets < 0 || tickets > 31)
-            return paramErr;
+    if (priority < 0 || priority > 31) {
+      return -EINVAL;
+    }
+
+    DisableInterrupts();
+    SchedUnready(current);
+    current->sched_policy = policy;
+    current->rr_priority = priority;
+    SchedReady(current);
+    Reschedule();
+    EnableInterrupts();
+
+    return 0;
+
+  } else if (policy == SCHED_OTHER) {
+    if (priority < 0 || priority > STRIDE_MAX_TICKETS) {
+      return -EINVAL;
+    }
+
+    DisableInterrupts();
+    SchedUnready(current);
+    current->sched_policy = policy;
+    current->stride_tickets = priority;
+    current->stride = STRIDE1 / current->stride_tickets;
+    current->stride_remaining = current->stride;
+    current->stride_pass = global_pass;
+    SchedReady(current);
+    Reschedule();
+    EnableInterrupts();
+
+    return 0;
     
-        SchedUnready (current);
-        current->sched_policy = policy;
-        current->tickets = tickets;
-        SchedReady (current);
-        return 0;
-    }
-    else if (policy == SCHED_OTHER)
-    {
-        if (tickets < 0 || tickets > STRIDE_MAX_TICKETS)
-            return paramErr;
-    
-        SchedUnready (current);
-        current->sched_policy = policy;
-        current->tickets = tickets;
-        current->stride = STRIDE1 / current->tickets;
-        current->remaining = current->stride;
-        current->pass = global_pass;
-        SchedReady (current);
-        return 0;
-    }
-    else
-    {
-        return paramErr;
-    }
+  } else {
+    return -EINVAL;
+  }
 }
-
-
-
 
 /*
  * Yield();
  */
-
-SYSCALL void Yield (void)
-{
-    struct Process *current;
-
-    current = GetCurrentProcess();
-
-    DisablePreemption();
-    
-    if (current->sched_policy == SCHED_RR || current->sched_policy == SCHED_FIFO)
-    {
-        CIRCLEQ_FORWARD (&realtime_queue[current->tickets], sched_entry);   
-    }
+SYSCALL void Yield(void) {
 }
 
+/*
+ * Big kernel lock acquired on kernel entry. Effectively coroutining
+ * (co-operative multitasking) within the kernel.  Similar to the mutex used in
+ * a condition variable construct.  TaskSleep and TaskWakeup are used to sleep
+ * and wakeup tasks blocked on a condition variable (rendez).
+ * 
+ * Interrupts are disabled upon entry to a syscall in the assembly code.
+ */
+void KernelLock(void) {
+  struct Process *current;
 
+  current = GetCurrentProcess();
+
+  if (bkl_locked == FALSE) {
+    bkl_locked = TRUE;
+    bkl_owner = current;
+  } else {
+    LIST_ADD_TAIL(&bkl_blocked_list, current, blocked_link);
+    current->state = PROC_STATE_BKL_BLOCKED;
+    SchedUnready(current);
+    Reschedule();
+  }
+}
+
+/*
+ *
+ */
+void KernelUnlock(void) {
+  struct Process *proc;
+
+  if (bkl_locked == TRUE) {
+    proc = LIST_HEAD(&bkl_blocked_list);
+
+    if (proc != NULL) {
+      bkl_locked = TRUE;
+      bkl_owner = proc;
+
+      LIST_REM_HEAD(&bkl_blocked_list, blocked_link);
+
+      proc->state = PROC_STATE_READY;
+      SchedReady(proc);
+      Reschedule();
+    } else {
+      bkl_locked = FALSE;
+      bkl_owner = (void *)0xcafef00d;
+    }
+  } else {
+    KernelPanic();
+  }
+}
+
+/*
+ *
+ */
+void InitRendez(struct Rendez *Rendez)
+{ 
+  LIST_INIT(&Rendez->blocked_list);
+}
+
+/*
+ *
+ */
+void TaskSleep(struct Rendez *rendez) {
+  struct Process *proc;
+  struct Process *current;
+
+  current = GetCurrentProcess();
+
+  DisableInterrupts();
+
+  KASSERT(bkl_locked == TRUE);
+  KASSERT(bkl_owner == current);
+
+  proc = LIST_HEAD(&bkl_blocked_list);
+
+  if (proc != NULL) {
+    LIST_REM_HEAD(&bkl_blocked_list, blocked_link);
+    proc->state = PROC_STATE_READY;
+    bkl_owner = proc;
+    SchedReady(proc);
+  } else {
+    bkl_locked = FALSE;
+    bkl_owner = (void *)0xdeadbeef;
+  }
+
+  LIST_ADD_TAIL(&rendez->blocked_list, current, blocked_link);
+  current->state = PROC_STATE_RENDEZ_BLOCKED;
+  SchedUnready(current);
+  Reschedule();
+
+  KASSERT(bkl_locked == TRUE);
+  KASSERT(bkl_owner == current);
+
+  EnableInterrupts();
+}
+
+/*
+ *
+ */
+void TaskWakeup(struct Rendez *rendez) {
+  struct Process *proc;
+
+  DisableInterrupts();
+
+  proc = LIST_HEAD(&rendez->blocked_list);
+
+  if (proc != NULL) {
+    LIST_REM_HEAD(&rendez->blocked_list, blocked_link);
+    LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
+    proc->state = PROC_STATE_BKL_BLOCKED;
+  }
+
+  EnableInterrupts();
+}
+
+/*
+ * 
+ */
+void TaskWakeupFromISR(struct Rendez *rendez) {
+  struct Process *proc;
+
+  proc = LIST_HEAD(&rendez->blocked_list);
+
+  if (proc != NULL) {
+    LIST_REM_HEAD(&rendez->blocked_list, blocked_link);
+    LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
+    proc->state = PROC_STATE_BKL_BLOCKED;
+  }
+}
+
+/*
+ *
+ */
+void  TaskWakeupAll(struct Rendez *rendez) {
+  struct Process *proc;
+
+  do {
+    DisableInterrupts();
+
+    proc = LIST_HEAD(&rendez->blocked_list);
+
+    if (proc != NULL) {
+      KASSERT(bkl_locked == TRUE);
+      
+      LIST_REM_HEAD(&rendez->blocked_list, blocked_link);
+
+      KASSERT(bkl_locked == TRUE);
+
+      LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
+      proc->state = PROC_STATE_BKL_BLOCKED;
+    }
+
+    proc = LIST_HEAD(&rendez->blocked_list);
+    EnableInterrupts();
+
+  } while (proc != NULL);
+}
 

@@ -4,7 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -18,252 +18,297 @@
  * Debugging functions and Debug() system call.
  */
 
-#include <stdarg.h>
-#include <kernel/types.h>
+#define KDEBUG
+
+#include <kernel/arm/globals.h>
 #include <kernel/dbg.h>
-#include <kernel/utility.h>
-#include <kernel/proc.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
+#include <kernel/proc.h>
+#include <kernel/types.h>
+#include <kernel/utility.h>
+#include <stdarg.h>
+
+#ifdef KDEBUG
 
 
 // Constants
-#define KLOG_ENTRIES    256
-#define KLOG_WIDTH      256
+#define KLOG_WIDTH 256
 
-// Externals
-extern unsigned char font8x8_basic[128][8];
 
 // Variables
-char klog_entry[KLOG_ENTRIES][KLOG_WIDTH];
-int32 current_log;
-uint16 pen_color = 0xffff;
-uint16 bg_color = 0x0000;
-int dbg_y = 0;
-int klog_to_screen = TRUE;
-int log_idx = 0;
+static char klog_entry[KLOG_WIDTH];
+bool processes_initialized = FALSE;
 
 // Prototypes
-static void KClearScreen (uint16 color);
-static void KScrollScreen (void);
-static void KPrintString (char *s);
-static void PrintChar (int x, int y, char ch);
+static void KPrintString(char *s);
+
+#endif
+
+
+
+
+/*
+ *
+ */
+
+#ifdef KDEBUG
+
+void io_delay(uint32_t cycles) 
+{
+    while(cycles-- > 0) isb();
+}
+
+void configure_gpio(uint32_t pin, enum FSel fn, enum PullUpDown action)
+{    
+    dmb();
+    
+    // set pull up down
+    // ----------------
+    
+    // set action & delay for 150 cycles.
+    volatile uint32_t *pud = &gpio_regs->pud;
+    *pud = action;
+    io_delay(1000);
+
+    // trigger action & delay for 150 cycles.
+    volatile uint32_t *clock = &gpio_regs->pud_clk[pin / 32];
+    *clock = (1 << (pin % 32));
+    io_delay(1000);
+    
+    // clear action
+    *pud = OFF;
+	
+    // remove clock
+    *clock = 0;
+
+    // set function
+    // ------------
+    volatile uint32_t *fsel = &gpio_regs->fsel[pin / 10];
+    uint32_t shift = (pin % 10) * 3;
+    uint32_t mask = ~(7U << shift);
+    *fsel = (*fsel & mask) | (fn << shift);
+    
+    dmb();
+}
+
+void set_gpio(uint32_t pin, bool state)
+{
+    // set or clear output of pin
+    
+    if (state) {
+      gpio_regs->set[pin / 32] = 1U << (pin % 32);
+    } else {
+      gpio_regs->clr[pin / 32] = 1U << (pin % 32);
+    }
+}
+
+void configure_uart(void)
+{
+    dmb();
+    
+    // wait for end of transmission
+    while(uart_regs->flags & FR_BUSY) { }
+
+    // Disable UART0
+    uart_regs->ctrl = 0;
+
+    // flush transmit FIFO
+    uart_regs->lcrh &= ~LCRH_FEN;	
+	
+    // select function 0 and disable pull up/down for pins 14, 15
+    configure_gpio(14, FN0, OFF);
+    configure_gpio(15, FN0, OFF);
+
+    dmb();
+    
+    // Set integer & fractional part of baud rate.
+    // Divider = UART_CLOCK/(16 * Baud)
+    // Fraction part register = (Fractional part * 64) + 0.5
+    // UART_CLOCK = 3000000; Baud = 115200.
+
+    // Divider = 3000000/(16 * 115200) = 1.627 = ~1.
+    // Fractional part register = (.627 * 64) + 0.5 = 40.6 = ~40.
+  
+    int baud = 115200;
+
+    int divider = (UART_CLK)/(16 * baud);
+    int temp = (((UART_CLK % (16 * baud)) * 8) / baud);
+    int fraction = (temp >> 1) + (temp & 1);
+    
+    uart_regs->ibrd = divider;
+    uart_regs->fbrd = fraction;
+
+    // Enable FIFO & 8 bit data transmission (1 stop bit, no parity)
+    uart_regs->lcrh = LCRH_FEN | LCRH_WLEN8;
+    uart_regs->lcrh = LCRH_WLEN8;
+
+    // set FIFO interrupts to fire at half full
+    uart_regs->ifls = IFSL_RX_1_2 | IFSL_TX_1_2;
+    
+    // Clear pending interrupts.
+    uart_regs->icr = INT_ALL;
+
+    // Mask all interrupts.
+    uart_regs->imsc = INT_ALL;
+    
+    // Enable UART0, receive & transfer part of UART.
+//    uart_regs->ctrl = CR_UARTEN | CR_RXE;
+
+    uart_regs->ctrl = CR_UARTEN | CR_TXW | CR_RXE;
+
+    dmb();
+}
+
+#endif
 
 
 /*
  * InitDebug();
  */
-void InitDebug (void)
-{
-    int32 t;
-            
-    current_log = 0;
-    klog_to_screen = TRUE;
-    __debug_enabled = TRUE;
-    
-    KClearScreen(0x0000);
-        
-    for (t=0; t< KLOG_ENTRIES; t++)
-    {
-        klog_entry[t][0] = '\0';
-    }
+void InitDebug(void) {
+#ifdef KDEBUG
+  configure_uart();
+#endif  
 }
 
-
-/*!
-    System call allowing applications to write strings to the kernel's debugger
-    buffer.
-*/ 
-SYSCALL void Debug (char *s)
-{
-    int t;
-    char buf[80];
-    char ch;
-        
-    for (t=0; t<80; t++)
-    {
-        CopyIn (&ch, s, 1);
-        
-        s++;
-        buf[t] = ch;
-        
-        if (ch == '\0')
-            break;
-    }
-            
-    buf[79] = '\0';
-    
-    DisablePreemption();
-    
-    KLog ("dbg: %d, %s:", (uint32)softclock_seconds, &buf[0]);
+/*
+ *
+ */
+void ProcessesInitialized(void) {
+#ifdef KDEBUG
+  processes_initialized = TRUE;
+#endif
 }
 
+/*
+ * ystem call allowing applications to print to serial without opening serial port.
+ */
+SYSCALL void Debug(char *s) {
+#ifdef KDEBUG
+  char buf[128];
+
+  CopyInString (buf, s, sizeof buf);
+  buf[sizeof buf - 1] = '\0';
+
+  Info("PID %4d: %s:", GetPid(), &buf[0]);
+#endif
+}
 
 /*
  * KLog();
  *
  * Used by the macros KPRINTF, KLOG, KASSERT and KPANIC to
  * print with printf formatting to the kernel's debug log buffer.
- * The buffer is a fixed size circular buffer, Once it is full 
+ * The buffer is a fixed size circular buffer, Once it is full
  * the oldest entry is overwritten with the newest entry.
  *
  * Cannot be used during interrupt handlers or with interrupts
  * disabled s the dbg_slock must be acquired.  Same applies
  * to KPRINTF, KLOG, KASSERT and KPANIC.
  */
- 
-void KLog (const char *format, ...)
-{
-    va_list ap;
-    
-    va_start (ap, format);
 
-    DisablePreemption();
-#ifndef NDEBUG
+#ifdef KDEBUG
+void DoLog(const char *format, ...) {
+  va_list ap;
 
-    if (__debug_enabled)
-    {   
-        Vsnprintf (&klog_entry[current_log][0], KLOG_WIDTH, format, ap);
-        
-        if (klog_to_screen == TRUE)
-            KPrintString (&klog_entry[current_log][0]);
-    
-        current_log++;
-        current_log %= KLOG_ENTRIES;
-    }
-#endif
+  va_start(ap, format);
 
-    va_end (ap);
+  if (processes_initialized) {
+    Snprintf(&klog_entry[0], 5, "%4d:", GetPid());
+    Vsnprintf(&klog_entry[5], KLOG_WIDTH - 5, format, ap);
+  } else {
+    Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
+  }
+
+  KPrintString(&klog_entry[0]);
+
+  va_end(ap);
 }
 
+void MemDump(void *_addr, size_t sz) {
+  char line[64];
+  char tmp[4];
+  uint8_t *addr = _addr;
+  
+  Info("MemDump Addr:%08x, sz:%d", (vm_addr)addr, sz);
+  
+  while (sz > 0) {
+    line[0] = '\0';
+    for (int x = 0; sz > 0 && x < 16; x++) {
+      Snprintf(tmp, sizeof tmp, "%02x", (uint8_t)*addr);
+      StrLCat(line, tmp, sizeof line); 
+      addr++;
+      sz --;
+    }    
 
+    Info ("%s", line);
+  }
+    
+}
 
+int MemCmp(void *m1, void *m2, size_t sz) {
+  uint8_t *a, *b;
+  a = m1;
+  b = m2;
+
+  for (int t = 0; t < sz; t++) {
+    if (*a != *b) {
+      Error("!!!!!!!!!!!!!!! Mem Fail %08x %08x !!!!!!!!!!!!!!!!!!!!!",
+            (vm_addr)a, (vm_addr)b);
+      return -1;
+    }
+    a++;
+    b++;
+  }
+
+  return 0;
+}
+
+#endif
 
 /*
  * KernelPanic();
  */
 
-void KernelPanic(char *str)
-{
-    int32 y, log;
-    int cnt;
-    
-    DisableInterrupts();
+void PrintKernelPanic(char *format, ...) {
+  va_list ap;
 
-    pen_color = 0xffff;
-    bg_color = 0x0f04;
-    
-    KClearScreen(bg_color);
-    
-    log = ((current_log - 1) + KLOG_ENTRIES) % KLOG_ENTRIES;
-    
-    KPrintString (" ******* KERNEL PANIC ********");
-    KPrintString (str);
-    
-    for (cnt = 0, y=16; cnt < 23 && y < screen_height; y += 8, cnt++)
-    {
-        if (klog_entry[log][0] != '\0')
-            KPrintString (&klog_entry[log][0]);
-        
-        log --;
-        
-        log = (log + KLOG_ENTRIES) % KLOG_ENTRIES;
-    }
+  DisableInterrupts();
+  
+  va_start(ap, format);
 
+#ifdef KDEBUG
 
-    while(1);
+// TODO: Add mutexes here, need to check if already locked on entry/exit ????
+
+  if (processes_initialized) {
+    Snprintf(&klog_entry[0], 5, "%4d:", GetPid());
+    Vsnprintf(&klog_entry[5], KLOG_WIDTH - 5, format, ap);
+  } else {
+    Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
+  }
+
+  KPrintString(&klog_entry[0]);
+  KPrintString("### Kernel Panic ###");
+#endif
+
+  va_end(ap);  
+  
+  while(1);
 }
 
-
-static void KPrintString (char *s)
-{
-    int x = 0;
-        
-    if (dbg_y >= screen_height - 8)
-    {
-        KScrollScreen();
-        dbg_y = screen_height - 8;
-    }
-
-    while (*s != '\0')
-    {
-        PrintChar (x, dbg_y, *s);
-        x+=8;
-        s++;
-    }
-
-    dbg_y += 8;
+#ifdef KDEBUG
+static void KPrintString(char *s) {  
+  while (*s != '\0') {
+    while (uart_regs->flags & FR_BUSY);        
+    uart_regs->data = *s++;
+  }
+  
+  while (uart_regs->flags & FR_BUSY);        
+  uart_regs->data = '\n';
 }
+#endif
 
-
-void KPrintXY (int x, int y, char *s)
-{
-    while (*s != '\0')
-    {
-        PrintChar (x, y, *s);
-        x+=8;
-        s++;
-    }
-}
-
-
-static void KClearScreen (uint16 color)
-{
-    int x,y;
-    
-    for (y=0; y < screen_height; y++)
-    {
-        for (x=0; x<screen_width; x++)
-        {
-            *(uint16 *)(screen_buf + y * screen_pitch + x*2) = color;
-        }
-    }
-
-    dbg_y = 0;
-}
-
-
-static void KScrollScreen (void)
-{
-    long x,y;
-    
-    for (y=0; y < screen_height - 8; y++)
-    {
-        for (x=0; x<screen_width; x++)
-        {
-            *(uint16 *)(screen_buf + y * screen_pitch + x*2) =
-                            *(uint16 *)(screen_buf + (y+8) * screen_pitch + x*2);
-        }
-    }
-    
-    
-    for (y= screen_height - 8; y < screen_height; y++)
-    {
-        for (x=0; x<screen_width; x++)
-        {
-            *(uint16 *)(screen_buf + y * screen_pitch + x*2) = 0;
-        }
-    }
-}
-
-
-static void PrintChar (int x, int y, char ch)
-{
-    uint8 r, c;
-    uint8 bit_row;
-    
-    for (r = 0; r < 8; r++)
-    {
-        for (c = 0; c < 8; c ++)
-        {
-            bit_row = font8x8_basic[(unsigned char)ch][r];
-            
-            if ((1<<c) & bit_row)
-            {
-                *(uint16*)(screen_buf + (y+r) * screen_pitch + ((x + c)  * 2)) = pen_color;
-            }
-        }
-    }
-}
 
 

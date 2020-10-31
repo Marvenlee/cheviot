@@ -14,88 +14,21 @@
  * limitations under the License.
  */
 
-/*
- * System call entry points for software interrupts (SWI), exceptions
- * and interrrupts.
- *
- * The cheviot microkernel uses what is known as an interrupt-model kernel.
- * This uses a single kernel stack per CPU as opposed to a kernel stack
- * per thread or process.
- *
- * # In the current ARM code we have only a single CPU but we do have
- * separate stacks for interrupts, exceptions and system calls.  These
- * are allocated within arm.s.
- *
- * What this means is:
- * 1) User-mode state is saved in the process->task_state instead of on
- *    the stack
- * 2) Process can sleep in the kernel, but waking up restarts the
- *    system call. Unless the system call completed and the process
- *    was put to sleep in the __KernelExit part of a call.
- * 
- * There are two locks within the kernel:
- *
- * 1) inkernel_now
- *    This is a spinlock that is locked upon entry to the kernel.
- *    This is locked with the macro MKernelEntryLock. This lock
- *    prevents more than one CPU entering the kernel at the
- *    same time.
- *    
- *    Once a process is in the kernel it can be preempted at any time
- *    by interrupts, in which case the system call starts over when
- *    this process is scheduled again.
- *
- *    Data structures should only be read, data can be copied to and from
- *    user space with CopyIn and CopyOut functions.
- *
- * 2) inkernel_lock
- *    To modify any kernel data structures we need to disable preemption
- *    using DisablePreemption function or the macro equivalent. CopyIn
- *    and CopyOut should not be called.
- *    
- *    Preemption is disabled automatically once we exit the system call's
- *    function written in C and return back to the SWI assembly code. This
- *    is so the program counter and return value can be updated prior
- *    to calling the __KernelExit routine.
- *     
- * In effect a system call is a bit like a transaction, we prepare all
- * the data beforehand with preemption disabled.  Only at the end of 
- * a system call when we want to commit changes do we disable preemption.
- *   
- * __KernelExit code is the common exit path out of the kernel.  This
- * calls KernelExit that expires timers, checks for interrupts and
- * performs the final part of process termination.
- * __KernelExit is also called by code that puts a process to sleep.
- *
- *
- * Further reading on Interrupt-model kernels:
- *  
- *  1) "The 27 Year Old Microkernel" powerpoint presentation On QNX.
- *     This presentation on Neutrino's interrupt-model kernel and how it
- *     achieves kernel preemption is a major influence of the Cheviot
- *     microkernel.
- *  
- *  2) "Interface and Execution Models in the Fluke Kernel" by
- *  Bryan Ford, Mike Hibler, Jay Lepreau, Roland McGrath, Patrick Tullmann
- *  
- *  3) "Single Kernel Stack L4" by Matthew Warton.  This interrupt-model L4
- *     appears to do the opposite of Cheviot and QNX in having interrupts
- *     disabled for the majority of the time.
- */
-
 #include <kernel/arm/arm.i>
 #include <kernel/arm/task.i>
 #include <kernel/arm/macros.i>
 
-.global reset_vector
-.global undef_instr_vector
 .global swi_vector
 .global prefetch_abort_vector
 .global data_abort_vector
 .global reserved_vector
 .global irq_vector
+.global reset_vector
+.global undef_instr_vector
 .global fiq_vector
-.global __KernelExit
+.global StartForkProcess
+.global StartExecProcess
+.global StartKernelProcess
 
 # *************************************************************************
 # System call table
@@ -104,224 +37,277 @@
 
 .balign 16
 syscall_table:
-    .long UnknownSyscall            // 0
-    .long Debug                     // 1
+    .long UnknownSyscallHandler     // 0
+    .long Debug                     // 1    TODO: Eventually remove
 
     .long Fork	                    // 2  
     .long Exit                      // 3
     .long WaitPid                   // 4
-    .long Kill                      // 5  
-    .long SetSchedParams            // 6
+    .long Kill                      // 5
+    .long SetSchedParams            // 6 
 
-	.long GetSystemTime		        // 7
+    .long Sleep                     // 7   
+    .long Alarm                     // 8
+    .long 0xfee1501d                // 9    TODO: Remove
+    .long GetTimeOfDay              // 10
+    .long SetTimeOfDay              // 11
     
-    .long VirtualAlloc             	// 8
-    .long VirtualAllocPhys          // 9
-    .long VirtualFree              	// 10
-    .long VirtualProtect       		// 11 
-    
-    .long Close                     // 12
-	.long WaitEvent                 // 13	
-    .long CheckEvent                // 14
-	.long CreateTimer               // 15
-	.long SetTimer                  // 16
-    
-    .long CreateInterrupt           // 17
-    .long MaskInterrupt             // 18
-    .long UnmaskInterrupt           // 19
+    .long VirtualAlloc             	// 12   TODO: Merge into mmap or variant
+    .long VirtualAllocPhys          // 13   TODO: Merge with above
+    .long VirtualFree              	// 14
+    .long VirtualProtect            // 15 
 
-	.long Dup	                    // 20
+    .long CreateInterrupt           // 16
+    .long MaskInterrupt             // 17
+    .long UnmaskInterrupt           // 18
 
+    .long Poll                      // 19   TODO: Replace with select + epoll-like event API
         
-#define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 36
+    .long Exec                      // 20
+     
+    .long Mount                     // 21 
+    .long Unmount                   // 22
 
+    // Replace with just Read/Write calls. No seek.  Write header then immediately the data.
+    .long SeekMsg                   // 23  FIXME: Replace with read/write
+    .long ReceiveMsg                // 24  FIXME: Replace with read/write
+    .long ReplyMsg                  // 25  FIXME: Replace with read/write
+    .long ReadMsg                   // 26  FIXME: Replace with read/write
+    .long WriteMsg                  // 27  FIXME: Replace with read/write
+        
+    .long Open                      // 28   
+    .long Close                     // 29
+    .long Dup                       // 30
+    .long Dup2                      // 31
+    
+    .long Read                      // 32
+    .long Write                     // 33
+    .long Seek                      // 34  FIXME: Why 2 syscalls for Seek ?
+    .long Seek64                    // 35
+    
+    .long Truncate                  // 36
+    .long Unlink                    // 37
+
+    .long CreateDir                 // 38
+    .long OpenDir                   // 39
+    .long ReadDir                   // 40
+    .long RewindDir                 // 41
+    .long RemoveDir                 // 42
+
+    .long Rename                    // 43
+
+    .long Pipe                      // 44 Pipe
+    .long 0xdeadcaf3                // 45 SocketPair
+
+    .long ChDir                     // 46
+    .long FChDir                    // 47       
+    .long Stat                      // 48
+    .long FStat                     // 49
+
+    .long SymLink                   // 50
+    .long ReadLink                  // 51
+
+    .long Chmod                     // 52
+    .long Chown                     // 53
+    .long Access                    // 54
+    .long Umask                     // 55
+
+    .long GetPID                    // 56
+    .long GetPPID                   // 57
+    .long GetUID                    // 58
+    .long GetGID                    // 59
+    .long GetEUID                   // 60
+    .long GetEGID                   // 61
+    
+    .long SetUID                    // 62
+    .long SetGID                    // 63
+    .long SetPGRP                   // 64    
+    .long GetPGRP                   // 65
+    
+    .long VirtualToPhysAddr         // 66  // FIXME: Remove, not needed
+    
+    .long SignalNotify              // 67  // FIXME: Remove, (Replace with write() call when ***Msg calls removed)
+    .long PollNotify                // 68  // FIXME: Remove, (Replace with write() call when ***Msg calls removed)
+
+    .long PivotRoot                 // 69
+
+    .long Fcntl                     // 70  
+    .long IsATTY                    // 71  // FIXME: Could be SendRec/Ioctl
+    .long Ioctl                     // 72  // Could be generic SendRec(fd, iov_send[], iov_recv[]);
+    
+    .long Sync                      // 73   // Could merge with FSync
+    .long FSync                     // 74
+
+    .long SigAction                 // 75
+    .long SigProcMask               // 76
+    .long SigPending                // 77
+    .long SigSuspend                // 78
+    
+    .long MkNod                     // 79
+    .long Remount                   // 80
+    
+#define UNKNOWN_SYSCALL             0
+#define MAX_SYSCALL                 80
+
+
+# ****************************************************************************
 
 .balign 16
 
-# ****************************************************************************
-
-reset_vector:
-    MPrepareStack #CPU_EXCEPTION_STACK
-    bl ResetHandler
-    b reset_vector
-    
-# ****************************************************************************
-
-reserved_vector:
-    b reserved_vector
-
-# ****************************************************************************
-
-fiq_vector:
-    MPrepareStack #CPU_INTERRUPT_STACK
-    bl FiqHandler
-    b fiq_vector
-
-# ****************************************************************************
-
-undef_instr_vector:
-    MPrepareStack #CPU_EXCEPTION_STACK
-    
-    MTestSPSRMode #SVC_MODE
-    beq 1f
-        
-    MSaveUserRegs
-    MKernelEntryLock
-    
-1:
-    bl UndefInstrHandler
-    msr cpsr_c, #(SVC_MODE | I_BIT | F_BIT);
-    b __KernelExit
-    
-
-# ****************************************************************************
-
-prefetch_abort_vector:
-    MPrepareStack #CPU_EXCEPTION_STACK
-    sub lr, #4
-    
-    MTestSPSRMode #SVC_MODE
-    beq 1f
-        
-    MSaveUserRegs
-    MKernelEntryLock
-    
-1:
-    bl PrefetchAbortHandler
-    msr cpsr_c, #(SVC_MODE | I_BIT | F_BIT);
-    b __KernelExit
-    
-# ****************************************************************************
-
-data_abort_vector:
-    MPrepareStack #CPU_EXCEPTION_STACK
-    sub lr, #8
-    
-    MTestSPSRMode #SVC_MODE
-    beq 1f
-        
-    MSaveUserRegs
-    MKernelEntryLock
-    
-1:
-    bl DataAbortHandler
-    msr cpsr_c, #(SVC_MODE | I_BIT | F_BIT);
-    b __KernelExit
-    
-
-
-
-# ****************************************************************************
-
-irq_vector:
-    MPrepareStack #CPU_INTERRUPT_STACK
-    sub lr, #4
-    
-    MTestSPSRMode #SVC_MODE
-    beq 2f
-
-    MSaveUserRegs
-    MKernelEntryLock
-
-1:
-    bl InterruptTopHalf
-    msr cpsr, #(SVC_MODE | I_BIT | F_BIT)
-    b __KernelExit
-
-2:
-    MTestPreemptionLock #1
-    beq 3f
-
-    bl InterruptTopHalf
-    msr cpsr, #(SVC_MODE | I_BIT | F_BIT)
-    b __KernelExit
-
-3:  
-    push {r0-r12, lr}
-    mrs r0, spsr
-    push {r0}
-    
-    bl InterruptTopHalf
-    pop {r0}
-    msr spsr, r0
-    pop {r0-r12, lr}
-    movs pc, lr
-
-    
-
-
-
-
-
-
-
-# ****************************************************************************
-
 swi_vector:
-    MPrepareStack #CPU_SVC_STACK
-    sub lr, #4                      // Subtract #4 to restart instruction
-                                    // Assumes no thumb code.
-    
-    MSaveUserRegs
-
-    MKernelEntryLock
-
+    MSWIPushRegs
     MEnableInterrupts
+    
+    bl KernelLock
 
-    ldr r7, [lr]                    // Get syscall nr and check range
-    bic r7,r7, #0xff000000
+    ldr lr, [sp, #CONTEXT_PC]
+    ldr r7, [lr, #-4]                   // Get syscall nr and check range  (possible to fault, hence getting lock beforehand
+    bic r7,r7, #0xff000000              // Eventually handle thumb mode.
     cmp r7, #MAX_SYSCALL
     movgt r7, #UNKNOWN_SYSCALL
-        
-    MGetCurrentProcess r6           // Reload syscall arguments into r0-r5
-    ldr r0, [r6, #TASK_R0]
-    ldr r1, [r6, #TASK_R1]
-    ldr r2, [r6, #TASK_R2]
-    ldr r3, [r6, #TASK_R3]
-    ldr r4, [r6, #TASK_R4]
-    ldr r5, [r6, #TASK_R5]
-    push {r4-r5}                    // Store arguments r4-r5 on stack
+
+    ldr r0, [sp, #CONTEXT_R0]           // Surely we can avoid touching all 4 args registers?
+    ldr r1, [sp, #CONTEXT_R1]
+    ldr r2, [sp, #CONTEXT_R2]
+    ldr r3, [sp, #CONTEXT_R3]
+    
+    ldr r4, [sp, #CONTEXT_R4]           // ?? Really needed? or max 4 orgs?
+    ldr r5, [sp, #CONTEXT_R5]
+    sub sp, #8    
+    str r4, [sp, #0]          // Alignment (for 64-bit values?)
+    str r5, [sp, #4]          // Store arguments r4-r5 on stack    ?
     ldr r4, =syscall_table
     add r4, r7, LSL #2
     ldr r7, [r4]
     blx r7
-    add sp, #8                      // Remove arg 5 and 6 from stack
+    add sp, #8
+    str r0, [sp, #CONTEXT_R0]    
+    mov r0, sp
+    bl CheckSignals
+       
+    bl KernelUnlock    
+    MDisableInterrupts        
+    MSWIPopRegs
+    subs pc, lr, #0
+
+# ****************************************************************************
+
+.balign 16
+
+irq_vector:
+    sub lr, #4
+    MPushRegs    
+
+    mov r0, sp    
+    bl InterruptHandler
+
+    mov r0, sp
+    bl CheckSignals
     
-    mov r7, r0
-    MGetCurrentProcess r6
-    MDisablePreemption
-    str r7, [r6, #TASK_R0]
-    ldr r0, [r6, #TASK_PC]
-    add r0, #4
-    str r0, [r6, #TASK_PC]          // Control goes straight to __kernelexit
+    MPopRegs    
+    subs pc, lr, #0
 
 
+
+
+# ****************************************************************************
+
+.balign 16
+
+undef_instr_vector:
+    MPushRegs
+    
+    mov r0, sp    
+    bl UndefInstrHandler
+
+    mov r0, sp
+    bl CheckSignals
+    
+    MPopRegs    
+    subs pc, lr, #0
+    
+
+# ****************************************************************************
+
+.balign 16
+
+prefetch_abort_vector:
+    sub lr, #4
+    MPushRegs   
+
+    mov r0, sp    
+    bl PrefetchAbortHandler
+
+    mov r0, sp
+    bl CheckSignals
+
+    MPopRegs    
+    subs pc, lr, #0
+
+    
+# ****************************************************************************
+
+.balign 16
+
+data_abort_vector:
+    sub lr, #8
+    MPushRegs
+
+    mov r0, sp
+    bl DataAbortHandler
+
+    mov r0, sp
+    bl CheckSignals
+    
+    MPopRegs    
+    subs pc, lr, #0
         
-__KernelExit:
-    MPrepareStack #CPU_SVC_STACK    // At this point preemption state
-                                    // may be either enabled or disabled.
-    MEnableInterrupts               // Interrupts are enabled.
-    bl KernelExit                   // __KernelExit can be called from
-    MDisableInterrupts              // many places, including Sleep()
-    MKernelEntryUnlock              // and exception handlers
-    MRestoreUserRegs
-    movs pc, lr
+
+# ****************************************************************************
+
+.balign 16
+
+reset_vector:
+    bl ResetHandler
+    bl reset_vector
+    
+reserved_vector:
+    bl ReservedHandler    
+    bl reserved_vector
+
+fiq_vector:
+    bl FiqHandler
+    bl fiq_vector
 
 
+# ****************************************************************************
+
+StartForkProcess:
+    bl KernelLock    
+    mov r0, sp
+    bl CheckSignals
+    bl KernelUnlock
+     
+    MDisableInterrupts
+    MSWIPopRegs
+    subs pc, lr, #0
 
 
+StartExecProcess:
+    mov r0, sp    
+    bl CheckSignals
+    bl KernelUnlock
+     
+    MDisableInterrupts
+    MSWIPopRegs
+    subs pc, lr, #0
 
 
-
-.end
-
-
-
-
-
-
-
-
-
-
+StartKernelProcess:
+    push {r0}
+    bl KernelLock
+    pop {r0}
+    blx r0
+    mov r0, #0
+    bl Exit    
+    
