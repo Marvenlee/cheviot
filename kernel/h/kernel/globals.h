@@ -11,13 +11,8 @@
  * Memory
  */
  
- 
- 
-extern struct Rendez root_rendez;
-extern struct Process *ifs_process;
-
+extern struct Process *root_process;
 extern struct Process *timer_process;
-
 
 extern vm_size mem_size;
 extern int max_pageframe;

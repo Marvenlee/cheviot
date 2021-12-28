@@ -39,7 +39,6 @@ extern int svc_stack_top;
 extern int interrupt_stack_top;
 extern int exception_stack_top;
 extern int idle_stack_top;
-extern int ifs_stack_top;
 extern int bdflush_stack_top;
 
 struct Process *idle_task;
@@ -48,7 +47,6 @@ struct Process *idle_task;
 //extern void IdleTask(void);
 
 extern void StartRoot(void);
-extern void StartIFS(void);
 extern void StartIdle(void);
 extern void StartKernelProcess(void);
 extern void TimerBottomHalf(void);
@@ -110,9 +108,6 @@ void InitProcesses(void) {
   root_process =
       CreateProcess(StartRoot, SCHED_RR, 1, PROCF_USER, &cpu_table[0]);
 
-  ifs_process =
-      CreateProcess(StartIFS, SCHED_RR, 1, PROCF_USER, &cpu_table[0]);
-
   timer_process =
       CreateProcess(TimerBottomHalf, SCHED_RR, 31, PROCF_KERNEL, &cpu_table[0]);
 
@@ -169,7 +164,6 @@ struct Process *CreateProcess(void (*entry)(void), int policy, int priority, bit
   proc->log_level = 5;
   proc->current_dir = NULL;
   proc->msg = NULL;
-  proc->inkernel = FALSE;
 
   if (PmapCreate(&proc->as) != 0) {
     return NULL;

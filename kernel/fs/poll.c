@@ -121,7 +121,7 @@ void PollTimeout(struct Timer *timer)
 
 
 
-int Poll (struct pollfd *pfds, nfds_t nfds, int timeout)
+SYSCALL int SysPoll (struct pollfd *pfds, nfds_t nfds, int timeout)
 {
   struct Process *current;
   int nfds_matching;  
@@ -296,7 +296,7 @@ int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events)
 /*
  *
  */
-int PollNotify (int fd, int ino, short mask, short events)
+SYSCALL int SysPollNotify (int fd, int ino, short mask, short events)
 {
   struct Filp *filp;
   struct VNode *svnode;

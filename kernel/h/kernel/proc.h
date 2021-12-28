@@ -197,13 +197,6 @@ struct Process {
 
   short poll_pending;
   short poll_interested_in;
-
-  // TODO: Move these out of process, make array of uint16_t.
-  // Perhaps 2 timers per process, separate structs, alarm and freerunning.
-  // Interrupts could be small array
-  // Or single interrupt handler, passed the interrupt in question.
-
-  bool inkernel;
   
 //  int max_fd;
   struct Filp *fd_table[NPROC_FD];

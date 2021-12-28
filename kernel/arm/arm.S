@@ -40,6 +40,8 @@
 .global CopyIn
 .global CopyInString
 .global CopyOut
+.global CopyUserString
+.global StrLenUser
 .global MemCpy
 .global memset
 .global FlushCaches
@@ -350,6 +352,85 @@ CopyOutDone:
 CopyOutCatch:
     mov r0, #-1
     bx lr
+
+
+# ****************************************************************************
+# CopyUserString
+
+CopyUserString:
+    push {r0-r1}
+    MGetCurrentProcess r0
+    ldr r1, =CopyUserStringCatch
+    str r1, [r0, #TASK_CATCH_PC]
+    pop {r0-r1}
+CopyUserStringLoop:
+    cmp r2, #0
+    beq CopyUserStringNoTermDone
+    ldrbT r3, [r1], #1
+    strbT r3, [r0], #1
+    cmp r3, #0
+    beq CopyUserStringDone
+    sub r2, #1
+    b CopyUserStringLoop
+CopyUserStringDone:
+    MGetCurrentProcess r0
+    ldr r1, =#0xdeadbeef
+    str r1, [r0, #TASK_CATCH_PC]
+    mov r0, #0
+    bx lr
+CopyUserStringNoTermDone:
+    MGetCurrentProcess r0
+    ldr r1, =#0xdeadbeef
+    str r1, [r0, #TASK_CATCH_PC]
+    mov r0, #-1
+    bx lr
+CopyUserStringCatch:
+    mov r0, #-1
+    bx lr
+
+
+# ****************************************************************************
+# len = StrLenUser (str, MAX_LEN);
+# r0 = str, r1 = MAX_LEN;
+
+StrLenUser:
+    push {r0-r1}
+    MGetCurrentProcess r0
+    ldr r1, =StrLenUserCatch
+    str r1, [r0, #TASK_CATCH_PC]
+    pop {r0-r1}
+
+StrLenUserLoop:
+    cmp r2, #0
+    beq StrLenUserNoTermDone
+    ldrbT r3, [r1], #1
+//    strbT r3, [r0], #1
+
+    cmp r3, #0
+    beq StrLenUserDone
+    sub r2, #1
+    b StrLenUserLoop
+
+StrLenUserDone:
+    MGetCurrentProcess r0
+    ldr r1, =#0xdeadbeef
+    str r1, [r0, #TASK_CATCH_PC]
+
+// Return length of string, not 0
+    mov r0, #0
+    bx lr
+
+StrLenUserNoTermDone:
+    MGetCurrentProcess r0
+    ldr r1, =#0xdeadbeef
+    str r1, [r0, #TASK_CATCH_PC]
+    mov r0, #-1
+    bx lr
+
+StrLenUserCatch:
+    mov r0, #-1
+    bx lr
+
 
 # ****************************************************************************
 

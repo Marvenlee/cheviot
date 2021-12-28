@@ -29,7 +29,7 @@
 /*
  * TODO: Used by device drivers to send a signal to a client, 
  */
-int SignalNotify(int fd, int ino, int signal)
+SYSCALL int SysSignalNotify(int fd, int ino, int signal)
 {
   return -ENOSYS;
 }

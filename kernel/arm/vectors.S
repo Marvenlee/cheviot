@@ -37,114 +37,114 @@
 
 .balign 16
 syscall_table:
-    .long UnknownSyscallHandler     // 0
-    .long Debug                     // 1    TODO: Eventually remove
+    .long SysUnknownSyscallHandler     // 0
+    .long SysDebug                     // 1    TODO: Eventually remove
 
-    .long Fork	                    // 2  
-    .long Exit                      // 3
-    .long WaitPid                   // 4
-    .long Kill                      // 5
-    .long SetSchedParams            // 6 
+    .long SysFork	                     // 2  
+    .long SysExit                      // 3
+    .long SysWaitPid                   // 4
+    .long SysKill                      // 5
+    .long SysSetSchedParams            // 6 
 
-    .long Sleep                     // 7   
-    .long Alarm                     // 8
-    .long 0xfee1501d                // 9    TODO: Remove
-    .long GetTimeOfDay              // 10
-    .long SetTimeOfDay              // 11
+    .long SysSleep                     // 7   
+    .long SysAlarm                     // 8
+    .long 0xfee1501d                   // 9    TODO: Remove, or add a createtimer syscall
+    .long SysGetTimeOfDay              // 10
+    .long SysSetTimeOfDay              // 11
     
-    .long VirtualAlloc             	// 12   TODO: Merge into mmap or variant
-    .long VirtualAllocPhys          // 13   TODO: Merge with above
-    .long VirtualFree              	// 14
-    .long VirtualProtect            // 15 
+    .long SysVirtualAlloc              // 12   TODO: Merge into mmap or variant
+    .long SysVirtualAllocPhys          // 13   TODO: Merge with above
+    .long SysVirtualFree               // 14
+    .long SysVirtualProtect            // 15 
 
-    .long CreateInterrupt           // 16
-    .long MaskInterrupt             // 17
-    .long UnmaskInterrupt           // 18
+    .long SysCreateInterrupt           // 16
+    .long SysMaskInterrupt             // 17
+    .long SysUnmaskInterrupt           // 18
 
-    .long Poll                      // 19   TODO: Replace with select + epoll-like event API
+    .long SysPoll                      // 19   TODO: Replace with select + epoll-like event API
         
-    .long Exec                      // 20
+    .long SysExec                      // 20   
      
-    .long Mount                     // 21 
-    .long Unmount                   // 22
+    .long SysMount                     // 21 
+    .long SysUnmount                   // 22
 
     // Replace with just Read/Write calls. No seek.  Write header then immediately the data.
-    .long SeekMsg                   // 23  FIXME: Replace with read/write
-    .long ReceiveMsg                // 24  FIXME: Replace with read/write
-    .long ReplyMsg                  // 25  FIXME: Replace with read/write
-    .long ReadMsg                   // 26  FIXME: Replace with read/write
-    .long WriteMsg                  // 27  FIXME: Replace with read/write
+    .long SysSeekMsg                   // 23  FIXME: Replace with read/write
+    .long SysReceiveMsg                // 24  FIXME: Replace with read/write
+    .long SysReplyMsg                  // 25  FIXME: Replace with read/write
+    .long SysReadMsg                   // 26  FIXME: Replace with read/write
+    .long SysWriteMsg                  // 27  FIXME: Replace with read/write
         
-    .long Open                      // 28   
-    .long Close                     // 29
-    .long Dup                       // 30
-    .long Dup2                      // 31
+    .long SysOpen                      // 28   
+    .long SysClose                     // 29
+    .long SysDup                       // 30
+    .long SysDup2                      // 31
     
-    .long Read                      // 32
-    .long Write                     // 33
-    .long Seek                      // 34  FIXME: Why 2 syscalls for Seek ?
-    .long Seek64                    // 35
+    .long SysRead                      // 32
+    .long SysWrite                     // 33
+    .long SysSeek                      // 34  FIXME: Why 2 syscalls for Seek ?
+    .long SysSeek64                    // 35
     
-    .long Truncate                  // 36
-    .long Unlink                    // 37
+    .long SysTruncate                  // 36
+    .long SysUnlink                    // 37
 
-    .long CreateDir                 // 38
-    .long OpenDir                   // 39
-    .long ReadDir                   // 40
-    .long RewindDir                 // 41
-    .long RemoveDir                 // 42
+    .long SysCreateDir                 // 38
+    .long SysOpenDir                   // 39
+    .long SysReadDir                   // 40
+    .long SysRewindDir                 // 41
+    .long SysRemoveDir                 // 42
 
-    .long Rename                    // 43
+    .long SysRename                    // 43
 
-    .long Pipe                      // 44 Pipe
+    .long SysPipe                      // 44 Pipe
     .long 0xdeadcaf3                // 45 SocketPair
 
-    .long ChDir                     // 46
-    .long FChDir                    // 47       
-    .long Stat                      // 48
-    .long FStat                     // 49
+    .long SysChDir                     // 46
+    .long SysFChDir                    // 47       
+    .long SysStat                      // 48
+    .long SysFStat                     // 49
 
-    .long SymLink                   // 50
-    .long ReadLink                  // 51
+    .long SysSymLink                   // 50
+    .long SysReadLink                  // 51
 
-    .long Chmod                     // 52
-    .long Chown                     // 53
-    .long Access                    // 54
-    .long Umask                     // 55
+    .long SysChmod                     // 52
+    .long SysChown                     // 53
+    .long SysAccess                    // 54
+    .long SysUmask                     // 55
 
-    .long GetPID                    // 56
-    .long GetPPID                   // 57
-    .long GetUID                    // 58
-    .long GetGID                    // 59
-    .long GetEUID                   // 60
-    .long GetEGID                   // 61
+    .long SysGetPID                    // 56
+    .long SysGetPPID                   // 57
+    .long SysGetUID                    // 58
+    .long SysGetGID                    // 59
+    .long SysGetEUID                   // 60
+    .long SysGetEGID                   // 61
     
-    .long SetUID                    // 62
-    .long SetGID                    // 63
-    .long SetPGRP                   // 64    
-    .long GetPGRP                   // 65
+    .long SysSetUID                    // 62
+    .long SysSetGID                    // 63
+    .long SysSetPGRP                   // 64    
+    .long SysGetPGRP                   // 65
     
-    .long VirtualToPhysAddr         // 66  // FIXME: Remove, not needed
+    .long SysVirtualToPhysAddr         // 66  // FIXME: Remove, not needed
     
-    .long SignalNotify              // 67  // FIXME: Remove, (Replace with write() call when ***Msg calls removed)
-    .long PollNotify                // 68  // FIXME: Remove, (Replace with write() call when ***Msg calls removed)
+    .long SysSignalNotify              // 67  // FIXME: Remove, (Replace with write() call when ***Msg calls removed)
+    .long SysPollNotify                // 68  // FIXME: Remove, (Replace with write() call when ***Msg calls removed)
 
-    .long PivotRoot                 // 69
+    .long SysPivotRoot                 // 69
 
-    .long Fcntl                     // 70  
-    .long IsATTY                    // 71  // FIXME: Could be SendRec/Ioctl
-    .long Ioctl                     // 72  // Could be generic SendRec(fd, iov_send[], iov_recv[]);
+    .long SysFcntl                     // 70  
+    .long SysIsATTY                    // 71  // FIXME: Could be SendRec/Ioctl
+    .long SysIoctl                     // 72  // Could be generic SendRec(fd, iov_send[], iov_recv[]);
     
-    .long Sync                      // 73   // Could merge with FSync
-    .long FSync                     // 74
+    .long SysSync                      // 73   // Could merge with FSync
+    .long SysFSync                     // 74
 
-    .long SigAction                 // 75
-    .long SigProcMask               // 76
-    .long SigPending                // 77
-    .long SigSuspend                // 78
+    .long SysSigAction                 // 75
+    .long SysSigProcMask               // 76
+    .long SysSigPending                // 77
+    .long SysSigSuspend                // 78
     
-    .long MkNod                     // 79
-    .long Remount                   // 80
+    .long SysMkNod                     // 79
+    .long SysMoveMount                 // 80
     
 #define UNKNOWN_SYSCALL             0
 #define MAX_SYSCALL                 80
@@ -309,5 +309,5 @@ StartKernelProcess:
     pop {r0}
     blx r0
     mov r0, #0
-    bl Exit    
+    bl SysExit    
     

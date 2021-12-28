@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <string.h>
 
+void memcpy (void *dst, void *src, size_t sz);
+
 /*!
     C entry point of bootloader, Initialises sd card and fat filesystem driver.
     Loads kernel and any modules before setting up page tables and enabling
@@ -41,12 +43,19 @@ void Main(void) {
   memcpy((void *)ifs_image, (uint8 *)0x8000 + rootfs_image_offset,
          rootfs_image_size);
 
+
+
   KLog("ifs_image = %08x", (vm_addr)ifs_image);
 
-  if (elf_load((void *)ifs_image, rootfs_image_size,
-               (void **)&kernel_entry_point, &kernel_ceiling) == -1) {
+/*
+  if (elf_load((void *)ifs_image, rootfs_image_size, "/boot/kernel", &bootinfo.kernel_elf) == -1) {
     KPanic("Cannot load kernel");
   }
+
+  if (elf_load((void *)ifs_image, rootfs_image_size, "/boot/ifs", &bootinfo.ifs_elf) == -1) {
+    KPanic("Cannot load ifs");
+  }
+*/
 
   bootinfo.screen_buf = screen_buf;
   bootinfo.screen_width = screen_width;

@@ -27,7 +27,7 @@
 /*
  *
  */ 
-int MkNod(char *_path, uint32_t flags, struct stat *_stat) {
+SYSCALL int SysMkNod(char *_path, uint32_t flags, struct stat *_stat) {
   struct Lookup lookup;
   struct stat stat;
   struct Process *current;
@@ -66,7 +66,7 @@ exit:
  *
  * TODO: Add a struct statfs parameter to control cacheability/maximum size etc of a mount
  */ 
-int Mount(char *_path, uint32_t flags, struct stat *_stat) {
+SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
   struct Lookup lookup;
   struct stat stat;
   struct Process *current;
@@ -84,11 +84,7 @@ int Mount(char *_path, uint32_t flags, struct stat *_stat) {
     return -EFAULT;
   }
 
-  // TODO: Check if root == NULL and this is first Mount("/")
-  if (root_vnode == NULL) {
-    return MountRoot(flags, &stat);
-  }
-
+  // TODO: mount a dummy "/" mount.  Can Lookup("/") return the root mount ?  
   if ((error = Lookup(_path, 0, &lookup)) != 0) {
     return error;
   }
@@ -205,7 +201,7 @@ exit:
 /*
  * ~unmount()
  */
-int Unmount(int fd, bool force) {
+SYSCALL int SysUnmount(int fd, bool force) {
   // send umount to all nodes to flush data
   return -ENOSYS;
 }
@@ -213,30 +209,28 @@ int Unmount(int fd, bool force) {
 /*
  *
  */ 
-int ChRoot(char *_new_root) {
+SYSCALL int SysChRoot(char *_new_root) {
   return -ENOSYS;
 }
 
 /*
  *
  */
-int Remount(char *_new_path, char *_old_path) {
+SYSCALL int SysMoveMount(char *_new_path, char *_old_path) {
   struct Lookup lookup;
   struct VNode *new_vnode_covered;
   struct VNode *old_vnode_mounted_here;
+  int error;
   
-  if (sc != 0) {
-    goto exit;
-  }
-  
-  if ((sc = Lookup(_new_path, 0, &lookup)) != 0) {
+  if ((error = Lookup(_new_path, 0, &lookup)) != 0) {
+    
     goto exit;
   }
 
   new_vnode_covered = lookup.vnode;
   
 
-  if ((sc = Lookup(_old_path, 0, &lookup)) != 0) {
+  if ((error = Lookup(_old_path, 0, &lookup)) != 0) {
     goto exit;
   }
 
@@ -245,12 +239,15 @@ int Remount(char *_new_path, char *_old_path) {
   // Check if old is a mount covering a vnode
   
   // Check that new is a dir but not covered or covering
+
+exit:
+  return error;
 }
 
 /*
  *
  */
-int PivotRoot(char *_new_root, char *_old_root) {
+SYSCALL int SysPivotRoot(char *_new_root, char *_old_root) {
   struct Lookup lookup;
   struct VNode *new_root_vnode;
   struct VNode *old_root_vnode;
@@ -295,97 +292,4 @@ exit:
 //  VNodePut (new_root_vnode_covered);
   return sc;
 }
-
-/*
- * Special case of mounting root IFS file system.
- */
-int MountRoot(uint32_t flags, struct stat *stat) {
-  struct Process *current;
-  int fd = -1;
-  int error;
-  struct VNode *server_vnode = NULL;
-  struct VNode *client_vnode = NULL;
-  struct Filp *filp = NULL;
-  struct SuperBlock *sb = NULL;
-  
-  Info("MountRoot");
-  current = GetCurrentProcess();
-
-  sb = AllocSuperBlock();
-
-  if (sb == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  // Server vnode set to -1.
-  server_vnode = VNodeNew(sb, -1);
-
-  if (server_vnode == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  // TODO: Set Client VNODE to some parameter of stat
-  client_vnode = VNodeNew(sb, 0);
-
-  if (client_vnode == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  InitRendez(&sb->rendez);
-  InitMsgPort(&sb->msgport, server_vnode);
-  sb->server_vnode = server_vnode; // FIXME: Needed?
-  sb->root = client_vnode;         // FIXME: Needed?
-  sb->flags = flags;
-  sb->reference_cnt = 2;
-  sb->busy = FALSE;
-
-  server_vnode->flags = V_VALID;
-  server_vnode->reference_cnt = 1;
-  server_vnode->uid = current->uid;
-  server_vnode->gid = current->gid;
-  server_vnode->mode = 0777 | _IFPORT;
-  server_vnode->size = 0;
-
-  client_vnode->flags = V_VALID | V_ROOT;
-  client_vnode->reference_cnt = 1;
-  client_vnode->uid = stat->st_uid;
-  client_vnode->gid = stat->st_gid;
-  client_vnode->mode = stat->st_mode;
-  client_vnode->size = stat->st_size;
-
-  // TODO: initialize rest of fields
-
-  fd = AllocHandle();
-
-  if (fd == -1) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  client_vnode->vnode_covered = NULL;
-
-  root_vnode = client_vnode;
-
-  filp = GetFilp(fd);
-  filp->vnode = server_vnode;
-  filp->offset = 0;
-
-  VNodeUnlock(server_vnode);
-  VNodeUnlock(client_vnode);
-
-  if (root_vnode != NULL) {
-    TaskWakeup(&root_rendez);
-  }
-
-  TaskWakeup(&root_rendez);
-  return fd;
-  
-exit:
-  Info ("MountRoot FAILED!!!!!!!!!!!!!!!1");
-  return error;
-}
-
 

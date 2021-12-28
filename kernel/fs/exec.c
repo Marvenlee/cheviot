@@ -51,7 +51,8 @@ char execargs_buf[MAX_ARGS_SZ];
 int DoExec(struct ExecInfo *ei, struct execargs *_args);
 static int CheckELFHeaders(struct ExecInfo *ei);
 static int LoadProcess(struct Process *proc, struct ExecInfo *ei, void **entry_point);
-ssize_t ReadFile (struct ExecInfo *ei, bool inkernel, off_t offset, void *vaddr, size_t sz);
+ssize_t ReadFile (struct ExecInfo *ei, off_t offset, void *vaddr, size_t sz);
+ssize_t KReadFile (struct ExecInfo *ei, off_t offset, void *vaddr, size_t sz);
 int CopyInArgv(struct execargs *_args, struct execargs *args, bool inKernel);
 int CopyOutArgv(void *stack_pointer, int stack_size, struct execargs *args);
 void ReleaseExecArgs(void);
@@ -60,6 +61,7 @@ void ReleaseExecArgs(void);
  * Exec system call.
  */
 
+/*
 int Kexec(char *filename) {
   struct ExecInfo ei;
   
@@ -74,12 +76,12 @@ int Kexec(char *filename) {
 
   return DoExec(&ei, NULL);
 }
+*/
 
 
 
 
-
-int Exec(char *filename, struct execargs *_args) {
+SYSCALL int SysExec(char *filename, struct execargs *_args) {
   int sc;
   struct ExecInfo ei;
     
@@ -253,7 +255,7 @@ int DoExec(struct ExecInfo *ei, struct execargs *_args) {
 }
 
 
-// Move to user-space
+
 
 int CopyInArgv(struct execargs *args, struct execargs *_args, bool inkernel) {
   char **argv;
@@ -425,7 +427,7 @@ static int CheckELFHeaders(struct ExecInfo *ei) {
 
   Info ("CheckELFHeaders");
 
-  rc = ReadFile(ei, TRUE, 0, &ehdr, sizeof(Elf32_EHdr));
+  rc = KReadFile(ei, 0, &ehdr, sizeof(Elf32_EHdr));
 
   if (rc == sizeof(Elf32_EHdr)) {
     if (ehdr.e_ident[EI_MAG0] == ELFMAG0 && ehdr.e_ident[EI_MAG1] == 'E' &&
@@ -499,7 +501,7 @@ static int LoadProcess(struct Process *proc, struct ExecInfo *ei, void **entry_p
   // PROT_READWRITE)) == NULL)
   //		return -1;
 
-  rc = ReadFile(ei, TRUE, 0, ehdr, sizeof(Elf32_EHdr));
+  rc = KReadFile(ei, 0, ehdr, sizeof(Elf32_EHdr));
 
 //  Info ("ELF header read");
 
@@ -523,7 +525,9 @@ static int LoadProcess(struct Process *proc, struct ExecInfo *ei, void **entry_p
 
 //  Info ("ELF read phdrs phdr_offs = %d", (int)phdr_offs);
 
-  rc = ReadFile(ei, TRUE, phdr_offs, phdr_table, sizeof(Elf32_PHdr) * phdr_cnt);
+  // KRead phdr at a time
+
+  rc = KReadFile(ei, phdr_offs, phdr_table, sizeof(Elf32_PHdr) * phdr_cnt);
 
   if (rc != sizeof(Elf32_PHdr) * phdr_cnt) {
     return -1;
@@ -565,7 +569,7 @@ static int LoadProcess(struct Process *proc, struct ExecInfo *ei, void **entry_p
     }
 
     if (sec_file_sz != 0) {
-      rc = ReadFile(ei, FALSE, sec_offs, (void *)phdr->p_vaddr, sec_file_sz);
+      rc = ReadFile(ei, sec_offs, (void *)phdr->p_vaddr, sec_file_sz);
 
       if (rc != sec_file_sz) {
         return -1;
@@ -579,7 +583,7 @@ static int LoadProcess(struct Process *proc, struct ExecInfo *ei, void **entry_p
 }
 
 
-ssize_t ReadFile (struct ExecInfo *ei, bool inkernel, off_t offset, void *vaddr, size_t sz)
+ssize_t ReadFile (struct ExecInfo *ei, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   struct Process *current;
@@ -595,18 +599,35 @@ ssize_t ReadFile (struct ExecInfo *ei, bool inkernel, off_t offset, void *vaddr,
     return -1;
   }
 
-  if (inkernel) {
-    current->inkernel = TRUE;
-  }
-  
   nbytes_read = Read(ei->fd, vaddr, sz);
   
-  if (inkernel) {
-    current->inkernel = FALSE;
+  return nbytes_read;
+}
+
+
+ssize_t KReadFile (struct ExecInfo *ei, off_t offset, void *vaddr, size_t sz)
+{
+  size_t nbytes_read;
+  struct Process *current;
+  
+  current = GetCurrentProcess();  
+  
+  if (Seek(ei->fd, offset, SEEK_SET) == -1) {
+    return -1;
   }
+
+// FIXME: Replace kreadfile (no need to read into kernel)  ?????????????
+// Or keep KRead
+
+
+//  nbytes_read = KRead(ei->fd, vaddr, sz);
   
   return nbytes_read;
-
 }
+
+
+
+
+
 
 

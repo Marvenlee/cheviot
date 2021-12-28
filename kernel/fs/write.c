@@ -16,7 +16,7 @@
 /*
  *
  */
-ssize_t Write(int fd, void *src, size_t sz) {
+SYSCALL ssize_t SysWrite(int fd, void *src, size_t sz) {
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;

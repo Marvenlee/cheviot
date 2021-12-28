@@ -350,31 +350,6 @@ struct Lookup {
   int flags;
 };
 
-/*
- * FIXME: Move into IFS source?
- */
-struct IFSHeader {
-  char magic[4];
-  uint32_t node_table_offset;
-  int32_t node_cnt;
-  uint32_t ifs_size;
-} __attribute__((packed));
-
-/*
- *
- */
-struct IFSNode {
-  char name[32];
-  int32_t inode_nr;
-  int32_t parent_inode_nr;
-  uint32_t permissions;
-  int32_t uid;
-  int32_t gid;
-  uint32_t file_offset;
-  uint32_t file_size;
-} __attribute__((packed));
-
-
 
 
 // ***************************************************************************
@@ -477,10 +452,11 @@ int Lookup(char *_path, int flags, struct Lookup *lookup);
 /* fs/mount.c */
 int ChRoot(char *_new_root);
 int PivotRoot(char *_new_root, char *_old_root);
+int MoveMount(char *_new_mount, char *old_mount);
 int MkNod(char *_handlerpath, uint32_t flags, struct stat *stat);
 int Mount(char *_handlerpath, uint32_t flags, struct stat *stat);
 int Unmount(int fd, bool force);
-int MountRoot(uint32_t flags, struct stat *stat);
+
 
 /* fs/poll.c */
 int Poll (struct pollfd *pfds, nfds_t nfds, int timeout);

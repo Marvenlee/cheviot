@@ -33,7 +33,7 @@
 
 
 
-vm_addr VirtualToPhysAddr(vm_addr addr) {
+SYSCALL vm_addr SysVirtualToPhysAddr(vm_addr addr) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr va;
@@ -59,7 +59,7 @@ vm_addr VirtualToPhysAddr(vm_addr addr) {
 /*
  * Map an area of memory
  */
-void *VirtualAlloc(void *_addr, size_t len, bits32_t flags) {
+SYSCALL void *SysVirtualAlloc(void *_addr, size_t len, bits32_t flags) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -118,7 +118,7 @@ cleanup:
  * address space of the calling process.
  */
 
-void *VirtualAllocPhys(void *_addr, size_t len, bits32_t flags,
+SYSCALL void *SysVirtualAllocPhys(void *_addr, size_t len, bits32_t flags,
                          void *_paddr) {
   struct Process *current;
   struct AddressSpace *as;
@@ -153,8 +153,7 @@ void *VirtualAllocPhys(void *_addr, size_t len, bits32_t flags,
     return NULL;
   }
 
-  for (va = addr, pa = paddr; va < addr + len;
-       va += PAGE_SIZE, pa += PAGE_SIZE) {
+  for (va = addr, pa = paddr; va < addr + len; va += PAGE_SIZE, pa += PAGE_SIZE) {
     if (PmapEnter(as, va, pa, flags) != 0) {
       Warn("PmapEnter in VirtualAllocPhys failed");
       goto cleanup;
@@ -180,7 +179,7 @@ cleanup:
 /*
  *
  */
-int VirtualFree(void *_addr, size_t len) {
+SYSCALL int SysVirtualFree(void *_addr, size_t len) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -208,7 +207,7 @@ int VirtualFree(void *_addr, size_t len) {
  * Change the read/write/execute protection attributes of a range of pages in
  * the current address space
  */
-int VirtualProtect(void *_addr, size_t len, bits32_t flags) {
+SYSCALL int SysVirtualProtect(void *_addr, size_t len, bits32_t flags) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;

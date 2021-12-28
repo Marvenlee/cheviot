@@ -88,7 +88,7 @@ void FreePipe(struct Pipe *pipe)
 /*
  *
  */
-int Pipe(int _fd[2])
+SYSCALL int SysPipe(int _fd[2])
 {
   int fd[2] = {-1, -1};
   struct Filp *filp0 = NULL;
@@ -107,7 +107,7 @@ int Pipe(int _fd[2])
   vnode = VNodeNew(&pipe_sb, 0);
   
   if (vnode == NULL) {
-    errno = -ENOMEM;
+    error = -ENOMEM;
     goto exit;
   }
   
@@ -122,13 +122,13 @@ int Pipe(int _fd[2])
   fd[0] = AllocHandle();
 
   if (fd[0] < 0) {
-    errno = -ENOMEM;
+    error = -ENOMEM;
     goto exit;
   }
   
   fd[1] = AllocHandle();
   if (fd[1] < 0) {
-    errno = -ENOMEM;
+    error = -ENOMEM;
     goto exit;
   }
   

@@ -29,7 +29,7 @@
 /*
  *
  */
-int ChDir(char *_path) {
+SYSCALL int SysChDir(char *_path) {
   struct Process *current;
   struct Lookup lookup;
   int err;
@@ -64,7 +64,7 @@ exit:
 /*
  *
  */
-int FChDir(int fd) {
+SYSCALL int SysFChDir(int fd) {
   struct Process *current;
   struct Filp *filp;
   struct VNode *vnode;
@@ -95,7 +95,7 @@ int FChDir(int fd) {
 /*
  *
  */
-int OpenDir(char *_path) {
+SYSCALL int SysOpenDir(char *_path) {
   struct Process *current;
   struct Lookup lookup;
   int fd;
@@ -151,7 +151,7 @@ void InvalidateDir(struct VNode *dvnode) {
  *
  *
  */
-ssize_t ReadDir(int fd, void *dst, size_t sz) {
+SYSCALL ssize_t SysReadDir(int fd, void *dst, size_t sz) {
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
   ssize_t dirents_sz;
@@ -189,7 +189,7 @@ ssize_t ReadDir(int fd, void *dst, size_t sz) {
 
 
 
-int RewindDir(int fd) {
+SYSCALL int SysRewindDir(int fd) {
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
 
@@ -209,7 +209,7 @@ int RewindDir(int fd) {
   return 0;
 }
 
-int CreateDir(char *_path, mode_t mode) {
+SYSCALL int SysCreateDir(char *_path, mode_t mode) {
   struct Process *current;
   struct VNode *dvnode = NULL;
   struct VNode *vnode = NULL;
@@ -257,7 +257,7 @@ exit:
 }
 
 
-int RemoveDir(char *_path) {
+SYSCALL int SysRemoveDir(char *_path) {
   struct VNode *vnode = NULL;
   struct VNode *dvnode = NULL;
   int err = 0;

@@ -162,7 +162,7 @@ void TimerInterruptHandler(void) {
  * within interrupt handlers.
  */
 
-int MaskInterrupt(int irq) {
+SYSCALL int SysMaskInterrupt(int irq) {
 //  struct Process *current;
 
 //  current = GetCurrentProcess();
@@ -201,7 +201,7 @@ int MaskInterrupt(int irq) {
  * within interrupt handlers.
  */
 
-int UnmaskInterrupt(int irq) {
+SYSCALL int SysUnmaskInterrupt(int irq) {
 //  struct Process *current;
 
 //  current = GetCurrentProcess();

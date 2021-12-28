@@ -22,9 +22,7 @@
  * Memory
  */
  
- 
-struct Rendez root_rendez;
-struct Process *ifs_process;
+struct Process *root_process;
 
 struct Process *timer_process;
 

@@ -24,7 +24,7 @@
 /*
  *
  */
-int SymLink(char *_path, char *_link) {
+SYSCALL int SysSymLink(char *_path, char *_link) {
   struct Lookup lookup;
   int status;
 
@@ -46,7 +46,7 @@ int SymLink(char *_path, char *_link) {
 /*
  *
  */
-int ReadLink(char *_path, char *_link, size_t link_size) {
+SYSCALL int SysReadLink(char *_path, char *_link, size_t link_size) {
   struct Lookup lookup;
   int status;
   

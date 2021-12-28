@@ -93,9 +93,4 @@ uint32_t *root_pagedir;
 uint32_t *io_pagetable;
 uint32_t *cache_pagetable;
 
-/*
- * Boot Image File System
- */
 
-void *ifs_image;
-vm_size ifs_image_size;

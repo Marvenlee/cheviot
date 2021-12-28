@@ -28,7 +28,7 @@
 /*
  *
  */
-int Truncate(int fd, size_t sz) {
+SYSCALL int SysTruncate(int fd, size_t sz) {
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
   int err = 0;

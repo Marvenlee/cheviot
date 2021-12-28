@@ -22,7 +22,7 @@
 #include <kernel/types.h>
 #include <sys/mount.h>
 
-int Stat(char *_path, struct stat *_stat) {
+SYSCALL int SysStat(char *_path, struct stat *_stat) {
   struct stat stat;
   struct Lookup lookup;
   int sc;
@@ -46,7 +46,7 @@ int Stat(char *_path, struct stat *_stat) {
   stat.st_blksize = lookup.vnode->blksize;
   VNodePut(lookup.vnode);
 
-  if (stat == NULL) {
+  if (_stat == NULL) {
     return -EFAULT;
   }
   
@@ -56,7 +56,7 @@ int Stat(char *_path, struct stat *_stat) {
 /*
  *
  */
-int FStat(int fd, struct stat *_stat) {
+SYSCALL int SysFStat(int fd, struct stat *_stat) {
   struct Filp *filp;
   struct VNode *vnode;
   struct stat stat;
@@ -88,7 +88,7 @@ int FStat(int fd, struct stat *_stat) {
   stat.st_blocks = vnode->blocks;
   stat.st_blksize = vnode->blksize;
 
-  if (stat == NULL) {
+  if (_stat == NULL) {
     return -EFAULT;
   }
   

@@ -24,7 +24,7 @@
 /*
  * FIXME: Limit block seeks to stat.block size multiples?
  */
-off_t Seek(int fd, off_t pos, int whence) {
+SYSCALL off_t SysSeek(int fd, off_t pos, int whence) {
   struct Filp *filp;
   struct VNode *vnode;
 
@@ -55,7 +55,7 @@ off_t Seek(int fd, off_t pos, int whence) {
 /*
  *
  */
-int Seek64(int fd, off64_t *_pos, int whence) {
+SYSCALL int SysSeek64(int fd, off64_t *_pos, int whence) {
   struct Filp *filp;
   struct VNode *vnode;
   off64_t pos;
@@ -87,3 +87,4 @@ int Seek64(int fd, off64_t *_pos, int whence) {
   CopyOut(_pos, &pos, sizeof pos);
   return 0;
 }
+

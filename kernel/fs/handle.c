@@ -24,14 +24,13 @@
 #include <kernel/vm.h>
 #include <string.h>
 
-int DoClose(int fd);
 
 
 /*
  * Fcntl();
  */
 
-int Fcntl (int fd, int cmd, int arg)
+SYSCALL int SysFcntl (int fd, int cmd, int arg)
 {
   struct Process *current;
   struct Filp *filp;
@@ -106,7 +105,7 @@ int Fcntl (int fd, int cmd, int arg)
 }
 
 
-int Dup(int fd) {
+SYSCALL int SysDup(int fd) {
   int new_fd;
   struct Filp *filp;
   struct Process *current;
@@ -136,7 +135,7 @@ int Dup(int fd) {
 /**
  *
  */
-SYSCALL int Dup2(int fd, int new_fd) {
+SYSCALL int SysDup2(int fd, int new_fd) {
   struct Filp *filp;
   struct Process *current;
 
@@ -156,7 +155,7 @@ SYSCALL int Dup2(int fd, int new_fd) {
 
   if (current->fd_table[new_fd] != NULL) {
 //    Info ("**** Closing existing file %d", new_fd);
-    DoClose(new_fd);
+    SysClose(new_fd);
   }
 
   current->fd_table[new_fd] = current->fd_table[fd];
@@ -165,14 +164,8 @@ SYSCALL int Dup2(int fd, int new_fd) {
   return new_fd;
 }
 
-/**
- *
- */
-int Close(int fd) {
-  return DoClose(fd);
-}
 
-int DoClose(int fd) {
+SYSCALL int SysClose(int fd) {
   struct Filp *filp;
   struct Process *current;
   struct Pipe *pipe;
@@ -329,7 +322,7 @@ void FreeProcessHandles(struct Process *proc) {
 
   for (int fd = 0; fd < NPROC_FD; fd++) {
     if (proc->fd_table[fd] != NULL) {
-      DoClose(fd);
+      SysClose(fd);
     }
   }
 }
@@ -365,7 +358,7 @@ int CloseOnExecProcessHandles(void) {
 
   for (int fd = 0; fd < NPROC_FD; fd++) {
     if (current->close_on_exec[fd/32] & (1<<(fd%32))) {
-      DoClose(fd);
+      SysClose(fd);
     }
   }
 

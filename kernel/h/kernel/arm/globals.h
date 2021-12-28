@@ -70,11 +70,5 @@ extern uint32_t *root_pagedir;
 extern uint32_t *io_pagetable;
 extern uint32_t *cache_pagetable;
 
-/*
- * Boot Image File System
- */
-
-extern void *ifs_image;
-extern vm_size ifs_image_size;
 
 #endif

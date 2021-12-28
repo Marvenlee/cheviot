@@ -39,19 +39,14 @@ ssize_t ReadFromChar (struct VNode *vnode, void *dst, size_t sz) {
   size_t xfer = 0;
   struct Process *current;
   
-  Info ("ReadFromChar");
-  
   current = GetCurrentProcess();
   
   while (vnode->reader_cnt != 0) {
     TaskSleep(&vnode->rendez);
   }
 
-  Info ("ReadFromChar - awakened from sleep");
-  
   vnode->reader_cnt = 1;
-  
-  
+    
   xfer = (sz < sizeof buf) ? sz : sizeof buf;
 
   if (xfer > 0) {
@@ -59,21 +54,13 @@ ssize_t ReadFromChar (struct VNode *vnode, void *dst, size_t sz) {
    
     // TODO: Handle EOF ?   
     if (xfered > 0) {  
-      if (current->inkernel) {
-        KASSERT ((vm_addr)dst >= VM_KERNEL_BASE);
-        KASSERT ((vm_addr)buf >= VM_KERNEL_BASE);
-        MemCpy (dst, buf, xfered);
-      } else {
-        CopyOut (dst, buf, xfered);
-      }
+      CopyOut (dst, buf, xfered);
     }
   }
   
   vnode->reader_cnt = 0;
   TaskWakeupAll(&vnode->rendez);
 
-  Info ("ReadFromChar - done");
-    
   return xfered;
 }
 
@@ -87,16 +74,12 @@ ssize_t WriteToChar (struct VNode *vnode, void *src, size_t sz) {
   size_t xfer = 0;
   struct Process *current;
   
-  Info ("WriteToChar");
-  
   current = GetCurrentProcess();
 
   while (vnode->writer_cnt != 0) {
     TaskSleep(&vnode->rendez);
   }
 
-  Info ("WriteToChar - awakened");
-  
   vnode->writer_cnt = 1;
 
   xfer = (sz < sizeof buf) ? sz : sizeof buf;
@@ -105,19 +88,12 @@ ssize_t WriteToChar (struct VNode *vnode, void *src, size_t sz) {
 
     // TODO: Handle EOF ?   
 
-    if (current->inkernel) {
-      MemCpy (buf, src, xfer);
-    } else {
-      CopyIn (buf, src, xfer);
-    }
-      
+    CopyIn (buf, src, xfer);
     xfered = vfs_write(vnode, buf, xfer, NULL);
   }
     
   vnode->writer_cnt = 0;
   TaskWakeupAll(&vnode->rendez);    
-
-  Info ("WriteToChar - done");
 
   return xfered;
 }
@@ -127,7 +103,7 @@ ssize_t WriteToChar (struct VNode *vnode, void *src, size_t sz) {
 /*
  *
  */
-int TCSetAttr (int fd, struct termios *_termios)
+SYSCALL int SysTCSetAttr (int fd, struct termios *_termios)
 {
   // Allow only a single command at a time for this vnode
   Info ("TCSetAttr");
@@ -139,7 +115,7 @@ int TCSetAttr (int fd, struct termios *_termios)
 /*
  *
  */
-int TCGetAttr (int fd, struct termios *_termios)
+SYSCALL int SysTCGetAttr (int fd, struct termios *_termios)
 {
   Info ("TCGetAttr");
   return -ENOSYS;
@@ -150,7 +126,7 @@ int TCGetAttr (int fd, struct termios *_termios)
  * Add IsATTY here
  */
 
-int IsATTY(int fd)
+SYSCALL int SysIsATTY(int fd)
 {
   Info ("IsATTY always true, fd: %d", fd);
   return 1;

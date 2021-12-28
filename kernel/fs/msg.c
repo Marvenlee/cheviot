@@ -92,7 +92,7 @@ int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
 /*
  *
  */
-int ReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
+SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
   struct Filp *filp;
   struct VNode *svnode;
   struct SuperBlock *sb;
@@ -142,7 +142,7 @@ int ReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
 /*
  *
  */
-int ReplyMsg(int server_fd, int pid, int status) {
+SYSCALL int SysReplyMsg(int server_fd, int pid, int status) {
   struct Filp *filp;
   struct VNode *svnode;
   struct Msg *msg;
@@ -189,7 +189,7 @@ int ReplyMsg(int server_fd, int pid, int status) {
 /*
  *
  */
-int ReadMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
+SYSCALL int SysReadMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
   struct Filp *filp;
   struct VNode *svnode;
   int nbytes_to_read;
@@ -261,7 +261,7 @@ int ReadMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
 /*
  *
  */
-int WriteMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
+SYSCALL int SysWriteMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
   struct Filp *filp;
   struct VNode *svnode;
   int nbytes_to_write;
@@ -340,7 +340,7 @@ int WriteMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
 
 
 
-int SeekMsg(int server_fd, int pid, off_t offset) {
+SYSCALL int SysSeekMsg(int server_fd, int pid, off_t offset) {
   struct Filp *filp;
   struct VNode *svnode;
   struct Process *proc;

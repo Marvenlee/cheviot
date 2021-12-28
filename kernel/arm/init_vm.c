@@ -47,6 +47,7 @@ void InitVM(void) {
   vm_addr pa;
 
   InitMemoryMap();
+
   root_base = BOOT_BASE_ADDR;
   root_ceiling = BOOT_CEILING_ADDR;
 
@@ -59,31 +60,21 @@ void InitVM(void) {
 
   // FIXME:  Need to copy bootinfo into kernel, only use it's copy.  Then can
   // release lower 4k-64k
-  
+    
   InitPageframeFlags(root_base, root_ceiling, PGF_KERNEL | PGF_INUSE);
-
-  InitPageframeFlags(VirtToPhys((vm_addr)&_stext), VirtToPhys((vm_addr)&_ebss),
-                     PGF_KERNEL | PGF_INUSE);
-  InitPageframeFlags(VirtToPhys(core_pagetable_base),
-                     VirtToPhys(core_pagetable_ceiling),
-                     PGF_KERNEL | PGF_INUSE);
-  InitPageframeFlags(VirtToPhys(_heap_base), VirtToPhys(_heap_current),
-                     PGF_KERNEL | PGF_INUSE);
-
-  InitPageframeFlags(VirtToPhys(_heap_current), (vm_addr)ifs_image, 0);
-  
-  // FIXME: Do we need IFS image in kernel, code has been moved to driver.
-  // Is this for starting first process with ExecImage?
-
-  InitPageframeFlags((vm_addr)ifs_image, ALIGN_UP((vm_addr)ifs_image + ifs_image_size, PAGE_SIZE),
-      PGF_KERNEL | PGF_INUSE);
+  InitPageframeFlags(VirtToPhys((vm_addr)&_stext), VirtToPhys((vm_addr)&_ebss), PGF_KERNEL | PGF_INUSE);
+  InitPageframeFlags(VirtToPhys(core_pagetable_base), VirtToPhys(core_pagetable_ceiling), PGF_KERNEL | PGF_INUSE);
+  InitPageframeFlags(VirtToPhys(_heap_base), VirtToPhys(_heap_current), PGF_KERNEL | PGF_INUSE);  
+  InitPageframeFlags(VirtToPhys(_heap_current), (vm_addr)mem_size, 0);
 
   for (pa = 0; pa < mem_size; pa += PAGE_SIZE) {
     KASSERT(pageframe_table[pa / PAGE_SIZE].reference_cnt <= 1);
   }
 
   // Unmap root pagetables();
-
+  
+  // Map loader and map root process
+  
   // Reload page directory
 
   CoalesceFreePageframes();

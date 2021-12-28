@@ -61,7 +61,7 @@
  * Acquire timer spinlock to read the current value of hardclock
  */
 
-SYSCALL int GetTimeOfDay(struct timeval *tv_user) {
+SYSCALL int SysGetTimeOfDay(struct timeval *tv_user) {
   struct timeval tv;
 
   SpinLock(&timer_slock);
@@ -77,14 +77,14 @@ SYSCALL int GetTimeOfDay(struct timeval *tv_user) {
 /*
  * TODO:
  */
-SYSCALL int SetTimeOfDay(struct timeval *tv_user) {
+SYSCALL int SysSetTimeOfDay(struct timeval *tv_user) {
   return 0;
 }
 
 /*
  * TODO;
  */
-SYSCALL int Alarm(int seconds) { 
+SYSCALL int SysAlarm(int seconds) { 
   // Enable alarm timer.
   
   return -ENOSYS;
@@ -103,7 +103,7 @@ void SleepCallback(struct Timer *timer)
 /*
  *
  */
-SYSCALL int Sleep(int seconds) {
+SYSCALL int SysSleep(int seconds) {
   struct Process *current;
   struct Timer *timer;
   

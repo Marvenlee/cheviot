@@ -74,14 +74,14 @@ const uint32_t sigprop[NSIG] =
  */
 void SigExit(int signal)
 {
-  Exit(signal<<8);  // TODO: FIXME signal exit
+  SysExit(signal<<8);  // TODO: FIXME signal exit
 }
 
 
 /*
  * SigFork()
  */ 
-void SigFork (struct Process *src, struct Process *dst)
+void SysSigFork (struct Process *src, struct Process *dst)
 {
 	int t;
 	
@@ -110,7 +110,7 @@ void SigFork (struct Process *src, struct Process *dst)
 /*
  *
  */
-void SigInit (struct Process *dst)
+void SysSigInit (struct Process *dst)
 {
 	int t;
 	
@@ -139,7 +139,7 @@ void SigInit (struct Process *dst)
 /*
  *
  */
-void SigExec (struct Process *dst)
+void SysSigExec (struct Process *dst)
 {
 	int t;
 	
@@ -171,7 +171,7 @@ void SigExec (struct Process *dst)
  *
  */
 
-int SigAction (int signal, const struct sigaction *act_in, struct sigaction *oact_out)
+int SysSigAction (int signal, const struct sigaction *act_in, struct sigaction *oact_out)
 {
 	struct sigaction act, oact;
 	struct Process *current;
@@ -237,7 +237,7 @@ int SigAction (int signal, const struct sigaction *act_in, struct sigaction *oac
  *
  */
 
-int Kill (int pid, int signal)
+int SysKill (int pid, int signal)
 {
 	struct Process *proc;
 	int rc = 0;	
@@ -326,7 +326,7 @@ int Kill (int pid, int signal)
  * to sigsuspend_oldmask _after_ choosing what signal to deliver based on the current
  * mask that was set in USigSuspend().
  */
-int SigSuspend (const sigset_t *mask_in)
+int SysSigSuspend (const sigset_t *mask_in)
 {
 	sigset_t mask;
 	uint32_t intstate;
@@ -357,7 +357,7 @@ int SigSuspend (const sigset_t *mask_in)
 /*
  *
  */
-int SigProcMask (int how, const sigset_t *set_in, sigset_t *oset_out)
+int SysSigProcMask (int how, const sigset_t *set_in, sigset_t *oset_out)
 {
 	sigset_t set;
 	struct Process *current;
@@ -394,7 +394,7 @@ int SigProcMask (int how, const sigset_t *set_in, sigset_t *oset_out)
 /*
  *
  */
-int SigPending (sigset_t *set_out)
+int SysSigPending (sigset_t *set_out)
 {
 	sigset_t set;
 	struct Process *current;

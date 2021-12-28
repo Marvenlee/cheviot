@@ -61,11 +61,7 @@ ssize_t ReadFromCache (struct VNode *vnode, void *dst, size_t sz, off64_t *offse
       return sz - nbytes_remaining;
     }
 
-    if (current->inkernel) {
-      MemCpy(dst, buf->addr + cluster_offset, nbytes_xfered);
-    } else {
-      CopyOut(dst, buf->addr + cluster_offset, nbytes_xfered);
-    }
+    CopyOut(dst, buf->addr + cluster_offset, nbytes_xfered);
 
     BRelse(buf);
 
@@ -116,13 +112,8 @@ ssize_t WriteToCache (struct VNode *vnode, void *src, size_t sz, off64_t *offset
       BResize(buf, cluster_offset + nbytes_xfered);
     }
 
-    if (current->inkernel) {
-      MemCpy(buf->addr + cluster_offset, src, nbytes_xfered);
-    } else {
-      CopyIn(buf->addr + cluster_offset, src, nbytes_xfered);    
-    }
-    
-    
+    CopyIn(buf->addr + cluster_offset, src, nbytes_xfered);    
+
     src += nbytes_xfered;
     *offset += nbytes_xfered;
     nbytes_remaining -= nbytes_xfered;
@@ -499,7 +490,8 @@ void BDFlush(void) {
   
   while (1) {
     
-    Sleep(2);
+    // TODO:  why sleep?  Any other trigger for a flush?
+    SysSleep(2);
 
     // Move into DoFSync().
     

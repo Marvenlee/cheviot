@@ -30,7 +30,7 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode);
 /*
  *
  */
-int Open(char *_path, int oflags, mode_t mode) {
+SYSCALL int SysOpen(char *_path, int oflags, mode_t mode) {
   struct Lookup lookup;
   int sc;
 

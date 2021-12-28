@@ -40,8 +40,6 @@ void Main(void) {
   bootinfo = &bootinfo_kernel;
 
   mem_size = bootinfo->mem_size;
-  ifs_image = bootinfo->ifs_image;
-  ifs_image_size = bootinfo->ifs_image_size;
 
   max_process = NPROCESS;
   max_pageframe = mem_size / PAGE_SIZE;

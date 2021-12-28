@@ -186,7 +186,7 @@ void SchedUnready(struct Process *proc) {
 /*
  * Sets the scheduling policy, either round-robin or stride scheduler
  */
-SYSCALL int SetSchedParams(int policy, int priority) {
+SYSCALL int SysSetSchedParams(int policy, int priority) {
   struct Process *current;
   current = GetCurrentProcess();
 
@@ -235,7 +235,7 @@ SYSCALL int SetSchedParams(int policy, int priority) {
 /*
  * Yield();
  */
-SYSCALL void Yield(void) {
+SYSCALL void SysYield(void) {
 }
 
 /*

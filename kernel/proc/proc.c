@@ -33,7 +33,7 @@
 /*
  *
  */
-int Fork(void) {
+SYSCALL int SysFork(void) {
   struct Process *current;
   struct Process *proc;
 
@@ -69,7 +69,7 @@ int Fork(void) {
 /*
  * System call to exit a process.
  */
-void Exit(int status) {
+SYSCALL void SysExit(int status) {
   struct Process *current;
   struct Process *parent;
   struct Process *child;
@@ -142,7 +142,7 @@ void Exit(int status) {
 /*
  * TODO: Need to handle signals
  */
-int WaitPid(int pid, int *status, int options) {
+SYSCALL int SysWaitPid(int pid, int *status, int options) {
   struct Process *current;
   struct Process *child;
   bool found = FALSE;
@@ -328,7 +328,6 @@ struct Process *AllocProcess(void) {
   proc->stride = current->stride;
   proc->stride_pass = global_pass;
   proc->msg = NULL;
-  proc->inkernel = FALSE;
 
 // FIXME: SigInit(proc);
 
