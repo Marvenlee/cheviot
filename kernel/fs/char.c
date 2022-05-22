@@ -41,6 +41,8 @@ ssize_t ReadFromChar (struct VNode *vnode, void *dst, size_t sz) {
   
   current = GetCurrentProcess();
   
+  Info ("ReadFromChar(sz:%d)", sz);
+  
   while (vnode->reader_cnt != 0) {
     TaskSleep(&vnode->rendez);
   }
@@ -60,6 +62,8 @@ ssize_t ReadFromChar (struct VNode *vnode, void *dst, size_t sz) {
   
   vnode->reader_cnt = 0;
   TaskWakeupAll(&vnode->rendez);
+
+  Info ("ReadFromChar xfered: %d", xfered);
 
   return xfered;
 }

@@ -243,7 +243,7 @@ typedef struct {
 
 /* function prototypes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int elf_load(void *ifs_image, size_t ifs_size, void **entry_point,
-             vm_addr *ceiling);
+int elf_find(void *ifs_image, size_t ifs_size, char *dirname, char *filename,  vm_addr *file, vm_size *file_size);
+int elf_load(void *ifs_image, size_t ifs_size, char *path, Elf32_EHdr *ehdr, Elf32_PHdr *phdr_table, vm_addr *ceiling);
 
 #endif

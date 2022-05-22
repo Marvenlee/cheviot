@@ -37,10 +37,8 @@
 
 extern int fd;
 
-extern struct Config config;
-
-
-//static struct SuperBlock *sb;
+extern void *ifs_image_phys;
+extern void *ifs_image;
 extern struct IFSHeader *ifs_header;
 extern size_t ifs_image_size;
 extern struct IFSNode *ifs_inode_table;

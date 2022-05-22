@@ -41,20 +41,17 @@ extern int exception_stack_top;
 extern int idle_stack_top;
 extern int bdflush_stack_top;
 
-struct Process *idle_task;
 
-//extern void StartExecProcess(void);
-//extern void IdleTask(void);
 
-extern void StartRoot(void);
-extern void StartIdle(void);
+
+extern void BootstrapRootProcess(void);
+extern void Idle(void);
 extern void StartKernelProcess(void);
 extern void TimerBottomHalf(void);
 
 
 
-/*
- * InitProcesses();
+/* @brief Initialize process management data structures
  *
  * Initializes kernel tables relating to processes, ipc, scheduling and timers.
  * Starts the first process, root_process by calling SwitchToRoot().
@@ -69,7 +66,7 @@ void InitProcesses(void) {
   struct CPU *cpu;
   struct Process *proc;
 
-  bkl_locked = FALSE;
+  bkl_locked = false;
   bkl_owner = NULL;
   LIST_INIT(&bkl_blocked_list);
 
@@ -106,28 +103,34 @@ void InitProcesses(void) {
   cpu->exception_stack = (vm_addr)&exception_stack_top;
 
   root_process =
-      CreateProcess(StartRoot, SCHED_RR, 1, PROCF_USER, &cpu_table[0]);
+      CreateProcess(BootstrapRootProcess, SCHED_RR, 1, PROCF_USER, &cpu_table[0]);
 
   timer_process =
       CreateProcess(TimerBottomHalf, SCHED_RR, 31, PROCF_KERNEL, &cpu_table[0]);
 
   // Can we not schedule a no-op bit of code if no processes running?
   // Do we really need an idle task in separate address-space ? 
-  cpu->idle_process = CreateProcess(StartIdle, SCHED_RR, 0, PROCF_KERNEL, &cpu_table[0]);
+  cpu->idle_process = CreateProcess(Idle, SCHED_RR, 0, PROCF_KERNEL, &cpu_table[0]);
 
+  // Pick root process to run,  Switch To Root here  
+  root_process->state = PROC_STATE_RUNNING;
+  cpu->current_process = root_process;
 
   ProcessesInitialized();
 
-// Pick root process to run,  Switch To Root here  
-  root_process->state = PROC_STATE_RUNNING;
-  cpu->current_process = root_process;
-  PmapSwitch(root_process, NULL);
+  PmapSwitch(root_process, NULL);           
+  
+  // TODO: We switch address space here.
+  // TODO: Can we free any bootsector pages and initial page table?
+
   GetContext(root_process->context);
 }
 
-/*!
-    Hmmm, can't we simplify this for root and idle processes?
-*/
+/* @brief Create initial processes, root process and kernel processes for timer and idle tasks
+ *
+ * The address space created only has the kernel mapped. User-Space is marked as free.
+ * The root process page directory is switched to in InitProcesses.
+ */
 struct Process *CreateProcess(void (*entry)(void), int policy, int priority, bits32_t flags, struct CPU *cpu) {
   struct Process *proc;
   int pid;
@@ -165,12 +168,14 @@ struct Process *CreateProcess(void (*entry)(void), int policy, int priority, bit
   proc->current_dir = NULL;
   proc->msg = NULL;
 
+
+  // We create new page tables here for new root process.
   if (PmapCreate(&proc->as) != 0) {
     return NULL;
   }
-  
+      
   proc->as.segment_cnt = 1;
-  proc->as.segment_table[0] = root_ceiling | SEG_TYPE_FREE;
+  proc->as.segment_table[0] = VM_USER_BASE | SEG_TYPE_FREE;
   proc->as.segment_table[1] = VM_USER_CEILING | SEG_TYPE_CEILING;
   proc->cpu = cpu;
 
@@ -214,11 +219,12 @@ struct Process *CreateProcess(void (*entry)(void), int policy, int priority, bit
 
   context = ((uint32_t *)uc) - 15;
 
-  for (int t = 0; t < 13; t++) {
+  context[0] = (uint32_t)entry;
+
+  for (int t = 1; t <= 12; t++) {
     context[t] = 0;
   }
 
-  context[0] = (uint32_t)entry;
   context[13] = (uint32_t)uc;
   context[14] = (uint32_t)StartKernelProcess;
 

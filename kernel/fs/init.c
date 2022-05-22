@@ -22,8 +22,9 @@
 #include <kernel/proc.h>
 #include <kernel/types.h>
 
+static void InitFSLists(void);
 static void InitCache(void);
-static void InitSuperBlocks(void);
+static int MountRoot(void);
 
 /*
  *
@@ -31,12 +32,22 @@ static void InitSuperBlocks(void);
 int InitVFS(void) {
   Info("InitVFS()");
 
-  root_vnode = NULL;
-  
+  InitFSLists();
+  InitCache();
+  InitPipes();
+  MountRoot();
+     
+  Info("InitVFS done");
+  return 0;
+}
+
+static void InitFSLists(void) {
+
   LIST_INIT(&vnode_free_list);
   LIST_INIT(&filp_free_list);
   LIST_INIT(&dname_lru_list);
   LIST_INIT(&poll_free_list);
+  LIST_INIT(&free_superblock_list);
   
   // TODO: Need pagetables allocated for this file cache.
 
@@ -67,23 +78,6 @@ int InitVFS(void) {
     LIST_ADD_TAIL(&poll_free_list, &poll_table[t], poll_link);
   }
 
-
-  Info("Initialized VFS lists, Init superblocks...");
-
-  InitSuperBlocks();
-
-  Info("Init cache...");
-
-  InitCache();
-  
-  InitPipes();
-
-  Info("InitVFS done");
-  return 0;
-}
-
-static void InitSuperBlocks(void) {
-  LIST_INIT(&free_superblock_list);
   for (int t = 0; t < max_superblock; t++) {
     LIST_ADD_TAIL(&free_superblock_list, &superblock_table[t], link);
   }
@@ -125,6 +119,87 @@ static void InitCache(void) {
 
 
 
+/*
+ * Create the root '/' mount point.
+ *
+ * This root vnode is "covered" by future mounts of '/' and avoids special
+ * casing of mounting the '/' in SysMount.
+ */
+
+static int MountRoot(void) {
+  int handle = -1;
+  int error;
+  struct VNode *server_vnode = NULL;
+  struct VNode *client_vnode = NULL;
+  struct Filp *filp = NULL;
+  struct SuperBlock *sb = NULL;
+  
+  Info("MountRoot");
+
+  sb = AllocSuperBlock();
+
+  if (sb == NULL) {
+    error = -ENOMEM;
+    goto exit;
+  }
+
+  // Server vnode set to -1.
+  server_vnode = VNodeNew(sb, -1);
+
+  if (server_vnode == NULL) {
+    error = -ENOMEM;
+    goto exit;
+  }
+
+  // TODO: Set Client VNODE to some parameter of stat
+  client_vnode = VNodeNew(sb, 0);
+
+  if (client_vnode == NULL) {
+    error = -ENOMEM;
+    goto exit;
+  }
+
+  InitRendez(&sb->rendez);
+  InitMsgPort(&sb->msgport, server_vnode);
+
+  sb->server_vnode = server_vnode; // FIXME: Needed?
+  sb->root = client_vnode;         // FIXME: Needed?
+  sb->flags = 0;
+  sb->reference_cnt = 2;
+  sb->busy = FALSE;
+
+  server_vnode->flags = V_VALID;
+  server_vnode->reference_cnt = 1;
+  server_vnode->uid = 0;
+  server_vnode->gid = 0;
+  server_vnode->mode = 0777 | _IFPORT;
+  server_vnode->size = 0;
+
+  client_vnode->flags = V_VALID | V_ROOT;
+  client_vnode->reference_cnt = 1;
+  client_vnode->uid = 0;
+  client_vnode->gid = 0;
+  client_vnode->mode = 0770 | _IFDIR;
+  client_vnode->size = 0;
+
+  client_vnode->vnode_covered = NULL;
+  client_vnode->vnode_mounted_here = NULL;
+  
+  root_vnode = client_vnode;
+
+//  VNodeUnlock(server_vnode);
+//  VNodeUnlock(client_vnode);
+
+  Info ("root sb = %08x", sb);
+  Info ("root client_vnode = %08x", client_vnode);
+  Info ("root server_vnode = %08x", server_vnode);
+  
+  Info("!! Root initialized !!");
+  
+exit:
+  Info ("MountRoot FAILED!!!!!!!!!!!!!!!1");
+  return error;
+}
 
 
 

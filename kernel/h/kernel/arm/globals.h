@@ -63,8 +63,8 @@ extern vm_addr _heap_current;
 extern vm_addr debug_base;
 extern vm_addr debug_ceiling;
 
-extern vm_addr root_base;
-extern vm_addr root_ceiling;
+extern vm_addr boot_base;
+extern vm_addr boot_ceiling;
 
 extern uint32_t *root_pagedir;
 extern uint32_t *io_pagetable;

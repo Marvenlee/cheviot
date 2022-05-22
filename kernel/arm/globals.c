@@ -86,8 +86,8 @@ vm_addr _heap_current;
 vm_addr debug_base;
 vm_addr debug_ceiling;
 
-vm_addr root_base;
-vm_addr root_ceiling;
+vm_addr boot_base;
+vm_addr boot_ceiling;
 
 uint32_t *root_pagedir;
 uint32_t *io_pagetable;

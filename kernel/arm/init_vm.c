@@ -28,60 +28,68 @@
 #include <kernel/vm.h>
 
 
-// FIXME: Move elsewhere?
-
+// FIXME: Move elsewhere?   Needed for interrupt, timer, gpio and uart.
+// Can remove UART once sure of booting
 #define IO_PAGETABLES_CNT 16
 #define IO_PAGETABLES_PDE_BASE 2560
 #define IOMAP_BASE_VA 0xA0000000
+
 vm_addr iomap_base;
 vm_addr iomap_current;
 
 
-/*!
- *   Initialize the virual memory management system.
+/* @brief Initialize the virual memory management system.
  *
- *   Note that all of physical memory is mapped into the kernel along with areas
- *   for peripheral registers for timers and GPIOs. for LEDs.
+ * Note that all of physical memory is mapped into the kernel along with areas
+ * for peripheral registers for timers and GPIOs. for LEDs.
  */
 void InitVM(void) {
   vm_addr pa;
 
   InitMemoryMap();
 
-  root_base = BOOT_BASE_ADDR;
-  root_ceiling = BOOT_CEILING_ADDR;
+  boot_base = BOOT_BASE_ADDR;
+  boot_ceiling = BOOT_CEILING_ADDR;
 
   // Do core pagetables base also include root page tables?
-  //    core_pagetable_base = VirtToPhys((vm_addr)bootinfo->io_pagetables);
+  // core_pagetable_base = VirtToPhys((vm_addr)bootinfo->io_pagetables);
 
   core_pagetable_base = bootinfo->pagetable_base;
   core_pagetable_ceiling = bootinfo->pagetable_ceiling;
-  InitPageframeFlags((vm_addr)0, (vm_addr)root_base, PGF_KERNEL | PGF_INUSE);
 
-  // FIXME:  Need to copy bootinfo into kernel, only use it's copy.  Then can
-  // release lower 4k-64k
-    
-  InitPageframeFlags(root_base, root_ceiling, PGF_KERNEL | PGF_INUSE);
+  // 0 to boot base, is this first 4k ?
+  InitPageframeFlags((vm_addr)0, (vm_addr)boot_base, PGF_KERNEL | PGF_INUSE);
+
+  // boot_base to boot ceiling?  bootsector 4k to 64k ?
+  // FIXME: release lower 4k-64k  BootSector,  IFS image, etc is at top of memory?
+  InitPageframeFlags(boot_base, boot_ceiling, PGF_KERNEL | PGF_INUSE);
+      
+  // Reserve kernel pagetables from start of text (0x80100000) to ceiling of kernel's bss.      
   InitPageframeFlags(VirtToPhys((vm_addr)&_stext), VirtToPhys((vm_addr)&_ebss), PGF_KERNEL | PGF_INUSE);
-  InitPageframeFlags(VirtToPhys(core_pagetable_base), VirtToPhys(core_pagetable_ceiling), PGF_KERNEL | PGF_INUSE);
-  InitPageframeFlags(VirtToPhys(_heap_base), VirtToPhys(_heap_current), PGF_KERNEL | PGF_INUSE);  
-  InitPageframeFlags(VirtToPhys(_heap_current), (vm_addr)mem_size, 0);
 
+  // Core page tables allocated above kernel > 1MB, below heap which is allocated after 
+  InitPageframeFlags(VirtToPhys(core_pagetable_base), VirtToPhys(core_pagetable_ceiling), PGF_KERNEL | PGF_INUSE);
+
+  // Reserve pages for kernel heap
+  InitPageframeFlags(VirtToPhys(_heap_base), VirtToPhys(_heap_current), PGF_KERNEL | PGF_INUSE);  
+
+  // Mark pages from top of kernel's heap to ifs_exe_base as free
+  InitPageframeFlags(VirtToPhys(_heap_current), (vm_addr)bootinfo->ifs_exe_base, 0);
+
+  // Mark IFS image pages as in-use. This will be mapped into root process BootstrapRootProcess.
+  InitPageframeFlags(bootinfo->ifs_image, bootinfo->ifs_image_size, PGF_INUSE);
+
+  // Error checking, all pages should have 0 or 1 references.
   for (pa = 0; pa < mem_size; pa += PAGE_SIZE) {
     KASSERT(pageframe_table[pa / PAGE_SIZE].reference_cnt <= 1);
   }
-
-  // Unmap root pagetables();
   
-  // Map loader and map root process
-  
-  // Reload page directory
-
   CoalesceFreePageframes();
 }
 
-/*!
-*/
+
+/* @brief Initialise pages in memory map
+ */
 void InitMemoryMap(void) {
   for (int t = 0; t < max_pageframe; t++) {
     pageframe_table[t].size = PAGE_SIZE;
@@ -104,7 +112,7 @@ void InitPageframeFlags(vm_addr base, vm_addr ceiling, bits32_t flags) {
     pageframe_table[pa / PAGE_SIZE].flags = flags;
 
     // FIXME: ONLY FOR USER-MODE PAGES.  PAGE TABLES HAVE PTE COUNT
-    pageframe_table[pa / PAGE_SIZE].reference_cnt++;
+    // pageframe_table[pa / PAGE_SIZE].reference_cnt++;
   }
 }
 
@@ -199,18 +207,9 @@ void InitIOPagetables(void) {
     io_pagetable[t] = L2_TYPE_INV;
   }
 
-  screen_buf = IOMap((vm_addr)bootinfo->screen_buf,
-                     bootinfo->screen_pitch * bootinfo->screen_height, TRUE);
-  screen_width = bootinfo->screen_width;
-  screen_height = bootinfo->screen_height;
-  screen_pitch = bootinfo->screen_pitch;
-
-  timer_regs =
-      IOMap(ST_BASE, sizeof(struct bcm2835_system_timer_registers), FALSE);
-  interrupt_regs =
-      IOMap(ARMCTRL_IC_BASE, sizeof(struct bcm2835_interrupt_registers), FALSE);
+  timer_regs = IOMap(ST_BASE, sizeof(struct bcm2835_system_timer_registers), FALSE);
+  interrupt_regs = IOMap(ARMCTRL_IC_BASE, sizeof(struct bcm2835_interrupt_registers), FALSE);
   gpio_regs = IOMap(GPIO_BASE, sizeof(struct bcm2835_gpio_registers), FALSE);
-
   uart_regs = IOMap(UART_BASE, sizeof(struct bcm2835_uart_registers), FALSE);
 
   SetPageDirectory((void *)(PmapVaToPa((vm_addr)root_pagedir)));

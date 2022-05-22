@@ -29,6 +29,7 @@
 void WakeupPollsFromISR(struct VNode *vnode, short mask, short events);
 
 
+
 /*
  * TODO:  Need to plug this into generic poll code ?????????
  * Need to check for terminated connections.
@@ -129,7 +130,9 @@ SYSCALL int SysPoll (struct pollfd *pfds, nfds_t nfds, int timeout)
   struct Poll *poll;
   int sc;
 
-  Info("Poll nfds = %d", nfds);
+//  Info("Poll nfds = %d", nfds);
+//  LogFDs();
+
     
   current = GetCurrentProcess();
   current->poll_pending = FALSE;
@@ -263,7 +266,7 @@ SYSCALL int SysPoll (struct pollfd *pfds, nfds_t nfds, int timeout)
     FreePoll(poll);
   }
   
-  Info (".. Poll done - matching = %d", nfds_matching);
+//  Info (".. Poll done - matching = %d", nfds_matching);
   return nfds_matching;
   
 exit:
@@ -337,23 +340,30 @@ void WakeupPolls(struct VNode *vnode, short mask, short events)
   struct Process *proc;
   struct Poll *poll;
 
+
 // TODO: Rewrite WakeupPolls (no longer have vnode->proces_interested bitmap);
-  Info ("WakeupPolls(vnode = %08x)", (vm_addr)vnode);
-  Info (".. , cov = %08x, mnthere = %08x", (vm_addr)vnode->vnode_covered, (vm_addr)vnode->vnode_mounted_here);
+//  Info ("WakeupPolls(vnode = %08x)", (vm_addr)vnode);
+//  Info ("vnode covered = %08x, mntedhere = %08x", (vm_addr)vnode->vnode_covered, (vm_addr)vnode->vnode_mounted_here);
   vnode->poll_events = (vnode->poll_events & ~mask) | (mask & events);
   
   poll = LIST_HEAD(&vnode->poll_list);
 
   while (poll != NULL)
   {
+//      Info ("poll = %08x", poll);
+      
       if (poll->events & vnode->poll_events)
-      {      
+      {    
+//          Info ("WakeupAll proc=%08x", proc);  
           proc = poll->process;
           proc->poll_pending = TRUE;
           TaskWakeupAll(&proc->rendez);
-          poll = LIST_NEXT(poll, vnode_link);
       }
-  }  
+
+      poll = LIST_NEXT(poll, vnode_link);
+  }
+  
+//  Info("WakeupPolls done");
 }
 
 

@@ -34,17 +34,22 @@ SYSCALL ssize_t SysWrite(int fd, void *src, size_t sz) {
     return -EACCES;
   }
   
+  VNodeLock(vnode);
   
   if (S_ISCHR(vnode->mode)) {
     xfered = WriteToChar(vnode, src, sz);  
   } else if (S_ISBLK(vnode->mode)) {
     xfered = WriteToCache(vnode, src, sz, &filp->offset);
   } else if (S_ISFIFO(vnode->mode)) {
-    xfered = WriteToPipe(vnode, src, sz, &filp->offset);
+//    xfered = WriteToPipe(vnode, src, sz, &filp->offset);
   } else {
     Info ("Write to unknown file type");
     xfered = -EINVAL;
   }  
+
+  // Update accesss timestamps
+
+  VNodeUnlock(vnode);
   
   return xfered;
 }

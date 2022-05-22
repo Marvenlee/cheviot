@@ -176,10 +176,10 @@ void SysDoPageFault(struct Process *proc);
 
 // vm/vm.c
 
-void *VirtualAlloc(void *addr, size_t len, bits32_t flags);
-void *VirtualAllocPhys(void *addr, size_t len, bits32_t flags, void *paddr);
-int VirtualFree(void *addr, size_t size);
-int VirtualProtect(void *addr, size_t size, bits32_t flags);
+SYSCALL void *SysVirtualAlloc(void *addr, size_t len, bits32_t flags);
+SYSCALL void *SysVirtualAllocPhys(void *addr, size_t len, bits32_t flags, void *paddr);
+SYSCALL int SysVirtualFree(void *addr, size_t size);
+SYSCALL int SysVirtualProtect(void *addr, size_t size, bits32_t flags);
 
 vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
                       int type, bits32_t flags);

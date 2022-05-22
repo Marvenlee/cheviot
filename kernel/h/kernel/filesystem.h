@@ -130,7 +130,9 @@
 #define S_ABORT (1 << 0)
 #define S_READONLY (1 << 1)
 
- 
+// Size of buffers for args and environment variables used during exec 
+#define MAX_ARGS_SZ 0x10000
+
 /*
  *
  */
@@ -326,12 +328,58 @@ struct DName {
   LIST_ENTRY(DName) directory_link; // Vnodes within DName's directory
 };
 
+
+/*
+ * Vnode operations for each device type reg, dir, fifo, char, block
+ */
+struct VNodeOps
+{
+    ssize_t (*vn_read)(struct VNode *vnode, void *buf, size_t nbytes, off64_t *offset);
+    ssize_t (*vn_write)(struct VNode *vnode, void *buf, size_t nbytes, off64_t *offset);
+    int (*vn_truncate)(struct VNode *vnode, size_t sz);
+
+    int (*vn_readdir)(struct VNode *dvnode, void *buf, size_t bytes, off64_t *cookie);
+    int (*vn_lookup)(struct VNode *dvnode, char *name, struct VNode **result);
+    int (*vn_create)(struct VNode *dvnode, char *name, int oflags, struct stat *stat, struct VNode **result);                             
+    int (*vn_unlink)(struct VNode *dvnode, char *name);  // vfs_remove ?
+    int (*vn_mknod)(struct VNode *dvnode, char *name, struct stat *stat, struct VNode **result);                            
+    int (*vn_mklink)(struct VNode *dvnode, char *name, char *link, struct stat *stat);
+    int (*vn_rdlink)(struct VNode *vnode, char *buf, size_t sz);
+    int (*vn_rmdir)(struct VNode *dvnode, char *name);
+    int (*vn_mkdir)(struct VNode *dvnode, char *name, struct stat *stat, struct VNode **result);
+    int (*vn_rename)(struct VNode *src_dvnode, char *src_name, struct VNode *dst_dvnode, char *dst_name);
+    
+    int (*vn_chmod)(struct VNode *vnode, mode_t mode);
+    int (*vn_chown)(struct VNode *vnode, uid_t uid, gid_t gid);    
+
+    int (*vn_ioctl)(struct VNode *vnode, int cmd, int val);   
+
+    // ioctl
+    // fcntl
+    // poll
+    // 
+
+    // need stat,
+};
+
+
+struct VFSOps
+{
+  int (*vfs_mount)();
+  int (*vfs_unmount)();
+  int (*vfs_root)();
+  int (*vfs_statvfs)();
+  int (*vfs_sync)(struct SuperBlock *sb);
+  int (*vfs_vget)(struct SuperBlock *sb, struct VNode **result);
+  int (*vfs_format)(struct SuperBlock *sb);  // not needed:  Format by raw reads and writes to /dev/sda1fs
+};
+
 /*
  *
  */
 struct Filp {
   struct VNode *vnode;
-  off64_t offset; // seek position
+  off64_t offset;
   int reference_cnt;
   LIST_ENTRY(Filp) filp_entry;
 };
@@ -368,15 +416,15 @@ LIST_TYPE(Pipe) pipe_list_t;
 // Prototypes
 
 // TODO: Move these somewhere
-int Isatty(int fd);
-int Pipe(int *fd);
-int Fcntl(int fd, int cmd, int arg);
+SYSCALL int SysIsatty(int fd);
+SYSCALL int SysPipe(int *fd);
+SYSCALL int SysFcntl(int fd, int cmd, int arg);
 
 // fs/access.c
-int Access(char *path, mode_t permisssions);
-mode_t Umask (mode_t mode);
-int Chmod(char *_path, mode_t mode);
-int Chown(char *_path, uid_t uid, gid_t gid);
+SYSCALL int SysAccess(char *path, mode_t permisssions);
+SYSCALL mode_t SysUmask (mode_t mode);
+SYSCALL int SysChmod(char *_path, mode_t mode);
+SYSCALL int SysChown(char *_path, uid_t uid, gid_t gid);
 int IsAllowed(struct VNode *node, mode_t mode);
 
 /* fs/cache.c */
@@ -390,25 +438,25 @@ int BWrite(struct Buf *buf);
 int BAWrite(struct Buf *buf);
 int BDWrite(struct Buf *buf);
 int BResize(struct Buf *buf, size_t sz);
-
 int BSync (struct VNode *vnode);
+
 //void SyncFile(struct VNode *vnode);
 //void SyncBlockDev(struct BlockDev *bdev, bool flush);
 
 void Strategy(struct Buf *buf);
 void StrategyTask(void);
-int SyncMount(char *path);
-int Fsync(int fd);
+SYSCALL int SYSCALL SysSyncMount(char *path);
+SYSCALL int SysFsync(int fd);
 
 /* fs/dir.c */
-int Chdir(char *path);
-int FChdir(int fd);
-int Mkdir(char *pathname, mode_t mode);
-int Rmdir(char *pathname);
-int Opendir(char *name);
-int Closedir(int fd);
-int Readdir(int fd, struct dirent *dirent);
-int Rewinddir(int fd);
+SYSCALL int SysChdir(char *path);
+SYSCALL int SysFChdir(int fd);
+SYSCALL int SysMkdir(char *pathname, mode_t mode);
+SYSCALL int SysRmdir(char *pathname);
+SYSCALL int SysOpendir(char *name);
+SYSCALL int SysClosedir(int fd);
+SYSCALL int SysReaddir(int fd, struct dirent *dirent);
+SYSCALL int SysRewinddir(int fd);
 
 /* fs/dnlc.c */
 int DNameLookup(struct VNode *dir, char *name, struct VNode **vnp);
@@ -418,16 +466,23 @@ void DNamePurgeVNode(struct VNode *vnode);
 void DNamePurgeSuperblock(struct SuperBlock *sb);
 void DNamePurgeAll(void);
 
+/* fs/exec.c */
+int CopyInArgv(char *pool, struct execargs *_args, struct execargs *args);
+int CopyOutArgv(void *stack_pointer, int stack_size, struct execargs *args);
+char *AllocArgPool(void);
+void FreeArgPool(char *mem);
+
+
 /* fs/file.c */
-int Open(char *_path, int oflags, mode_t mode);
-int Kopen(char *_path, int oflags, mode_t mode);
-int Truncate(int fd, size_t sz);
-int Remove(char *_path);
-int Rename(char *oldpath, char *newpath);
-int Dup(int h);
-int Dup2(int h, int new_h);
-int Close(int h);
-int Unlink(char *pathname);
+SYSCALL int SysOpen(char *_path, int oflags, mode_t mode);
+SYSCALL int Kopen(char *_path, int oflags, mode_t mode);
+SYSCALL int SysTruncate(int fd, size_t sz);
+SYSCALL int SysRemove(char *_path);
+SYSCALL int SysRename(char *oldpath, char *newpath);
+SYSCALL int SysDup(int h);
+SYSCALL int SysDup2(int h, int new_h);
+SYSCALL int SysClose(int h);
+SYSCALL int SysUnlink(char *pathname);
 
 /* fs/fs.c */
 
@@ -450,17 +505,27 @@ int InitVFS(void);
 int Lookup(char *_path, int flags, struct Lookup *lookup);
 
 /* fs/mount.c */
-int ChRoot(char *_new_root);
-int PivotRoot(char *_new_root, char *_old_root);
-int MoveMount(char *_new_mount, char *old_mount);
-int MkNod(char *_handlerpath, uint32_t flags, struct stat *stat);
-int Mount(char *_handlerpath, uint32_t flags, struct stat *stat);
-int Unmount(int fd, bool force);
+SYSCALL int SysChRoot(char *_new_root);
+SYSCALL int SysPivotRoot(char *_new_root, char *_old_root);
+SYSCALL int SysMoveMount(char *_new_mount, char *old_mount);
+SYSCALL int SysMkNod(char *_handlerpath, uint32_t flags, struct stat *stat);
+SYSCALL int SysMount(char *_handlerpath, uint32_t flags, struct stat *stat);
+SYSCALL int SysUnmount(int fd, bool force);
+
+/* fs/pipe.c */
+
+void InitPipes(void);
+struct Pipe *AllocPipe(void);
+void FreePipe(struct Pipe *pipe);
+SYSCALL int SysPipe(int _fd[2]);
+ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz);
+ssize_t WriteToPipe(struct VNode *vnode, void *_src, size_t sz);
 
 
 /* fs/poll.c */
-int Poll (struct pollfd *pfds, nfds_t nfds, int timeout);
-int PollNotify (int fd, int ino, short mask, short events);
+SYSCALL int SysPoll (struct pollfd *pfds, nfds_t nfds, int timeout);
+SYSCALL int SysPollNotify (int fd, int ino, short mask, short events);
+
 void WakeupPolls(struct VNode *vnode, short mask, short events);
 int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events);
 
@@ -470,14 +535,18 @@ void FreeQueue(struct Queue *q);
 ssize_t ReadQueue(struct Queue *q, void *_dst, size_t sz, int vmin, int vtime);
 ssize_t WriteQueue(struct Queue *q, void *_src, size_t sz, int vmin, int vtime);
 
-/* fs/rdwr.c */
-ssize_t Read(int fd, void *buf, size_t count);
-ssize_t Write(int fd, void *buf, size_t count);
+/* fs/read.c */
+SYSCALL ssize_t SysRead(int fd, void *buf, size_t count);
+ssize_t KRead(int fd, void *dst, size_t sz);
+
+/* fs/write.c */
+SYSCALL ssize_t SysWrite(int fd, void *buf, size_t count);
+
 
 ssize_t ReadFromChar (struct VNode *vnode, void *src,
                                size_t nbytes);
 ssize_t ReadFromCache (struct VNode *vnode, void *src,
-                               size_t nbytes, off64_t *offset);
+                               size_t nbytes, off64_t *offset, bool inkernel);
 ssize_t ReadFromFifo (struct VNode *vnode, void *src,
                                size_t nbytes);
 
@@ -489,8 +558,8 @@ ssize_t WriteToFifo (struct VNode *vnode, void *src,
                                size_t nbytes);
 
 /* fs/seek.c */
-off_t Seek(int fd, off_t pos, int whence);
-int Seek64(int fd, off64_t *pos, int whence);
+SYSCALL off_t SysSeek(int fd, off_t pos, int whence);
+SYSCALL int SysSeek64(int fd, off64_t *pos, int whence);
 
 /* fs/superblock.c */
 struct SuperBlock *AllocSuperBlock(void);
@@ -499,9 +568,11 @@ void LockSuperBlock(struct SuperBlock *sb);
 void UnlockSuperBlock(struct SuperBlock *sb);
 
 /* fs/socket.c */
-int SocketPair(int fd[2]);
+SYSCALL int SysSocketPair(int fd[2]);
 struct Socket *AllocSocket(void);
 void FreeSocket(struct Socket *socket);
+
+
 
 
 /* fs/vfs.c */
@@ -533,18 +604,29 @@ int vfs_rename(struct VNode *src_dvnode, char *src_name,
 int vfs_chmod(struct VNode *vnode, mode_t mode);
 int vfs_chown(struct VNode *vnode, uid_t uid, gid_t gid);
 
+
+
+
 /* fs/vnode.c */
 struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr);
-struct VNode *VNodeGet(struct SuperBlock *sb, int vnode_nr);
-void VNodePut(struct VNode *vnode);
-void VNodeIncRef(struct VNode *vnode);
-void VNodeDecRef(struct VNode *vnode);
-void VNodeFree(struct VNode *vnode);
-void VNodeLock(struct VNode *vnode);
-void VNodeUnlock(struct VNode *vnode);
-struct VNode *FindVNode(struct SuperBlock *sb, int inode_nr);
 
-void ValidateVNode(struct VNode *vnode);
+// Pull existing VNode into kernel
+struct VNode *VNodeGet(struct SuperBlock *sb, int vnode_nr);
+
+// Allow Vnode to be released from kernel (check it's ref count == 0)
+void VNodePut(struct VNode *vnode);
+
+void VNodeIncRef(struct VNode *vnode);    // Why not just vnode->ref_cnt++;
+void VNodeDecRef(struct VNode *vnode);    // vnode->ref_cnt --;
+
+void VNodeFree(struct VNode *vnode);      // Delete a vnode from cache and disk
+
+
+void VNodeLock(struct VNode *vnode);      // Acquire busy lock
+void VNodeUnlock(struct VNode *vnode);    // Release busy lock
+
+
+
 
 
 #endif

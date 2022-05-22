@@ -310,8 +310,8 @@ void FPUSwitchState(void);
 void DisableInterrupts(void);
 void EnableInterrupts(void);
 
-SYSCALL int MaskInterrupt(int irq);
-SYSCALL int UnmaskInterrupt(int irq);
+SYSCALL int SysMaskInterrupt(int irq);
+SYSCALL int SysUnmaskInterrupt(int irq);
 
 int MaskInterruptFromISR(int irq);
 int UnmaskInterruptFromISR(int irq);
@@ -323,6 +323,9 @@ void DisableIRQ(int irq);
 // ReleasePagecache();
 
 // pmap pagetable stuff built ontop of getpagecache/releasepagecache
+
+void isb(void);
+void dmb(void);
 
 void PmapPageFault(void);
 uint32_t *PmapGetPageTable(struct Pmap *pmap, int pde_idx);

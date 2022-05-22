@@ -69,10 +69,12 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
   int err = 0;
   struct stat stat;
   
+  Info ("DoOpen");
+  
   current = GetCurrentProcess();
   vnode = lookup->vnode;
   dvnode = lookup->parent;
-
+  
   if (vnode == NULL) {
     if ((oflags & O_CREAT) && IsAllowed(dvnode, W_OK) != 0) {
       VNodePut(dvnode);

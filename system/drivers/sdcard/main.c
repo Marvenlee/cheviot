@@ -24,8 +24,6 @@ int mountDevice(void);
 void SDRead(int ino, struct fsreq *req);
 void SDWrite(int ino, struct fsreq *req);
 
-// int GetMsg(int fd, void *buf, size_t sz);
-// int PutMsg(int fd, void *buf, size_t sz);
 
 
 /*

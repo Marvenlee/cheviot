@@ -60,7 +60,6 @@ int main(int argc, char **argv) {
 
 
 int DoInit(void) {
-  int fd;
   int status;
   struct stat stat;
   char *line;
@@ -68,16 +67,17 @@ int DoInit(void) {
   char *buf;
   int sc;
   int pid;
+  int startup_cfg_fd;
   
   
-  if ((fd = open("/etc/startup.cfg", O_RDWR)) < 0) {
+  if ((startup_cfg_fd = open("/etc/startup.cfg", O_RDWR)) < 0) {
     KLog("Failed to open /etc/startup.cfg");
     return -1;
   }
   
-  if ((sc = fstat(fd, &stat)) != 0) {
+  if ((sc = fstat(startup_cfg_fd, &stat)) != 0) {
     KLog ("fstat failed %d", sc);
-    close(fd);
+    close(startup_cfg_fd);
     return -1;
   }
   
@@ -85,12 +85,13 @@ int DoInit(void) {
   
   if (buf == NULL) {
     KLog ("malloc failed");
-    close(fd);
+    close(startup_cfg_fd);
     return -1;
   }
 
-  read(fd, buf, stat.st_size);
-
+  read(startup_cfg_fd, buf, stat.st_size);
+  close(startup_cfg_fd);
+  
   buf[stat.st_size] = '\0';
   src = buf;
   
@@ -102,7 +103,9 @@ int DoInit(void) {
       continue;
     }
     
-    if (strncmp("start", cmd, 5) == 0) {
+    if (strncmp("#", cmd, 1) == 0) {
+      // Comment
+    } else if (strncmp("start", cmd, 5) == 0) {
       cmdStart();
     } else if (strncmp("waitfor", cmd, 7) == 0) {
       cmdWaitfor();
@@ -141,7 +144,7 @@ int DoInit(void) {
 int cmdStart (void) {
   char *tok;
   int pid;
-    
+
   for (int t=0; t<ARG_SZ; t++)
   {
     tok = tokenize(NULL);
@@ -161,8 +164,6 @@ int cmdStart (void) {
 //  KLog ("pid = %d", pid);
   
   if (pid == 0) {  
-//    KLog ("execing...");
-    
     execve((const char *)argv[0], argv, NULL);
     
 //    KLog ("execve failed argv[0] = %08x", argv[0]);
@@ -345,9 +346,9 @@ int cmdPivot (void) {
   sc = PivotRoot (new_root, old_root);
 
   if (sc == 0) {
-    KLog ("!!!!!!!! pivotted !!!!!!!!!!!!!!");  
+    Debug ("!!!!!!!! pivotted !!!!!!!!!!!!!!");  
   } else {
-    KLog ("!!!!!!!! PIVOT FAILED !!!!!!!!!!!");  
+    Debug ("!!!!!!!! PIVOT FAILED !!!!!!!!!!!");  
   }
 
   return sc;
@@ -385,6 +386,8 @@ int cmdSettty (void) {
   int fd;
   int old_fd;
   char *tty;
+  
+  Debug("***** cmdSetty ******");
 
   tty = tokenize(NULL);
   
@@ -401,15 +404,14 @@ int cmdSettty (void) {
   }
   
   fd = fcntl(old_fd, F_DUPFD, 5);
-  
+
   close(old_fd);
-    
+
   dup2(fd, STDIN_FILENO);
   dup2(fd, STDOUT_FILENO);
   dup2(fd, STDERR_FILENO);
   
-  setbuf(stdout, NULL);
-  
+  setbuf(stdout, NULL);  
   PrintGreeting();
 
   tty_set = true;
@@ -433,8 +435,6 @@ int cmdSetEnv(void)
   
   setenv (name, value, 1);
 }
-
-
 
 /*!
  *

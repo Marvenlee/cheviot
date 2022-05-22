@@ -20,6 +20,7 @@
 
 #define KDEBUG
 
+#include <kernel/arm/arm.h>
 #include <kernel/arm/globals.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
@@ -39,14 +40,12 @@
 // Variables
 static char klog_entry[KLOG_WIDTH];
 bool processes_initialized = FALSE;
+bool debug_init = FALSE;
 
 // Prototypes
 static void KPrintString(char *s);
 
 #endif
-
-
-
 
 /*
  *
@@ -153,27 +152,26 @@ void configure_uart(void)
     uart_regs->imsc = INT_ALL;
     
     // Enable UART0, receive & transfer part of UART.
-//    uart_regs->ctrl = CR_UARTEN | CR_RXE;
+    // uart_regs->ctrl = CR_UARTEN | CR_RXE;
 
     uart_regs->ctrl = CR_UARTEN | CR_TXW | CR_RXE;
 
     dmb();
 }
-
 #endif
 
-
-/*
- * InitDebug();
+/* @brief Perform initialization of the kernel logger
  */
 void InitDebug(void) {
 #ifdef KDEBUG
-  configure_uart();
+//  configure_uart();
+  debug_init = TRUE;
 #endif  
 }
 
-/*
+/* @brief Notify the kernel logger that processes are now running.
  *
+ * Logging output is prefixed with the process ID of the caller 
  */
 void ProcessesInitialized(void) {
 #ifdef KDEBUG
@@ -195,8 +193,7 @@ SYSCALL void SysDebug(char *s) {
 #endif
 }
 
-/*
- * KLog();
+/* @brief backend of kernel logger.
  *
  * Used by the macros KPRINTF, KLOG, KASSERT and KPANIC to
  * print with printf formatting to the kernel's debug log buffer.
@@ -226,6 +223,8 @@ void DoLog(const char *format, ...) {
   va_end(ap);
 }
 
+/*
+ */
 void MemDump(void *_addr, size_t sz) {
   char line[64];
   char tmp[4];
@@ -243,10 +242,11 @@ void MemDump(void *_addr, size_t sz) {
     }    
 
     Info ("%s", line);
-  }
-    
+  } 
 }
 
+/*
+ */
 int MemCmp(void *m1, void *m2, size_t sz) {
   uint8_t *a, *b;
   a = m1;
@@ -279,16 +279,7 @@ void PrintKernelPanic(char *format, ...) {
   va_start(ap, format);
 
 #ifdef KDEBUG
-
-// TODO: Add mutexes here, need to check if already locked on entry/exit ????
-
-  if (processes_initialized) {
-    Snprintf(&klog_entry[0], 5, "%4d:", GetPid());
-    Vsnprintf(&klog_entry[5], KLOG_WIDTH - 5, format, ap);
-  } else {
-    Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
-  }
-
+  Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
   KPrintString(&klog_entry[0]);
   KPrintString("### Kernel Panic ###");
 #endif
@@ -298,8 +289,14 @@ void PrintKernelPanic(char *format, ...) {
   while(1);
 }
 
+
 #ifdef KDEBUG
 static void KPrintString(char *s) {  
+
+  if (debug_init == FALSE) {
+    return;
+  }
+  
   while (*s != '\0') {
     while (uart_regs->flags & FR_BUSY);        
     uart_regs->data = *s++;
@@ -309,6 +306,4 @@ static void KPrintString(char *s) {
   uart_regs->data = '\n';
 }
 #endif
-
-
 

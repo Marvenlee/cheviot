@@ -43,8 +43,12 @@
  *
  */
 int InitMsgPort(struct MsgPort *msgport, struct VNode *vnode) {
+
   LIST_INIT(&msgport->pending_msg_list);
   msgport->server_vnode = vnode;
+
+  Info ("InitMsgPort port:%08x, vnode:%08x", msgport, vnode);
+
   return 0;
 }
 
@@ -64,7 +68,8 @@ int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
   struct Process *current;
 
   current = GetCurrentProcess();
-
+  
+  Info ("KSendMsg...");
   KASSERT (port != NULL);
   KASSERT (vnode != NULL);
   KASSERT (msg != NULL);
@@ -79,6 +84,8 @@ int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
   InitRendez(&msg->rendez);  
   LIST_ADD_TAIL(&port->pending_msg_list, msg, link);
 
+  Info ("port->server_vnode = %08x", port->server_vnode);
+  
   WakeupPolls(port->server_vnode, POLLIN, POLLIN);
 
   while (msg->state != MSG_STATE_REPLIED) {
@@ -101,6 +108,8 @@ SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
   int nbytes_to_xfer;
   int remaining;
   int i;
+  
+  Info ("SysReceiveMsg, fd=%d", server_fd);
   
   filp = GetFilp(server_fd);
 

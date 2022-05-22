@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+// #define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -23,6 +23,43 @@
 #include <kernel/types.h>
 #include <kernel/vm.h>
 #include <string.h>
+
+
+void LogFDs(void)
+{
+  struct Filp *filp;
+  struct VNode *vnode;
+  
+  char buf[30];
+  
+  for (int t=0; t<6; t++)
+  {  
+    filp = GetFilp(t);
+    
+    if (filp)
+    {
+        vnode = filp->vnode;
+     
+        if (S_ISCHR(vnode->mode)) {  
+          Info ("FD[%d]: ISCHR",t);      
+        } else if (S_ISREG(vnode->mode)) {
+          Info ("FD[%d]: ISREG, sz:%d",t, vnode->size);
+        } else if (S_ISFIFO(vnode->mode)) {
+          Info ("FD[%d]: ISFIFO",t);    
+        } else if (S_ISBLK(vnode->mode)) {
+          Info ("FD[%d]: ISBLK",t);  
+        } else if (S_ISDIR(vnode->mode)) {
+          Info ("FD[%d]: ISDIR",t);  
+        } else {
+          Info ("FD[%d]: unknown",t);  
+        }
+    }
+    else
+    {
+      Info ("FD[%d]: -----", t);
+    }
+  }
+}
 
 
 
@@ -35,6 +72,9 @@ SYSCALL int SysFcntl (int fd, int cmd, int arg)
   struct Process *current;
   struct Filp *filp;
 	int new_fd;
+
+  Info("SysFcntl(%d, %d)", fd, cmd);
+  LogFDs();
   
   current = GetCurrentProcess();
 
@@ -51,20 +91,22 @@ SYSCALL int SysFcntl (int fd, int cmd, int arg)
 	switch(cmd)
 	{
       case F_DUPFD:	/* Duplicate fildes */
-	    if (arg < 0 || arg >= NPROC_FD) {
+  	    if (arg < 0 || arg >= NPROC_FD) {
           Info ("Fcntl F_DUPFD -EBADF");
           return -EBADF;
         }
 
-	    for (new_fd = arg; new_fd < NPROC_FD; new_fd++)
-	    {
-	      if (current->fd_table[new_fd] == NULL) {
-            current->fd_table[new_fd] = current->fd_table[fd];            
-            filp->reference_cnt++;          
-            return new_fd;  
+	      for (new_fd = arg; new_fd < NPROC_FD; new_fd++)
+	      {
+	        if (current->fd_table[new_fd] == NULL) {
+              current->fd_table[new_fd] = current->fd_table[fd];            
+              filp->reference_cnt++;          
+              
+              Info ("fcntl dup, new_fd: %d", new_fd);
+              return new_fd;  
           }
         }
-      
+        
         Info ("Fcntl F_DUPFD -ENOMEM");        
         return -ENOMEM;
     
@@ -110,6 +152,9 @@ SYSCALL int SysDup(int fd) {
   struct Filp *filp;
   struct Process *current;
 
+  Info("Dup: %d", fd);
+  LogFDs();
+
   current = GetCurrentProcess();
 
   filp = GetFilp(fd);
@@ -124,6 +169,10 @@ SYSCALL int SysDup(int fd) {
     if (current->fd_table[new_fd] == NULL) {
       current->fd_table[new_fd] = current->fd_table[fd];  
       filp->reference_cnt++;
+
+      Info ("%d = SysDup (%d)", new_fd, fd);
+      LogFDs();
+
       return new_fd;
     }
   }
@@ -139,6 +188,9 @@ SYSCALL int SysDup2(int fd, int new_fd) {
   struct Filp *filp;
   struct Process *current;
 
+  Info ("SysDup2 (%d, %d)", fd, new_fd);
+  LogFDs();
+  
   current = GetCurrentProcess();
 
   if (new_fd < 0 || new_fd >= NPROC_FD) {
@@ -160,19 +212,21 @@ SYSCALL int SysDup2(int fd, int new_fd) {
 
   current->fd_table[new_fd] = current->fd_table[fd];
   filp->reference_cnt++;
-//  Info ("Dup2 done, fd:%d, new_fd:%d", fd, new_fd);
+  Info ("Dup2 done, fd:%d, new_fd:%d", fd, new_fd);
+  LogFDs();
+
   return new_fd;
 }
 
 
 SYSCALL int SysClose(int fd) {
   struct Filp *filp;
-  struct Process *current;
   struct Pipe *pipe;
   struct VNode *vnode;
-  
-  current = GetCurrentProcess();
 
+  Info("SysClose(%d)", fd);
+  LogFDs();
+  
   filp = GetFilp(fd);
 
   if (filp == NULL) {
@@ -190,10 +244,19 @@ SYSCALL int SysClose(int fd) {
       TaskWakeupAll(&pipe->rendez);
     }
 
-    //  VNodePut(vnode);
+    Info ("Close vnode put = %08x", vnode);
+    VNodePut(vnode);
+  }
+  else
+  {
+    Info("Close vnode is NULL");
   }
   
   FreeHandle(fd);
+  
+  Info("SysClose FDs...");
+  LogFDs();
+
   return 0;
 }
 
@@ -288,9 +351,12 @@ int FreeHandle(int fd) {
   struct Process *current;
   struct Filp *filp;
   
+  Info ("FreeHandle(%d)", fd);
+  
   current = GetCurrentProcess();
   
   if (fd < 0 || fd >= NPROC_FD) {
+    Info("FreeHandle %d EINVAL", fd);
     return -EINVAL;
   }
 

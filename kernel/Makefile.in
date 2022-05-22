@@ -71,13 +71,14 @@ PROGRAMS = $(sbin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
 am_kernel_OBJECTS = arm/arm.$(OBJEXT) arm/debug.$(OBJEXT) \
 	arm/exception.$(OBJEXT) arm/globals.$(OBJEXT) \
-	arm/init_arm.$(OBJEXT) arm/init_proc.$(OBJEXT) \
+	arm/idle.$(OBJEXT) arm/init_arm.$(OBJEXT) \
+	arm/init_proc.$(OBJEXT) arm/init_root.$(OBJEXT) \
 	arm/init_vm.$(OBJEXT) arm/interrupt.$(OBJEXT) \
 	arm/main.$(OBJEXT) arm/pmap.$(OBJEXT) arm/proc.$(OBJEXT) \
 	arm/raspberry.$(OBJEXT) arm/signals.$(OBJEXT) \
-	arm/tasks.$(OBJEXT) arm/vectors.$(OBJEXT) \
-	proc/globals.$(OBJEXT) proc/interrupt.$(OBJEXT) \
-	proc/proc.$(OBJEXT) proc/sched.$(OBJEXT) proc/signal.$(OBJEXT) \
+	arm/vectors.$(OBJEXT) proc/globals.$(OBJEXT) \
+	proc/interrupt.$(OBJEXT) proc/proc.$(OBJEXT) \
+	proc/sched.$(OBJEXT) proc/signal.$(OBJEXT) \
 	proc/timer.$(OBJEXT) fs/access.$(OBJEXT) fs/block.$(OBJEXT) \
 	fs/cache.$(OBJEXT) fs/char.$(OBJEXT) fs/dir.$(OBJEXT) \
 	fs/dnlc.$(OBJEXT) fs/exec.$(OBJEXT) fs/handle.$(OBJEXT) \
@@ -220,17 +221,18 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 kernel_SOURCES = arm/arm.S arm/debug.c arm/exception.c arm/globals.c \
-	arm/init_arm.c arm/init_proc.c arm/init_vm.c arm/interrupt.c \
-	arm/main.c arm/pmap.c arm/proc.c arm/raspberry.c arm/signals.c \
-	arm/tasks.c arm/vectors.S proc/globals.c proc/interrupt.c \
-	proc/proc.c proc/sched.c proc/signal.c proc/timer.c \
-	fs/access.c fs/block.c fs/cache.c fs/char.c fs/dir.c fs/dnlc.c \
-	fs/exec.c fs/handle.c fs/id.c fs/init.c fs/ioctl.c fs/link.c \
-	fs/lookup.c fs/mount.c fs/msg.c fs/open.c fs/pipe.c fs/poll.c \
-	fs/read.c fs/rename.c fs/seek.c fs/signal.c fs/stat.c \
-	fs/superblock.c fs/symlink.c fs/sync.c fs/truncate.c fs/vfs.c \
-	fs/vnode.c fs/write.c utility/doprintf.c utility/string.c \
-	vm/as.c vm/page.c vm/pagefault.c vm/segment.c vm/vm.c
+	arm/idle.c arm/init_arm.c arm/init_proc.c arm/init_root.c \
+	arm/init_vm.c arm/interrupt.c arm/main.c arm/pmap.c arm/proc.c \
+	arm/raspberry.c arm/signals.c arm/vectors.S proc/globals.c \
+	proc/interrupt.c proc/proc.c proc/sched.c proc/signal.c \
+	proc/timer.c fs/access.c fs/block.c fs/cache.c fs/char.c \
+	fs/dir.c fs/dnlc.c fs/exec.c fs/handle.c fs/id.c fs/init.c \
+	fs/ioctl.c fs/link.c fs/lookup.c fs/mount.c fs/msg.c fs/open.c \
+	fs/pipe.c fs/poll.c fs/read.c fs/rename.c fs/seek.c \
+	fs/signal.c fs/stat.c fs/superblock.c fs/symlink.c fs/sync.c \
+	fs/truncate.c fs/vfs.c fs/vnode.c fs/write.c \
+	utility/doprintf.c utility/string.c vm/as.c vm/page.c \
+	vm/pagefault.c vm/segment.c vm/vm.c
 AM_CFLAGS = -O2 -std=c99 -g0
 AM_CPPFLAGS = -I$(srcdir)/h
 AM_CCASFLAGS = -r -I$(srcdir)/h
@@ -330,9 +332,12 @@ arm/exception.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
 arm/globals.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
+arm/idle.$(OBJEXT): arm/$(am__dirstamp) arm/$(DEPDIR)/$(am__dirstamp)
 arm/init_arm.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
 arm/init_proc.$(OBJEXT): arm/$(am__dirstamp) \
+	arm/$(DEPDIR)/$(am__dirstamp)
+arm/init_root.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
 arm/init_vm.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
@@ -345,7 +350,6 @@ arm/raspberry.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
 arm/signals.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
-arm/tasks.$(OBJEXT): arm/$(am__dirstamp) arm/$(DEPDIR)/$(am__dirstamp)
 arm/vectors.$(OBJEXT): arm/$(am__dirstamp) \
 	arm/$(DEPDIR)/$(am__dirstamp)
 proc/$(am__dirstamp):
@@ -435,8 +439,10 @@ mostlyclean-compile:
 	-rm -f arm/debug.$(OBJEXT)
 	-rm -f arm/exception.$(OBJEXT)
 	-rm -f arm/globals.$(OBJEXT)
+	-rm -f arm/idle.$(OBJEXT)
 	-rm -f arm/init_arm.$(OBJEXT)
 	-rm -f arm/init_proc.$(OBJEXT)
+	-rm -f arm/init_root.$(OBJEXT)
 	-rm -f arm/init_vm.$(OBJEXT)
 	-rm -f arm/interrupt.$(OBJEXT)
 	-rm -f arm/main.$(OBJEXT)
@@ -444,7 +450,6 @@ mostlyclean-compile:
 	-rm -f arm/proc.$(OBJEXT)
 	-rm -f arm/raspberry.$(OBJEXT)
 	-rm -f arm/signals.$(OBJEXT)
-	-rm -f arm/tasks.$(OBJEXT)
 	-rm -f arm/vectors.$(OBJEXT)
 	-rm -f fs/access.$(OBJEXT)
 	-rm -f fs/block.$(OBJEXT)
@@ -497,8 +502,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/debug.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/exception.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/globals.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/idle.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/init_arm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/init_proc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/init_root.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/init_vm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/interrupt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/main.Po@am__quote@
@@ -506,7 +513,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/proc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/raspberry.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/signals.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/tasks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@arm/$(DEPDIR)/vectors.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fs/$(DEPDIR)/access.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fs/$(DEPDIR)/block.Po@am__quote@

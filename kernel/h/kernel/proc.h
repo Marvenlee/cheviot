@@ -212,20 +212,18 @@ struct Process {
 // interrupt.c
 
 
-int CreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api));
+SYSCALL int CreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api));
 
 
 // TODO: Move Exec protos into filesystem.c
-int Exec(char *filename, struct execargs *args);
-int KExecImage(void *image, struct execargs *_args);
-int Kexec(char *filename);
+SYSCALL int SysExec(char *filename, struct execargs *args);
 
-void Exit(int status);
-int WaitPid(int handle, int *status, int options);
+SYSCALL void SysExit(int status);
+SYSCALL int SysWaitPid(int handle, int *status, int options);
 
 // proc.c
 
-int Fork(void);
+SYSCALL int SysFork(void);
 
 struct Process *AllocProcess(void);
 void FreeProcess(struct Process *proc);
@@ -262,6 +260,15 @@ void KernelLock(void);
 void KernelUnlock(void);
 bool IsKernelLocked(void);
 
+
+/* proc/signal.c */
+
+SYSCALL int SysKill (int pid, int signal);
+
+
+/* proc/timer.c */
+SYSCALL int SysSleep(int seconds);
+
 // Architecture-specific
 
 void GetContext(uint32_t *context);
@@ -274,9 +281,9 @@ void ArchFreeProcess(struct Process *proc);
 // void SwitchTasks (struct  *current, struct TaskState *next, struct CPU *cpu);
 
 int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events);
-int UnmaskInterrupt(int irq);
-int MaskInterrupt(int irq);
 
+int SYSCALL SysUnmaskInterrupt(int irq);
+int SYSCALL SysMaskInterrupt(int irq);
 
 void InterruptLock(void); // Effectively spinlock_irq_save(&intr_spinlock);
 void InterruptUnlock(void);

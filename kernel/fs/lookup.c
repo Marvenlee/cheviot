@@ -32,7 +32,7 @@ static struct VNode *Advance(struct VNode **cur_vnode, char *component,
                              struct Lookup *lookup);
 
 /*
- *
+ * TODO: Need to handle chroot, don't allow paths to go above process's root
  */
 int Lookup(char *_path, int flags, struct Lookup *lookup) {
   struct Process *current;
@@ -64,7 +64,6 @@ int Lookup(char *_path, int flags, struct Lookup *lookup) {
     last--;
   }
 
-  // Why special case "/" path ?
   if (StrCmp(lookup->path, "/") == 0) {
     if (LOOKUP_TYPE(flags) & (LOOKUP_PARENT | LOOKUP_REMOVE)) {
       err = -EINVAL;
@@ -77,9 +76,10 @@ int Lookup(char *_path, int flags, struct Lookup *lookup) {
     lookup->last_component = &lookup->path[1];
   } else {
     lookup->start_vnode =
-        (lookup->path[0] == '/') ? root_vnode : current->current_dir;
+        (lookup->path[0] == '/') ? root_vnode->vnode_mounted_here : current->current_dir;
 
     if (lookup->start_vnode == NULL) {
+      Info("LookupPath failed, no start vnode");
       err = -EINVAL;
       goto exit;
     }
@@ -288,15 +288,25 @@ static struct VNode *Advance(struct VNode **_cur_vnode, char *component,
     Info ("Advance failed, no vnode or component");
     return NULL;
   }
+  
+  
+  
+  // TODO: Handle covered vnode before lookup?
+  
+
 
   Info (".. cur_vnode->inode_nr = %d",cur_vnode->inode_nr);
 
   if (cur_vnode == cur_vnode->superblock->root) {
     if (component[0] == '.' && component[1] == '.' && component[2] == '\0') {
+      Info ("Component is ..");
+      
       if (cur_vnode->vnode_covered == NULL) {
         Info ("Advance() failed, vnode->covered == NULL");
         return NULL;
       }
+      
+      Info ("vnode is covered");
 
       new_cur_vnode = cur_vnode->vnode_covered;
       VNodeIncRef(cur_vnode);
@@ -304,9 +314,12 @@ static struct VNode *Advance(struct VNode **_cur_vnode, char *component,
       cur_vnode = new_cur_vnode;
       Info ("cur_vnode is covered, switching to it");
     }
+    
+    Info ("cur_vnode == superblock->root");
   }
 
-
+  Info("vfs_lookup");
+  
   if (vfs_lookup(cur_vnode, component, &new_vnode) != 0) {
     Info("(Advance - vfs_lookup %s failed", component);
     Info (".. (check) cur_vnode->inode_nr = %d",cur_vnode->inode_nr);
@@ -351,6 +364,8 @@ static struct VNode *Advance(struct VNode **_cur_vnode, char *component,
           VNodeIncRef(new_vnode);
       }
   */
+  
+  Info ("Advance:vnode %08x", (uint32_t)new_vnode);
 
   return new_vnode;
 }

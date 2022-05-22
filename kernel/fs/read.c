@@ -46,14 +46,23 @@ SYSCALL ssize_t SysRead(int fd, void *dst, size_t sz) {
     return -EACCES;
   }
 
-  if (S_ISCHR(vnode->mode)) {
+  // Can VNode lock fail?  Can we do multiple readers/single writer ?
+  VNodeLock(vnode);
+
+  // Needed for all vnode operations that can block, even briefly
+
+
+  // Separate into vnode_ops structure for each device type
+
+  if (S_ISCHR(vnode->mode)) {  
     xfered = ReadFromChar (vnode, dst, sz);
+    Info("%d = ReadFromChar", xfered);
   } else if (S_ISREG(vnode->mode)) {
-    xfered = ReadFromCache (vnode, dst, sz, &filp->offset);
+    xfered = ReadFromCache (vnode, dst, sz, &filp->offset, false);
   } else if (S_ISFIFO(vnode->mode)) {
-    xfered = ReadFromPipe (vnode, dst, sz, &filp->offset);  
+//    xfered = ReadFromPipe (vnode, dst, sz, &filp->offset);  
   } else if (S_ISBLK(vnode->mode)) {
-    xfered = ReadFromCache (vnode, dst, sz, &filp->offset);
+    xfered = ReadFromCache (vnode, dst, sz, &filp->offset, false);   // FIXME: Don't cache block devices
   } else if (S_ISDIR(vnode->mode)) {
     xfered = -EINVAL;
   } else {
@@ -61,6 +70,48 @@ SYSCALL ssize_t SysRead(int fd, void *dst, size_t sz) {
     xfered = -EINVAL;
   }
   
+  // Update accesss timestamps
+  
+  VNodeUnlock(vnode);
+  
   return xfered;
 }
+
+/*
+ *
+ */
+ssize_t KRead(int fd, void *dst, size_t sz) {
+  struct Filp *filp;
+  struct VNode *vnode;
+  ssize_t xfered;
+  
+  filp = GetFilp(fd);
+
+  if (filp == NULL) {
+    return -EINVAL;
+  }
+
+  vnode = filp->vnode;
+
+  if (IsAllowed(vnode, R_OK) != 0) {
+    return -EACCES;
+  }
+
+  VNodeLock(vnode);
+  
+  if (S_ISREG(vnode->mode)) {
+    xfered = ReadFromCache (vnode, dst, sz, &filp->offset, true);
+  } else {
+    Info ("Read from unknown, -EINVAL (oct) %o", vnode->mode);
+    xfered = -EINVAL;
+  }
+  
+  VNodeUnlock(vnode);
+  
+  return xfered;
+}
+
+
+
+
 

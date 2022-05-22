@@ -32,8 +32,31 @@
 #include <kernel/utility.h>
 #include <kernel/vm.h>
 
-/*
- *   Main();
+/* @brief Entry point into the kernel
+ *
+ * The kernel is mapped at 0x80100000 along with the bootloader and page tables
+ * The bootloader is mapped at 0x00008000 (32K)
+ * The kernel's physical address starts at 0x00100000 (1MB)
+ * Tootloader supplies initial pagetables.  Located above kernel.
+ * The IFS image was mapped to the top of memory by the bootloader.
+ *
+ * Root process uses it as template for kernel PTEs.
+ *
+ * Bootinfo copied into kernel.  Shouldn't be any data below 1MB.
+ * In init page tables, don't care if bootloader is mapped or not.
+ * Only want to reserve pages for the IFS at the top of RAM
+ * InitVM reserve pages for IFS image, marks as in use
+ * Need to read from IFS image, VirtualAlloc and copy segments from image
+ *
+ * Kernel marks bootloader pages below 1MB as free.
+ * 
+ * Kernel creates the root process and initially populates it with the IFS image.
+ * The kernel loads the IFS executable ELF sections into the root process by
+ * reading the IFS image in the root process's address space.
+ * The kernel allocates the stack and passes the virtual base and size of the IFS image.
+ *
+ * IFS process is the root process, it forks to create the process that handles
+ * the IFS mount.
  */
 void Main(void) {
   MemCpy(&bootinfo_kernel, bootinfo, sizeof bootinfo_kernel);
@@ -69,13 +92,27 @@ void Main(void) {
   InitBufferCachePagetables();
 
   InitDebug();
+  
+  Info("Hello from kernel!\n");
+  
   InitArm();
+  
+  Info("InitArm ok");
+  
   InitVM();
+
+  Info("InitVM ok");
+
   InitVFS();
+
+  Info("InitVFS ok");
   
   InitProcesses();
-  while (1)
-    ;
+
+  Info("InitProcesses failed");
+
+  while (1) {
+  }
 }
 
 /*
@@ -96,3 +133,4 @@ void *KernelAlloc(vm_size sz) {
   _heap_current += ALIGN_UP(sz, PAGE_SIZE);
   return (void *)va;
 }
+

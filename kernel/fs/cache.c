@@ -21,12 +21,11 @@
 #include <kernel/globals.h>
 #include <kernel/proc.h>
 #include <kernel/types.h>
+#include <string.h>
 
-
-/*
- * ReadFromCache();
+/* @brief Read from a file through the VFS file cache
  */
-ssize_t ReadFromCache (struct VNode *vnode, void *dst, size_t sz, off64_t *offset) {
+ssize_t ReadFromCache (struct VNode *vnode, void *dst, size_t sz, off64_t *offset, bool inkernel) {
   struct Buf *buf;
   off_t cluster_base;
   off_t cluster_offset;
@@ -57,12 +56,18 @@ ssize_t ReadFromCache (struct VNode *vnode, void *dst, size_t sz, off64_t *offse
     buf = BRead(vnode, cluster_base);
 
     if (buf == NULL) {
-      // update datestamps still ?
-      return sz - nbytes_remaining;
+      break;
     }
 
-    CopyOut(dst, buf->addr + cluster_offset, nbytes_xfered);
-
+    if (inkernel == true)
+    {
+        memcpy(dst, buf->addr + cluster_offset, nbytes_xfered);
+    }
+    else
+    {    
+        CopyOut(dst, buf->addr + cluster_offset, nbytes_xfered);
+    }
+    
     BRelse(buf);
 
     dst += nbytes_xfered;
@@ -70,16 +75,10 @@ ssize_t ReadFromCache (struct VNode *vnode, void *dst, size_t sz, off64_t *offse
     nbytes_remaining -= nbytes_xfered;
   }
 
-  VNodeLock(vnode);
-  // Update access datestamps.      
-  VNodeUnlock(vnode);
-
   return sz - nbytes_remaining;
 }
 
-
-/*
- * WriteToCache();
+/* @brief Write to a file through the VFS file cache
  */
 ssize_t WriteToCache (struct VNode *vnode, void *src, size_t sz, off64_t *offset) {
   struct Buf *buf;
@@ -104,8 +103,7 @@ ssize_t WriteToCache (struct VNode *vnode, void *src, size_t sz, off64_t *offset
     buf = BRead(vnode, cluster_base);
 
     if (buf == NULL) {
-      // update datestamps still?
-      return sz - nbytes_remaining;
+      break;
     }
 
     if (buf->cluster_size < cluster_offset + nbytes_xfered) {
@@ -127,17 +125,10 @@ ssize_t WriteToCache (struct VNode *vnode, void *src, size_t sz, off64_t *offset
               // Or bitmap of 1k blocks?
   }
 
-  VNodeLock(vnode);
-  // Update access datestamps.      
-  VNodeUnlock(vnode);
-
-
   return sz - nbytes_remaining;
 }
 
-
-/*
- * GetBlk();
+/* @Brief Get a cached block of a file
  */
 struct Buf *GetBlk(struct VNode *vnode, uint64_t cluster_offset) {
   struct Buf *buf;

@@ -11,16 +11,16 @@ mkdir -p build/$KERNEL_IFS_DIR/dev/serial
 mkdir -p build/$KERNEL_IFS_DIR/home
 mkdir -p build/$KERNEL_IFS_DIR/media/sd1fs
 mkdir -p build/$KERNEL_IFS_DIR/root
-mkdir -p build/$KERNEL_IFS_DIR/host/etc
-mkdir -p build/$KERNEL_IFS_DIR/drivers
+mkdir -p build/$KERNEL_IFS_DIR/sbin
+mkdir -p build/$KERNEL_IFS_DIR/etc
 
 cp build/host/boot/sbin/kernel      build/$KERNEL_IFS_DIR/boot/
-cp build/host/sbin/init             build/$KERNEL_IFS_DIR/boot/
-cp build/host/sbin/serial           build/$KERNEL_IFS_DIR/drivers/
-cp build/host/sbin/sdcard           build/$KERNEL_IFS_DIR/drivers/
-cp build/host/sbin/fatfs            build/$KERNEL_IFS_DIR/drivers/
-cp build/host/sbin/ifs              build/$KERNEL_IFS_DIR/drivers/
-cp build/host/sbin/devfs            build/$KERNEL_IFS_DIR/drivers/
+cp build/host/sbin/init             build/$KERNEL_IFS_DIR/sbin/
+cp build/host/sbin/serial           build/$KERNEL_IFS_DIR/sbin/
+cp build/host/sbin/sdcard           build/$KERNEL_IFS_DIR/sbin/
+cp build/host/sbin/fatfs            build/$KERNEL_IFS_DIR/sbin/
+cp build/host/sbin/ifs              build/$KERNEL_IFS_DIR/sbin/
+cp build/host/sbin/devfs            build/$KERNEL_IFS_DIR/sbin/
 cp build/host/etc/startup.cfg       build/$KERNEL_IFS_DIR/etc/
 cp build/host/bin/ksh               build/$KERNEL_IFS_DIR/bin/
 	

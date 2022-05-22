@@ -17,8 +17,6 @@
 /*
  * ARM-specific process creation and deletion code.
  */
- 
-//#define KDEBUG
 
 #include <kernel/arm/arm.h>
 #include <kernel/arm/globals.h>
@@ -34,28 +32,21 @@
 extern void StartForkProcess(void);
 extern void StartExecProcess(void);
 
-
-
-/*
- * ArchAllocProcess();
+/* @brief Set CPU registers in preparation for a process forking
+ *
  * Executed on the context of the parent process. Initializes CPU state
  * and kernel stack so that PrepareProcess() is executed on the context
  * of the new process.
  */
-
 int ArchForkProcess(struct Process *proc, struct Process *current) {
   struct UserContext *uc_current;
   struct UserContext *uc_proc;
   uint32_t *context;
 
-  Info ("ArchForkProcess proc = %08x, current = %08x", (vm_addr)proc, (vm_addr)current);
-  
   uc_current = (struct UserContext *)((vm_addr)current + PROCESS_SZ -
                                       sizeof(struct UserContext));
   uc_proc = (struct UserContext *)((vm_addr)proc + PROCESS_SZ -
                                    sizeof(struct UserContext));
-
-  Info ("pc = %08x, sp = %08x, lr = %08x", uc_current->pc, uc_current->sp, uc_current->lr);
 
   uc_proc->r0 = 0;
   uc_proc->r1 = uc_current->r1;
@@ -97,24 +88,13 @@ int ArchForkProcess(struct Process *proc, struct Process *current) {
   return 0;
 }
 
-/*
- *
+/* @brief Set CPU registers in preparation for a process Exec'ing
  */
-
-void ArchFreeProcess(struct Process *proc) {
-}
-
-//int execing = 0;
-
 void ArchInitExec(struct Process *proc, void *entry_point,
                   void *stack_pointer, struct execargs *args) {
   struct UserContext *uc;
   uint32_t *context;
   uint32_t cpsr;
-
-  Info ("ArchInitExec entry_point %08x, sp = %08x", (uint32_t)entry_point, (uint32_t)stack_pointer);
-
-  // FIXME : Change back to USR mode.
 
   cpsr = cpsr_dnm_state | USR_MODE | CPSR_DEFAULT_BITS; 
   uc = (struct UserContext *)((vm_addr)proc + PROCESS_SZ -
@@ -142,9 +122,11 @@ void ArchInitExec(struct Process *proc, void *entry_point,
 
   proc->catch_state.pc = 0xdeadbeef;
 
-//  execing = 1;
-
-//  if (proc != root_process) {
-    GetContext(proc->context);
-//  }
+  GetContext(proc->context);
 }
+
+/* @brief Architecture specific handling when freeing a process
+ */
+void ArchFreeProcess(struct Process *proc) {
+}
+

@@ -122,6 +122,8 @@ extern struct Process *root_process;
  * macros above.
  */
 
+SYSCALL void SysDebug(char *s);
+
 void DoLog(const char *format, ...);
 void KLog2(const char *format, va_list ap);
 void PrintKernelPanic(char *format, ...);

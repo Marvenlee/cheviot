@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -39,10 +39,12 @@ SYSCALL int SysChDir(char *_path) {
   Info ("ChDir");
 
   if ((err = Lookup(_path, 0, &lookup)) != 0) {
+    Info ("Chdir lookup err:%d", err);
     return err;
   }
 
   if (!S_ISDIR(lookup.vnode->mode)) {
+    Info ("ChDir -ENOTDIR");
     return -ENOTDIR;
   }
 
@@ -156,20 +158,19 @@ SYSCALL ssize_t SysReadDir(int fd, void *dst, size_t sz) {
   struct VNode *vnode = NULL;
   ssize_t dirents_sz;
   off64_t cookie;
-  uint8_t buffer[512];
-  
+  uint8_t buffer[512];    // FIXME: add constant name, 255 is max filename length, 512 reasonable size for multiple dirents 
   
   filp = GetFilp(fd);
 
   if (filp == NULL) {
-    Info ("K Readdir EINVAL");
+    Info ("Readdir EINVAL");
     return -EINVAL;
   }
 
   vnode = filp->vnode;
 
   if (!S_ISDIR(vnode->mode)) {
-    Info ("K Readdir ENOTDIR");
+    Info ("Readdir ENOTDIR");
     return -ENOTDIR;
   }
   

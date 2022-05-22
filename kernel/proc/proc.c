@@ -14,8 +14,6 @@
  * limitations under the License.
  */
  
-//#define KDEBUG
-
 #include <kernel/arm/elf.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
@@ -29,8 +27,7 @@
 #include <string.h>
 #include <sys/execargs.h>
 
-
-/*
+/* @brief System call to fork the calling process
  *
  */
 SYSCALL int SysFork(void) {
@@ -66,8 +63,7 @@ SYSCALL int SysFork(void) {
   return GetProcessPid(proc);
 }
 
-/*
- * System call to exit a process.
+/* @brief System call to exit the calling process.
  */
 SYSCALL void SysExit(int status) {
   struct Process *current;
@@ -114,7 +110,7 @@ SYSCALL void SysExit(int status) {
   TaskWakeup(&parent->rendez);
 
   DisableInterrupts();
-  KASSERT(bkl_locked == TRUE);
+  KASSERT(bkl_locked == true);
   
   if (bkl_owner != current) {
       Info ("bkl_owner = %08x", (vm_addr)bkl_owner);
@@ -129,7 +125,7 @@ SYSCALL void SysExit(int status) {
     bkl_owner = proc;
     SchedReady(proc);
   } else {
-    bkl_locked = FALSE;
+    bkl_locked = false;
     bkl_owner = NULL;
   }
 
@@ -139,13 +135,12 @@ SYSCALL void SysExit(int status) {
   EnableInterrupts();
 }
 
-/*
- * TODO: Need to handle signals
+/* @brief System call to wait for child processes to exit
  */
 SYSCALL int SysWaitPid(int pid, int *status, int options) {
   struct Process *current;
   struct Process *child;
-  bool found = FALSE;
+  bool found = false;
   int found_in_pgrp = 0;
   int err = 0;
   
@@ -158,12 +153,12 @@ SYSCALL int SysWaitPid(int pid, int *status, int options) {
   while (!found) // && pending_signals
   {
     if (pid > 0) {
-      found = FALSE;
+      found = false;
 
       child = GetProcess(pid);
       if (child != NULL && child->in_use != false && child->parent == current) {
         if (child->state == PROC_STATE_ZOMBIE) {
-          found = TRUE;
+          found = true;
         }
       } else {
         err = -EINVAL;
@@ -181,7 +176,7 @@ SYSCALL int SysWaitPid(int pid, int *status, int options) {
         goto exit;
       }
 
-      found = FALSE;
+      found = false;
       found_in_pgrp = 0;
 
       while (child != NULL) {
@@ -189,7 +184,7 @@ SYSCALL int SysWaitPid(int pid, int *status, int options) {
           found_in_pgrp++;
 
           if (child->state == PROC_STATE_ZOMBIE) {
-            found = TRUE;
+            found = true;
             break;
           }
         }
@@ -211,11 +206,11 @@ SYSCALL int SysWaitPid(int pid, int *status, int options) {
         goto exit;
       }
 
-      found = FALSE;
+      found = false;
 
       while (child != NULL) {
         if (child->state == PROC_STATE_ZOMBIE) {
-          found = TRUE;
+          found = true;
           break;
         }
 
@@ -232,7 +227,7 @@ SYSCALL int SysWaitPid(int pid, int *status, int options) {
         goto exit;
       }
 
-      found = FALSE;
+      found = false;
       found_in_pgrp = 0;
 
       while (child != NULL) {
@@ -240,7 +235,7 @@ SYSCALL int SysWaitPid(int pid, int *status, int options) {
           found_in_pgrp++;
 
           if (child->state == PROC_STATE_ZOMBIE) {
-            found = TRUE;
+            found = true;
             break;
           }
         }
@@ -291,8 +286,7 @@ exit:
   return err;
 }
 
-/*
- * AllocProcess();
+/* @brief Allocate a process structure
  */
 struct Process *AllocProcess(void) {
   struct Process *proc = NULL;
@@ -338,15 +332,14 @@ struct Process *AllocProcess(void) {
   return proc;
 }
 
-/*
- * FreeProcess();
- *
- * Only parent can free process struct.
+/* @brief Free a process structure
  */
 void FreeProcess(struct Process *proc) {
   proc->in_use = false;
 }
 
+/* @brief Get the process structure of the calling process
+ */
 struct Process *GetProcess(int pid) {
   if (pid < 0 || pid >= max_process) {
     return NULL;
@@ -355,16 +348,14 @@ struct Process *GetProcess(int pid) {
   return (struct Process *)((uint8_t *)process_table + (pid * PROCESS_SZ));
 }
 
-/*
- *
+/* @brief Get the process ID of a process
  */
 int GetProcessPid(struct Process *proc)
 {
   return proc->pid;
 }
 
-/*
- *
+/* @brief Get the Process ID of the calling process
  */
 int GetPid(void)
 {

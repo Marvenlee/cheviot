@@ -23,14 +23,14 @@
 #include <kernel/types.h>
 #include <string.h>
 
-void ValidateVNode(struct VNode *vnode)
-{
-  if ((vm_addr)vnode < (vm_addr)vnode_table || (vm_addr)vnode >= (vm_addr)(vnode_table + max_vnode)) {
-    Info ("vnode out of range, addr:%08x", (vm_addr)vnode);
-    KernelPanic();
-  }
-}
 
+// Static prototypes
+static struct VNode *VNodeFind(struct SuperBlock *sb, int inode_nr);
+
+
+/* @brief Allocate a new vnode
+ *
+ */
 struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
@@ -49,7 +49,10 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   // DNamePurgeVNode(vnode);
   // BSync(vnode)
   //
-  ValidateVNode(vnode);
+
+  // Make sure vnode doesn't already exist
+  
+  
 
   memset(vnode, 0, sizeof *vnode);
 // FIXME vnode->vnode_mounted_here = NULL;
@@ -76,7 +79,8 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   return vnode;
 }
 
-/*
+/* @brief Find an existing vnode
+ *
  * Finds a vnode from a given superblock and vnode number.
  * Returns an existing vnode if it is still in the vnode cache.
  * If the vnode is not in the cache then another free vnode is
@@ -96,7 +100,7 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
     if (sb->flags & S_ABORT)
       return NULL;
 
-    if ((vnode = FindVNode(sb, inode_nr)) != NULL) {
+    if ((vnode = VNodeFind(sb, inode_nr)) != NULL) {
 /*
       if (vnode->busy == 1) {
         KLog ("Found vnode, vnode busy, sleeping");
@@ -140,7 +144,7 @@ void VNodeDecRef(struct VNode *vnode) {
 
 
 // FIXME:  Needed? Used to destroy anonymous vnodes such as pipes/queues
-
+// Will be needed if VFS is unmounted to remove all vnodes belonging to VFS
 void VNodeFree(struct VNode *vnode) {
 
   if (vnode == NULL) {
@@ -155,8 +159,12 @@ void VNodeFree(struct VNode *vnode) {
   TaskWakeupAll(&vnode->rendez);
 }
 
+
+
 /*
- * Return VNode to cached pool.
+ * @brief Release a VNode
+ *
+ * VNode is returned to the cached pool where it can lazily be freed.
  */
 void VNodePut(struct VNode *vnode) {
 
@@ -202,12 +210,31 @@ void VNodePut(struct VNode *vnode) {
   TaskWakeupAll(&vnode->rendez);
 }
 
-/*
- * FindVNode();
+/* @brief Acquire exclusive access to a vnode
+ * 
+ */
+void VNodeLock(struct VNode *vnode) {
+  while (vnode->busy == 1) {
+    TaskSleep(&vnode->rendez);
+  }
+
+  vnode->busy = 1;
+}
+
+/* @brief Relinquish exclusive access to a vnode
+ *
+ */
+void VNodeUnlock(struct VNode *vnode) {
+  vnode->busy = 0;
+  TaskWakeupAll(&vnode->rendez);
+}
+
+
+/* @brief: Find an existing vnode in the vnode cache
  * FIXME: TODO : Hash vnode by sb and inode_nr
  */
 
-struct VNode *FindVNode(struct SuperBlock *sb, int inode_nr) {
+static struct VNode *VNodeFind(struct SuperBlock *sb, int inode_nr) {
   int v;
 
   for (v = 0; v < NR_VNODE; v++) {
@@ -221,32 +248,3 @@ struct VNode *FindVNode(struct SuperBlock *sb, int inode_nr) {
 }
 
 
-
-
-
-
-
-
-void VNodeLock(struct VNode *vnode) {
-  while (vnode->busy == 1) {
-    TaskSleep(&vnode->rendez);
-  }
-
-  vnode->busy = 1;
-}
-
-
-// TODO : Vnode Shared lock
-void VNodeLockShared(struct VNode *vnode) {
-  while (vnode->busy == 1) {
-    TaskSleep(&vnode->rendez);
-  }
-
-  vnode->busy = 1;
-}
-
-
-void VNodeUnlock(struct VNode *vnode) {
-  vnode->busy = 0;
-  TaskWakeupAll(&vnode->rendez);
-}

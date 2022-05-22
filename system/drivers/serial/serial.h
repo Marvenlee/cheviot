@@ -32,7 +32,7 @@
 
 #define PAGE_SIZE 4096
 
-#define POLL_TIMEOUT 3000
+#define POLL_TIMEOUT 100000
 
 #define ALIGN_UP(val, alignment)                                               \
   ((((val) + (alignment)-1) / (alignment)) * (alignment))

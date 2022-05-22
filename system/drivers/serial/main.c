@@ -46,7 +46,7 @@ void taskmain(int argc, char *argv[]) {
   struct pollfd pfd[2];
   uint32_t mis;
 
-  KLog ("****** serial.exe init");
+  Debug ("**** serial.exe ****");
 
   init(argc, argv);
 
@@ -59,12 +59,8 @@ void taskmain(int argc, char *argv[]) {
     pfd[1].revents = 0;
     
     // TODO:  POLL_TIMEOUT to become inter-char timeout if input == RAW and VTIME != 0
-//    KLog ("******** ----- serial poll");
-    
-    sc = poll(pfd, 2, POLL_TIMEOUT);
-    
-//    KLog ("******** ----- serial poll returned sc = %d", sc);
 
+    sc = poll(pfd, 2, POLL_TIMEOUT);
     
     if (pfd[0].revents & POLLIN) {        
       while ((sc = ReceiveMsg(fd, &msgid, &req, sizeof req)) == sizeof req) {
@@ -90,13 +86,11 @@ void taskmain(int argc, char *argv[]) {
             break;
 
           default:
-            KLog ("msg->cmd = %d, default exiting", req.cmd);
             exit(-1);
         }
       }
       
       if (sc != 0) {
-        KLog ("sc = %d  ReceiveMsg, exiting", sc);
         exit(-1);
       }
     }
@@ -268,10 +262,12 @@ void reader_task (void *arg)
           
     taskwakeupall(&rx_rendez);
     
+    
     reply.cmd = CMD_READ;
     reply.args.read.nbytes_read = nbytes_read;          
     SeekMsg(fd, read_msgid, sizeof (struct fsreq));
     WriteMsg(fd, read_msgid, &reply, sizeof reply);
+
     ReplyMsg(fd, read_msgid, 0);  
     read_pending = false;
   }

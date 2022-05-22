@@ -9,7 +9,8 @@ start.elf
 boot/*
 *.Po
 *.dirstamp
-*/autom4te.cache/
+**/autom4te.cache/
+autom4te.cache/
 kernel/autom4te.cache/
 third_party/*
 third_party_new/*

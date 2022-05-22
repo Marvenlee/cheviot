@@ -60,7 +60,7 @@ void BootstrapKernel(vm_addr kernel_ceiling) {
 
   KLog("kernel_ceiling = %08x", kernel_ceiling);
 
-  root_pagedir = (uint32 *)heap_ptr; // 1.498k  (16k page directory)
+  root_pagedir = (uint32 *)heap_ptr;
   heap_ptr += 16384;
 
   root_pagetables = heap_ptr;
@@ -80,6 +80,12 @@ void BootstrapKernel(vm_addr kernel_ceiling) {
       (void *)((vm_addr)root_pagetables + KERNEL_BASE_VA);
   bootinfo.pagetable_base = pagetable_base + KERNEL_BASE_VA;
   bootinfo.pagetable_ceiling = pagetable_ceiling + KERNEL_BASE_VA;
+
+  KLog("bi.root_pagedir = %08x", (vm_addr)bootinfo.root_pagedir);
+  KLog("bi.kernel_pagetables = %08x", (vm_addr)bootinfo.kernel_pagetables);
+  KLog("bi.root_pagetables = %08x", (vm_addr)bootinfo.root_pagetables);
+  KLog("bi.pagetable_base = %08x", (vm_addr)bootinfo.pagetable_base);
+  KLog("bi.pagetable_ceiling = %08x", (vm_addr)bootinfo.pagetable_ceiling);
 
   InitPageDirectory();
   KLog("InitPageDirectory DONE");
@@ -153,6 +159,10 @@ void InitRootPagetables(void) {
   int pde_idx;
   int pte_idx;
 
+  KLog("InitRootPagetables...");
+
+  
+
   // Clear root pagetables (ptes and vptes)
   for (pde_idx = 0; pde_idx < ROOT_PAGETABLES_CNT; pde_idx++) {
     pt = (uint32 *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
@@ -164,6 +174,9 @@ void InitRootPagetables(void) {
     memset((uint8 *)pt + VPTE_TABLE_OFFS, 0, PAGE_SIZE - VPTE_TABLE_OFFS);
   }
 
+  KLog("...cleared root pagetables");
+
+
   for (pa = 4096; pa < ROOT_CEILING_ADDR; pa += PAGE_SIZE) {
     pde_idx = (pa & L1_ADDR_BITS) >> L1_IDX_SHIFT;
     pt = (uint32 *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
@@ -174,4 +187,6 @@ void InitRootPagetables(void) {
     pa_bits |= L2_B | L2_C;
     pt[pte_idx] = pa | pa_bits;
   }
+  
+  KLog("... set root pagetables");
 }

@@ -42,9 +42,14 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   struct Msg msg;
   struct IOV iov[3];
   
+  Info ("name = %08x", (uint32_t)name);
+  Info ("vfs_lookup(%s)", name);
+  
   memset(&req, 0, sizeof req);
   sb = dvnode->superblock;
   name_sz = StrLen(name) + 1;
+
+  Info ("name_sz = %d", name_sz);
 
   req.cmd = CMD_LOOKUP;
   req.args.lookup.dir_inode_nr = dvnode->inode_nr;
@@ -60,7 +65,13 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   msg.iov_cnt = 3;
   msg.iov = iov;
 
+  Info ("sb = %08x", sb);
+  Info ("sb->msgport = %08x", sb->msgport);
+  Info ("KSendMsg lookup");
+  
   KSendMsg(&sb->msgport, dvnode, &msg);
+
+  Info ("KSendMsg reply received");
 
   if (reply.args.lookup.status == 0) {
 

@@ -15,8 +15,10 @@
  */
 
 /*
- * Initial File System driver. Implements a read-only file system that is merged
- * with the kernel image.
+ * Initial File System driver. Implements a read-only file system for bootstrapping
+ * the OS. This is the root process. It forks to create a process that mounts
+ * and handles the IFS file system. The root process itself execs /sbin/root which
+ * assumes the role of the real root process. 
  */
  
 #include "ifs.h"
@@ -38,48 +40,156 @@
 #include <unistd.h>
 #include <poll.h>
 
+static void exec_init(void);
+static void reap_processes(void);
+static void ifs_message_loop(void);
+static void ifs_lookup(int ino, struct fsreq *req);
+static void ifs_close(int ino, struct fsreq *req);
+static void ifs_read(int ino, struct fsreq *req);
+static void ifs_readdir(int ino, struct fsreq *req);
 
-static void ifsLookup(int ino, struct fsreq *req);
-static void ifsClose(int ino, struct fsreq *req);
-static void ifsRead(int ino, struct fsreq *req);
-static void ifsReaddir(int ino, struct fsreq *req);
 
+/* @Brief main function of Image File System driver and root process
+ *
+ * Kernel starts the IFS.exe task, proc(0) root process
+ * IFS.exe is passed base address and size of IFS
+ * IFS.exe process forks. IFS image now mapped into 2 processes, 
+ * both read-only (no COW) unless perms change.
+ *
+ * Forked process proc(1) becomes IFS file system handler and creates root mount "/".
+ *
+ * proc(0), IFS.exe unmaps IFS image
+ * proc(0), waits for proc(1) to mount it's FS.
+ *
+ * <Optionally>
+ * proc(0), IFS.exe does an Exec to become root.exe, no longer ifs.exe and only 1 process has IFS image mapped.
+ * Root.exe forks and starts init.exe, proc(2)
+ * </Optionally>
+ *
+ */
+int main(int argc, char *argv[]) {
+  int rc;
+
+  Debug("ifs.exe main hello\n");
+  KLog ("ifs.exe main, argc = %d", argc);
+
+  if (argc < 3) {
+    return EXIT_FAILURE;
+  }
+
+  ifs_image = (void *)strtoul(argv[1], NULL, 16);
+  ifs_image_size = strtoul(argv[2], NULL, 10);
+
+  KLog ("ifs image = %08x", (uint32_t)ifs_image);
+  KLog ("ifs image size = %u", ifs_image_size);
+
+  Debug("calling init_ifs\n");
+  
+  if (init_ifs() != 0) {
+    return EXIT_FAILURE;
+  }
+  
+  if (mount_device() != 0) {
+    return EXIT_FAILURE;
+  }
+  
+  Debug ("forking...");
+  
+  rc = fork();
+
+  if (rc > 0) {
+    Debug ("parent of fork");
+    // VirtualFree(ifs_image, ifs_image_size);
+    close(fd);
+    fd = -1;
+    exec_init();    
+  } else if (rc == 0) {
+    Debug ("child of fork");
+    ifs_message_loop();
+  } else {
+    Debug ("fork failed");
+    return EXIT_FAILURE;
+  }
+  
+  return 0;
+}
 
 /*
  *
  */
-int main(int argc, char *argv[]) {
-  struct fsreq req;
-  int sc;
-  int pid;
-  struct pollfd pfd;
+static void exec_init(void) {
+  int rc;
   
-  init(argc, argv);
+  Debug ("exec_init, forking again");
+  
+  rc = fork();
+  if (rc > 0) {
+    Debug ("parent of fork 2, root reaper");
+    reap_processes();
+  } else if (rc == 0) {  
+    Debug ("child of fork 2, exec sbin/init");
+    sleep(5);   // Wait for root to be mounted, ideally wait on '/' to change, get a notification    
+    rc = execl("/sbin/init", NULL);
+        
+    KLog ("exec failed, %d", rc);
+  }
+  
+  if (rc == -1) {
+    KLog ("fork failed");
+    // Kill IFS sub process  
+    exit(EXIT_FAILURE);  
+  }
+}
 
+/*
+ *
+ */
+static void reap_processes(void)
+{
+  KLog ("reap processes");
+  
+  while(WaitPid(-1, NULL, 0) != 0)
+  {
+    Sleep(1);
+  }
+}
+
+/*
+ *
+ */
+static void ifs_message_loop(void)
+{  
+  struct fsreq req;
+  struct pollfd pfd;
+  int pid;
+  int rc;
+  
+  Debug ("ifs_message loop");
+  
   while (1) {  
     pfd.fd = fd;
     pfd.events = POLLIN;
     pfd.revents = 0;
 
-    sc = poll (&pfd, 1, -1);
+    rc = poll (&pfd, 1, -1);
       
     if (pfd.revents & POLLIN) {
-      while ((sc = ReceiveMsg(fd, &pid, &req, sizeof req)) == sizeof req) {
+      while ((rc = ReceiveMsg(fd, &pid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_LOOKUP:
-            ifsLookup(pid, &req);
+            ifs_lookup(pid, &req);
             break;
           
           case CMD_CLOSE:
-            ifsClose(pid, &req);
+            ifs_close(pid, &req);
             break;
           
           case CMD_READ:
-            ifsRead(pid, &req);
+            ifs_read(pid, &req);
             break;
 
           case CMD_READDIR:
-            ifsReaddir(pid, &req);
+            ifs_readdir(pid, &req);
             break;
 
           default:
@@ -87,7 +197,7 @@ int main(int argc, char *argv[]) {
         }
       }
       
-      if (sc != 0) {
+      if (rc != 0) {
         KLog("ifs: ReceiveMsg err = %d, %s", sc, strerror(-sc));
         exit(-1);
       }
@@ -97,10 +207,10 @@ int main(int argc, char *argv[]) {
   exit(0);
 }
 
-/**
+/*
  *
  */
-static void ifsLookup(int pid, struct fsreq *req) {
+static void ifs_lookup(int pid, struct fsreq *req) {
   struct IFSNode *ifs_dir_node;
   struct IFSNode *node;
   struct fsreply reply;
@@ -141,7 +251,7 @@ static void ifsLookup(int pid, struct fsreq *req) {
 /*
  *
  */
-static void ifsClose(int pid, struct fsreq *req) {
+static void ifs_close(int pid, struct fsreq *req) {
   struct fsreply reply;
 
   reply.cmd = CMD_CLOSE;
@@ -153,8 +263,7 @@ static void ifsClose(int pid, struct fsreq *req) {
 /*
  *
  */
-static void ifsRead(int pid, struct fsreq *req){
-
+static void ifs_read(int pid, struct fsreq *req) {
   struct IFSNode *rnode;
   size_t nbytes_read;
   size_t remaining;
@@ -186,7 +295,7 @@ static void ifsRead(int pid, struct fsreq *req){
 /*
  *
  */
-static void ifsReaddir(int pid, struct fsreq *req) {
+static void ifs_readdir(int pid, struct fsreq *req) {
   struct IFSNode *node;
   struct dirent *dirent;
   int len;
@@ -226,17 +335,11 @@ static void ifsReaddir(int pid, struct fsreq *req) {
   reply.args.readdir.offset = cookie;
   reply.args.readdir.nbytes_read = dirent_buf_sz;
 
-  sc = SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  
-  if (sc != 0)
-  {
+  if (SeekMsg(fd, pid, sizeof *req + sizeof reply) != 0) {
     exit(-1);
   }
 
-  sc = WriteMsg(fd, pid, &dirents_buf[0], dirent_buf_sz);
-
-  if (sc != dirent_buf_sz)
-  {
+  if (WriteMsg(fd, pid, &dirents_buf[0], dirent_buf_sz) != dirent_buf_sz) {
     exit(-1);
   } 
   

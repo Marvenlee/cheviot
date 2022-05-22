@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-/*
- * Kernel initialization.
- */
-
-//#define KDEBUG
-
 #include <string.h>
 #include <kernel/arch.h>
 #include <kernel/arm/boot.h>
@@ -32,19 +26,11 @@
 #include <kernel/types.h>
 #include <kernel/utility.h>
 #include <kernel/vm.h>
+#include <sys/execargs.h>
 
-/*
- */
-void StartRoot(void) {
-    // FIXME: Somehow need to start root process
-    
-}
-
-
-/*
- *
+/* @brief The Idle task entry point
  */ 
-void StartIdle(void)
+void Idle(void)
 {
 //  DisableInterrupts();
   KernelUnlock();

@@ -21,8 +21,8 @@
 
 int fd;
 
-struct Config config;
-
+void *ifs_image_phys;
+void *ifs_image;
 //static struct SuperBlock *sb;
 struct IFSHeader *ifs_header;
 size_t ifs_image_size;

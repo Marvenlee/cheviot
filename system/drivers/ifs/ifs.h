@@ -73,8 +73,9 @@ struct Config {
 extern int fd;
 
 // prototypes
-void init (int argc, char *argv[]);
 int processArgs(int argc, char *argv[]);
+int init_ifs(void);
+int mount_device(void);
 int mountDevice(void);
 
 

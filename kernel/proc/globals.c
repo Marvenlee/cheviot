@@ -23,11 +23,8 @@
  */
  
 struct Process *root_process;
-
 struct Process *timer_process;
-
  
-
 vm_size mem_size;
 int max_pageframe;
 struct Pageframe *pageframe_table;

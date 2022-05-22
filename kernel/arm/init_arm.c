@@ -29,7 +29,8 @@
 #include <kernel/utility.h>
 #include <kernel/vm.h>
 
-/*
+/* @brief Initialize processor-specific tables, peripherals and registers
+ *
  * Interrupts aren't nested, all have equal priority.
  * Also, how do we preempt the kernel on arm/use separate stacks?
  *
@@ -86,7 +87,7 @@ void InitArm(void) {
   InitTimer();
 }
 
-/*
+/* @brief Initialize the timer peripheral
 */
 void InitTimer(void) {
   uint32_t clo;

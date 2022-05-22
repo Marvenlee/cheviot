@@ -12,19 +12,36 @@
 #include <sys/syslimits.h>
 #include <sys/wait.h>
 
-
+/*
+ * Root,  
+ */
 
 int main(int argc, char **argv) {
-
-  while (1)
-  {
-    sc = waitpid();
+  int rc;
     
-    if (errno == ENOCHLD)
+  rc = fork();
+
+  if (rc > 0) {
+    exec_init_task();
+
+
+  } else {
+    while (1)
     {
-      Shutdown();        
+      sc = waitpid();
+      
+      if (errno == ENOCHLD)
+      {
+        Shutdown();        
+      }
     }
   }
 }
+
+
+
+
+
+
 
 
