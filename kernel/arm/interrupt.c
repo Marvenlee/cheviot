@@ -48,16 +48,16 @@ extern struct InterruptAPI interrupt_api;
  *
  */
 void InterruptHandler(struct UserContext *context) {
-  bool unlock = FALSE;
+  bool unlock = false;
   
-  if (bkl_locked == FALSE) {
+  if (bkl_locked == false) {
     KernelLock();
-    unlock = TRUE;
+    unlock = true;
   }
 
   InterruptTopHalf();
 
-  if (unlock == TRUE) {
+  if (unlock == true) {
     KernelUnlock();
 //  CheckSignals(context);
   }

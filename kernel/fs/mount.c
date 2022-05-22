@@ -135,7 +135,7 @@ SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
   sb->root = client_vnode;         // FIXME: Needed?
   sb->flags = flags;
   sb->reference_cnt = 2;
-  sb->busy = FALSE;
+  sb->busy = false;
 
   client_vnode->flags = V_VALID | V_ROOT;
   client_vnode->reference_cnt = 1;

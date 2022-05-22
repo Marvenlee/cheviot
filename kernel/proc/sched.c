@@ -151,7 +151,7 @@ void SchedReady(struct Process *proc) {
   }
 
   proc->quanta_used = 0;
-  cpu->reschedule_request = TRUE;
+  cpu->reschedule_request = true;
 }
 
 /*
@@ -180,7 +180,7 @@ void SchedUnready(struct Process *proc) {
   }
 
   proc->quanta_used = 0;
-  cpu->reschedule_request = TRUE;
+  cpu->reschedule_request = true;
 }
 
 /*
@@ -251,8 +251,8 @@ void KernelLock(void) {
 
   current = GetCurrentProcess();
 
-  if (bkl_locked == FALSE) {
-    bkl_locked = TRUE;
+  if (bkl_locked == false) {
+    bkl_locked = true;
     bkl_owner = current;
   } else {
     LIST_ADD_TAIL(&bkl_blocked_list, current, blocked_link);
@@ -268,11 +268,11 @@ void KernelLock(void) {
 void KernelUnlock(void) {
   struct Process *proc;
 
-  if (bkl_locked == TRUE) {
+  if (bkl_locked == true) {
     proc = LIST_HEAD(&bkl_blocked_list);
 
     if (proc != NULL) {
-      bkl_locked = TRUE;
+      bkl_locked = true;
       bkl_owner = proc;
 
       LIST_REM_HEAD(&bkl_blocked_list, blocked_link);
@@ -281,7 +281,7 @@ void KernelUnlock(void) {
       SchedReady(proc);
       Reschedule();
     } else {
-      bkl_locked = FALSE;
+      bkl_locked = false;
       bkl_owner = (void *)0xcafef00d;
     }
   } else {
@@ -308,7 +308,7 @@ void TaskSleep(struct Rendez *rendez) {
 
   DisableInterrupts();
 
-  KASSERT(bkl_locked == TRUE);
+  KASSERT(bkl_locked == true);
   KASSERT(bkl_owner == current);
 
   proc = LIST_HEAD(&bkl_blocked_list);
@@ -319,7 +319,7 @@ void TaskSleep(struct Rendez *rendez) {
     bkl_owner = proc;
     SchedReady(proc);
   } else {
-    bkl_locked = FALSE;
+    bkl_locked = false;
     bkl_owner = (void *)0xdeadbeef;
   }
 
@@ -328,7 +328,7 @@ void TaskSleep(struct Rendez *rendez) {
   SchedUnready(current);
   Reschedule();
 
-  KASSERT(bkl_locked == TRUE);
+  KASSERT(bkl_locked == true);
   KASSERT(bkl_owner == current);
 
   EnableInterrupts();
@@ -380,11 +380,11 @@ void  TaskWakeupAll(struct Rendez *rendez) {
     proc = LIST_HEAD(&rendez->blocked_list);
 
     if (proc != NULL) {
-      KASSERT(bkl_locked == TRUE);
+      KASSERT(bkl_locked == true);
       
       LIST_REM_HEAD(&rendez->blocked_list, blocked_link);
 
-      KASSERT(bkl_locked == TRUE);
+      KASSERT(bkl_locked == true);
 
       LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
       proc->state = PROC_STATE_BKL_BLOCKED;

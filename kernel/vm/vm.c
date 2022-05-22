@@ -44,7 +44,7 @@ SYSCALL vm_addr SysVirtualToPhysAddr(vm_addr addr) {
   as = &current->as;
   va = ALIGN_DOWN(addr, PAGE_SIZE);
  
-  if (PmapIsPagePresent(as, va) == FALSE) {
+  if (PmapIsPagePresent(as, va) == false) {
     return (vm_addr)NULL;
   }
 
@@ -222,7 +222,7 @@ SYSCALL int SysVirtualProtect(void *_addr, size_t len, bits32_t flags) {
   Info("VirtualProtect (a:%08x, s:%08x, f:%08x", addr, len, flags);
 
   for (va = addr; va < addr + len; va += PAGE_SIZE) {
-    if (PmapIsPagePresent(as, va) == FALSE) {
+    if (PmapIsPagePresent(as, va) == false) {
       continue;
     }
 

@@ -54,12 +54,12 @@ int ForkAddressSpace(struct AddressSpace *new_as, struct AddressSpace *old_as) {
 
   for (vpt = VM_USER_BASE; vpt < VM_USER_CEILING;
        vpt += PAGE_SIZE * N_PAGETABLE_PTE) {
-    if (PmapIsPageTablePresent(old_as, vpt) == FALSE) {
+    if (PmapIsPageTablePresent(old_as, vpt) == false) {
       continue;
     }
 
     for (va = vpt; va < vpt + PAGE_SIZE * N_PAGETABLE_PTE; va += PAGE_SIZE) {
-      if (PmapIsPagePresent(old_as, va) == FALSE) {
+      if (PmapIsPagePresent(old_as, va) == false) {
         continue;
       }
 
@@ -124,12 +124,12 @@ void CleanupAddressSpace(struct AddressSpace *as) {
 
   for (vpt = VM_USER_BASE; vpt <= VM_USER_CEILING;
        vpt += PAGE_SIZE * N_PAGETABLE_PTE) {
-    if (PmapIsPageTablePresent(as, vpt) == FALSE) {
+    if (PmapIsPageTablePresent(as, vpt) == false) {
       continue;
     }
 
     for (va = vpt; va < vpt + PAGE_SIZE * N_PAGETABLE_PTE; va += PAGE_SIZE) {
-      if (PmapIsPagePresent(as, va) == FALSE) {
+      if (PmapIsPagePresent(as, va) == false) {
         continue;
       }
 

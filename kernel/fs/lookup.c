@@ -45,7 +45,7 @@ int Lookup(char *_path, int flags, struct Lookup *lookup) {
   lookup->parent = NULL;
   lookup->position = lookup->path;
   lookup->flags = flags;
-  lookup->isLastName = FALSE;
+  lookup->isLastName = false;
 
   if (flags & LOOKUP_KERNEL) {
     StrLCpy(lookup->path, _path, sizeof lookup->path);
@@ -120,7 +120,7 @@ static int LookupPath(struct Lookup *lookup, int flags) {
 
     // Check if last component is . or .. when needing parent/component pair and
     // fail if so.
-    if (lookup->isLastName == TRUE &&
+    if (lookup->isLastName == true &&
         (LOOKUP_TYPE(flags) & (LOOKUP_PARENT | LOOKUP_REMOVE)) &&
         (StrCmp(name, ".") == 0 || StrCmp(name, "..") == 0)) {
       VNodePut(cur_vnode);
@@ -136,7 +136,7 @@ static int LookupPath(struct Lookup *lookup, int flags) {
     
     if (vnode == NULL) {
       // Is it a LOOKUP_PARENT/create and last component ?
-      if (lookup->isLastName == TRUE && (LOOKUP_TYPE(flags) & LOOKUP_PARENT)) {
+      if (lookup->isLastName == true && (LOOKUP_TYPE(flags) & LOOKUP_PARENT)) {
         lookup->parent = cur_vnode;
         lookup->vnode = NULL;
         lookup->last_component = name;
@@ -153,7 +153,7 @@ static int LookupPath(struct Lookup *lookup, int flags) {
     }
 
     if (S_ISLNK(vnode->mode)) {
-      if (lookup->isLastName == TRUE && flags == LOOKUP_NOFOLLOW) {
+      if (lookup->isLastName == true && flags == LOOKUP_NOFOLLOW) {
         lookup->vnode = vnode;
         lookup->parent = cur_vnode;
         lookup->last_component = name;
@@ -175,7 +175,7 @@ static int LookupPath(struct Lookup *lookup, int flags) {
       //                VNodePut(cur_vnode);
       //                cur_vnode = new_cur_vnode;
     } else if (S_ISDIR(vnode->mode)) {
-      if (lookup->isLastName == TRUE) {
+      if (lookup->isLastName == true) {
         // decide if we want parent or not
 
         if (LOOKUP_TYPE(flags) & (LOOKUP_PARENT | LOOKUP_REMOVE)) {
@@ -197,7 +197,7 @@ static int LookupPath(struct Lookup *lookup, int flags) {
       // New vnode should be locked
       cur_vnode = vnode;
     } else if (S_ISREG(vnode->mode) || S_ISCHR(vnode->mode) || S_ISBLK(vnode->mode)) {
-      if (lookup->isLastName == TRUE) {
+      if (lookup->isLastName == true) {
         if (LOOKUP_TYPE(flags) & (LOOKUP_PARENT | LOOKUP_REMOVE)) {
           lookup->vnode = vnode;
           lookup->parent = cur_vnode;
@@ -255,11 +255,11 @@ static char *PathToken(struct Lookup *lookup) {
 
   if (*ch == '\0') {
     lookup->position = NULL;
-    lookup->isLastName = TRUE;
+    lookup->isLastName = true;
   } else {
     *ch = '\0';
     lookup->position = ch + 1;
-    lookup->isLastName = FALSE;
+    lookup->isLastName = false;
   }
 
   return name;

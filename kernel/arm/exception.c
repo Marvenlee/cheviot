@@ -147,7 +147,7 @@ void PrefetchAbortHandler(struct UserContext *context) {
   if (mode == USR_MODE || mode == SYS_MODE) {
     CheckSignals(context);
 
-    if (bkl_locked == FALSE) {
+    if (bkl_locked == false) {
       DisableInterrupts();
       PrintUserContext(context);
       KernelPanic();
@@ -218,7 +218,7 @@ void DataAbortHandler(struct UserContext *context) {
   if (mode == USR_MODE || mode == SYS_MODE) {
     CheckSignals(context);
 
-    if (bkl_locked == FALSE) {
+    if (bkl_locked == false) {
       DisableInterrupts();
       PrintUserContext(context);
       KernelPanic();

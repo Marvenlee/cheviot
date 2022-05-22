@@ -166,7 +166,7 @@ static int MountRoot(void) {
   sb->root = client_vnode;         // FIXME: Needed?
   sb->flags = 0;
   sb->reference_cnt = 2;
-  sb->busy = FALSE;
+  sb->busy = false;
 
   server_vnode->flags = V_VALID;
   server_vnode->reference_cnt = 1;

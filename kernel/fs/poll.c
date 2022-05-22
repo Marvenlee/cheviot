@@ -116,7 +116,7 @@ void FreePoll(struct Poll *poll)
 
 void PollTimeout(struct Timer *timer)
 {
-  timer->process->timeout_expired = TRUE;
+  timer->process->timeout_expired = true;
   TaskWakeup (&timer->process->rendez);
 }
 
@@ -135,7 +135,7 @@ SYSCALL int SysPoll (struct pollfd *pfds, nfds_t nfds, int timeout)
 
     
   current = GetCurrentProcess();
-  current->poll_pending = FALSE;
+  current->poll_pending = false;
   nfds_matching = 0;
   
   LIST_INIT(&poll_list);
@@ -210,20 +210,20 @@ SYSCALL int SysPoll (struct pollfd *pfds, nfds_t nfds, int timeout)
 
 //      Info ("check if need to sleep");
       
-      while(current->poll_pending == FALSE && current->timeout_expired == FALSE) {
+      while(current->poll_pending == false && current->timeout_expired == false) {
         TaskSleep(&current->rendez);
       }
 
       if (current->eintr)
       {
 //        KLog ("Wakened from EINTR");        
-        current->eintr = FALSE;
+        current->eintr = false;
       }
 
       if (timeout != -1) { 
 //              Info("timout clr");     
         SetTimeout(0, NULL, NULL);
-        current->timeout_expired = FALSE;
+        current->timeout_expired = false;
       }      
     }
   }
@@ -356,7 +356,7 @@ void WakeupPolls(struct VNode *vnode, short mask, short events)
       {    
 //          Info ("WakeupAll proc=%08x", proc);  
           proc = poll->process;
-          proc->poll_pending = TRUE;
+          proc->poll_pending = true;
           TaskWakeupAll(&proc->rendez);
       }
 
@@ -391,7 +391,7 @@ void WakeupPollsFromISR(struct VNode *vnode, short mask, short events)
 //      if (poll->events & vnode->poll_events)
 //      {      
           proc = poll->process;
-          proc->poll_pending = TRUE;
+          proc->poll_pending = true;
           TaskWakeupFromISR(&proc->rendez);
 //      }
 

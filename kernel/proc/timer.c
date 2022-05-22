@@ -113,7 +113,7 @@ SYSCALL int SysSleep(int seconds) {
   timer = &current->sleep_timer;
   
   timer->process = current;
-  timer->armed = TRUE;
+  timer->armed = true;
   timer->callback = SleepCallback;
 
   SpinLock(&timer_slock);
@@ -124,7 +124,7 @@ SYSCALL int SysSleep(int seconds) {
 
   // Can be interrupted by a signal (do we return remainder ?)
 
-  while (timer->armed == TRUE) {
+  while (timer->armed == true) {
     TaskSleep(&current->rendez);
   }
   
@@ -148,12 +148,12 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
   timer = &current->timeout_timer;
   
   DisableInterrupts();
-  if (timer->armed == TRUE) {
+  if (timer->armed == true) {
 
     remaining = hardclock_time - timer->expiration_time / JIFFIES_PER_SECOND;
     
     LIST_REM_ENTRY(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
-    timer->armed = FALSE;
+    timer->armed = false;
   }
   EnableInterrupts();
   
@@ -167,7 +167,7 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
     timer->process = current;    
     timer->callback = callback;
     timer->arg = arg;
-    timer->armed = TRUE;
+    timer->armed = true;
 
     LIST_ADD_TAIL(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
   }
@@ -189,7 +189,7 @@ void TimerTopHalf(void) {
       cpu_table[t].current_process->quanta_used++;
     }
 
-    cpu_table[t].reschedule_request = TRUE;
+    cpu_table[t].reschedule_request = true;
   }
 
   SpinLock(&timer_slock);
@@ -209,7 +209,7 @@ void TimerBottomHalf(void) {
 
   while (1)
   {
-    KASSERT(bkl_locked == TRUE);
+    KASSERT(bkl_locked == true);
     KASSERT(bkl_owner == timer_process);
 
     // Timer task sleeps, leaving the kernel.
@@ -229,7 +229,7 @@ void TimerBottomHalf(void) {
 
         if (timer->expiration_time <= softclock_time) {
           LIST_REM_ENTRY(&timing_wheel[softclock_time % JIFFIES_PER_SECOND], timer, timer_entry);
-          timer->armed = FALSE;
+          timer->armed = false;
   
           if (timer->callback != NULL) {
             timer->callback(timer);

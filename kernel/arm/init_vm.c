@@ -207,10 +207,10 @@ void InitIOPagetables(void) {
     io_pagetable[t] = L2_TYPE_INV;
   }
 
-  timer_regs = IOMap(ST_BASE, sizeof(struct bcm2835_system_timer_registers), FALSE);
-  interrupt_regs = IOMap(ARMCTRL_IC_BASE, sizeof(struct bcm2835_interrupt_registers), FALSE);
-  gpio_regs = IOMap(GPIO_BASE, sizeof(struct bcm2835_gpio_registers), FALSE);
-  uart_regs = IOMap(UART_BASE, sizeof(struct bcm2835_uart_registers), FALSE);
+  timer_regs = IOMap(ST_BASE, sizeof(struct bcm2835_system_timer_registers), false);
+  interrupt_regs = IOMap(ARMCTRL_IC_BASE, sizeof(struct bcm2835_interrupt_registers), false);
+  gpio_regs = IOMap(GPIO_BASE, sizeof(struct bcm2835_gpio_registers), false);
+  uart_regs = IOMap(UART_BASE, sizeof(struct bcm2835_uart_registers), false);
 
   SetPageDirectory((void *)(PmapVaToPa((vm_addr)root_pagedir)));
   InvalidateTLB();

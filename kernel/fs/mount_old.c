@@ -137,7 +137,7 @@ int Mount(char *_path, uint32_t flags, struct stat *_stat) {
   sb->root = client_vnode;         // FIXME: Needed?
   sb->flags = flags;
   sb->reference_cnt = 2;
-  sb->busy = FALSE;
+  sb->busy = false;
 
   client_vnode->flags = V_VALID | V_ROOT;
   client_vnode->reference_cnt = 1;
@@ -342,7 +342,7 @@ int MountRoot(uint32_t flags, struct stat *stat) {
   sb->root = client_vnode;         // FIXME: Needed?
   sb->flags = flags;
   sb->reference_cnt = 2;
-  sb->busy = FALSE;
+  sb->busy = false;
 
   server_vnode->flags = V_VALID;
   server_vnode->reference_cnt = 1;

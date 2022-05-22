@@ -48,14 +48,14 @@ void FreeSuperBlock(struct SuperBlock *sb) {
 }
 
 void LockSuperBlock(struct SuperBlock *sb) {
-  while (sb->busy == TRUE) {
+  while (sb->busy == true) {
     TaskSleep(&sb->rendez);
   }
 
-  sb->busy = TRUE;
+  sb->busy = true;
 }
 
 void UnlockSuperBlock(struct SuperBlock *sb) {
-  sb->busy = FALSE;
+  sb->busy = false;
   TaskWakeupAll(&sb->rendez);
 }

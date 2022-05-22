@@ -30,7 +30,7 @@
 
 
 struct Rendez execargs_rendez;
-bool execargs_busy = FALSE;
+bool execargs_busy = false;
 char execargs_buf[MAX_ARGS_SZ];
 
 

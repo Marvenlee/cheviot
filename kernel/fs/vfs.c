@@ -142,7 +142,7 @@ ssize_t vfs_delwrite_done (struct VNode *vnode, size_t nbytes, off64_t *offset, 
   buf = GetBlk(vnode, *offset);
   
   buf->flags &= ~B_BUSY;
-  vnode->busy = FALSE;
+  vnode->busy = false;
   TaskWakeupAll(&buf->rendez);
   
   return 0;

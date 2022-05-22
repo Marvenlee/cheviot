@@ -532,7 +532,7 @@ void BDFlush(void) {
 // driver replies to message.  (not here).
     
 //    buf->flags &= ~B_BUSY;
-//    vnode->busy = FALSE;
+//    vnode->busy = false;
 
 //    TaskWakeupAll(&buf->rendez);
 

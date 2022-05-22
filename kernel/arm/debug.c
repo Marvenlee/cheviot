@@ -39,8 +39,8 @@
 
 // Variables
 static char klog_entry[KLOG_WIDTH];
-bool processes_initialized = FALSE;
-bool debug_init = FALSE;
+bool processes_initialized = false;
+bool debug_init = false;
 
 // Prototypes
 static void KPrintString(char *s);
@@ -165,7 +165,7 @@ void configure_uart(void)
 void InitDebug(void) {
 #ifdef KDEBUG
 //  configure_uart();
-  debug_init = TRUE;
+  debug_init = true;
 #endif  
 }
 
@@ -175,7 +175,7 @@ void InitDebug(void) {
  */
 void ProcessesInitialized(void) {
 #ifdef KDEBUG
-  processes_initialized = TRUE;
+  processes_initialized = true;
 #endif
 }
 
@@ -293,7 +293,7 @@ void PrintKernelPanic(char *format, ...) {
 #ifdef KDEBUG
 static void KPrintString(char *s) {  
 
-  if (debug_init == FALSE) {
+  if (debug_init == false) {
     return;
   }
   

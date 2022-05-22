@@ -303,9 +303,9 @@ bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr addr) {
   pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
 
   if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
-    return FALSE;
+    return false;
   } else {
-    return TRUE;
+    return true;
   }
 }
 
@@ -321,7 +321,7 @@ bool PmapIsPagePresent(struct AddressSpace *as, vm_addr addr) {
   pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
 
   if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
-    return FALSE;
+    return false;
   } else {
     phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
     pt = (uint32_t *)PmapPaToVa((vm_addr)phys_pt);
@@ -329,9 +329,9 @@ bool PmapIsPagePresent(struct AddressSpace *as, vm_addr addr) {
     pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
 
     if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV)
-      return TRUE;
+      return true;
     else
-      return FALSE;
+      return false;
   }
 }
 
