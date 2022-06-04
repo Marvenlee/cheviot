@@ -57,7 +57,11 @@ SYSCALL int SysStat(char *_path, struct stat *_stat) {
     return -EFAULT;
   }
   
-  return CopyOut(_stat, &stat, sizeof stat);
+  if (CopyOut(_stat, &stat, sizeof stat) != 0) {
+    return -EFAULT;
+  }
+  
+  return 0;
 }
 
 /*
@@ -101,6 +105,10 @@ SYSCALL int SysFStat(int fd, struct stat *_stat) {
     return -EFAULT;
   }
   
-  return CopyOut(_stat, &stat, sizeof stat);
+  if (CopyOut(_stat, &stat, sizeof stat) != 0) {
+    return -EFAULT;
+  }
+  
+  return 0;
 }
 

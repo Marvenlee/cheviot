@@ -49,20 +49,15 @@ int Lookup(char *_path, int flags, struct Lookup *lookup)
   int rc;
   
   if ((rc = InitLookup(_path, flags, lookup)) != 0) {
-    Info("InitLookup failed : %d", rc);
     return rc;
   }
 
-  if (flags & LOOKUP_PARENT) {
-    Info ("Lookup parent");
-    
-    if (lookup->path[0] == '/' && lookup->path[1] == '\0') {
-      Info ("Lookup parent on root failed");      
-      return -EINVAL;
+  if (flags & LOOKUP_PARENT) {    
+    if (lookup->path[0] == '/' && lookup->path[1] == '\0') {  // Replace with IsPathRoot()
+      return -EINVAL;  
     }
 
     if ((rc = LookupPath(lookup)) != 0) {
-      Info("LookupPath failed : %d", rc);
       return rc;
     }
 
@@ -76,9 +71,7 @@ int Lookup(char *_path, int flags, struct Lookup *lookup)
     return -ENOTSUP;
     
   } else {
-      // Special-case "/" and return root_vnode
-
-      if (lookup->path[0] == '/' && lookup->path[1] == '\0') {
+      if (lookup->path[0] == '/' && lookup->path[1] == '\0') { // Replace with IsPathRoot()
         lookup->parent = NULL;
         lookup->vnode = root_vnode;
         VNodeIncRef(lookup->vnode);
@@ -119,7 +112,6 @@ int Lookup(char *_path, int flags, struct Lookup *lookup)
 static int InitLookup(char *_path, uint32_t flags, struct Lookup *lookup)
 {
   struct Process *current;
-  size_t last;
   
   current = GetCurrentProcess();
   
@@ -135,14 +127,10 @@ static int InitLookup(char *_path, uint32_t flags, struct Lookup *lookup)
     return -EFAULT; // FIXME:  Could be ENAMETOOLONG 
   }
 
-    // Remove trailing slashes  // Or do we append "." to it if last char is a
-  // slash?
-  last = StrLen(lookup->path);
-  while (last > 0 && lookup->path[last] == '/') {
-    lookup->path[last] = '\0';
-    last--;
+  for (size_t i = StrLen(lookup->path); i > 0 && lookup->path[i] == '/'; i--) {
+    lookup->path[i] = '\0';
   }
-
+  
   lookup->start_vnode = (lookup->path[0] == '/') ? root_vnode : current->current_dir;    
   KASSERT(lookup->start_vnode != NULL);
   return 0;
@@ -170,16 +158,11 @@ static int LookupPath(struct Lookup *lookup)
   for(;;) {    
     lookup->last_component = PathToken(lookup);
       
-    if (lookup->last_component == NULL)
-    {
-      Info ("lookup_path:EINVAL *********");
+    if (lookup->last_component == NULL) {
       return -EINVAL;
     }
     
-    Info ("lc :%s", lookup->last_component);
-
     if (IsLastComponent(lookup)) {
-      Info("LookupPath: IsLastComponent ret 0");
       return 0; 
     }    
 
@@ -216,16 +199,14 @@ static int LookupLastComponent(struct Lookup *lookup)
   char *name;
   struct VNode *vnode;
   int rc;
+ 
+  KASSERT(lookup->parent != NULL);
     
   if (lookup->last_component == NULL) {
-    Info("LookupLastComponent -ENOENT");
     return -ENOENT;
   }
 
-  KASSERT(lookup->parent != NULL);
-
   if ((rc = WalkComponent(lookup)) != 0) {
-    Info("LookupLastComponent failed:%d", rc);
     return rc;
   }
   
@@ -289,19 +270,25 @@ static char *PathToken(struct Lookup *lookup)
  */
 static bool IsLastComponent(struct Lookup *lookup)
 {
-  char *ch;
+//  char *ch;
   
   if (lookup->separator == '\0') {
     return true;
   }
   
-  for (ch = lookup->position; *ch == '/'; ch++);
+//  for (ch = lookup->position; *ch == '/'; ch++) {
+//  }
   
-  if (*ch == '\0') {
+  return (*lookup->position == '\0');
+  
+/*
+  {
     return true;
   } else {
     return false;
   }
+*/
+
 }
 
 
@@ -318,8 +305,6 @@ static int WalkComponent (struct Lookup *lookup)
   struct VNode *covered_vnode;
   struct VNode *vnode_mounted_here;
   int rc;
-
-  Info ("WalkComponent: %s", lookup->last_component);
 
   KASSERT(lookup != NULL);
   KASSERT(lookup->parent != NULL);
@@ -346,14 +331,12 @@ static int WalkComponent (struct Lookup *lookup)
   KASSERT(lookup->parent != NULL);
     
   if ((rc = vfs_lookup(lookup->parent, lookup->last_component, &lookup->vnode)) != 0) {
-    Info("vfs_lookup failed:%d", rc);
     return rc;
   }
   
   vnode_mounted_here = lookup->vnode->vnode_mounted_here;
   
   if (vnode_mounted_here != NULL) {
-    Info ("WalkComponent ret: mounted_here");
     VNodePut(lookup->vnode);
     lookup->vnode = vnode_mounted_here;
     VNodeIncRef(lookup->vnode);

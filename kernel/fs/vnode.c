@@ -95,11 +95,7 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
 struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
-  Info ("VNodeGet sb = %08x, ino = %d", (vm_addr)sb, inode_nr);
-
   while (1) {
-    Info ("VNodeGet while(1)");
-    
     if (sb->flags & S_ABORT)
       return NULL;
 
@@ -113,9 +109,6 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
         continue;
       }
 */
-
-      Info ("VNodeGet found vnode: %08x, inode_nr = %d", (vm_addr)vnode, vnode->inode_nr);
-
       if ((vnode->flags & V_FREE) == V_FREE) {
         LIST_REM_ENTRY(&vnode_free_list, vnode, vnode_entry);
       }
@@ -127,7 +120,6 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
 
       return vnode;
     } else {
-      Info ("VNodeFind couldn't find %d", inode_nr);
       return NULL;
     }
   }
@@ -165,8 +157,6 @@ void VNodeFree(struct VNode *vnode) {
  * VNode is returned to the cached pool where it can lazily be freed.
  */
 void VNodePut(struct VNode *vnode) {
-  Info ("vnode put vnode:%08x", vnode);
-
   KASSERT(vnode != NULL);
   KASSERT(vnode->superblock != NULL);
 //  KASSERT(vnode->busy == true);     // This should be locked prior to putting
@@ -204,8 +194,6 @@ void VNodePut(struct VNode *vnode) {
  * 
  */
 void VNodeLock(struct VNode *vnode) {
-  Info("VNodeLock %08x", vnode);
-
 //  while (vnode->busy == 1) {
 //    TaskSleep(&vnode->rendez);
 //  }
@@ -217,8 +205,6 @@ void VNodeLock(struct VNode *vnode) {
  *
  */
 void VNodeUnlock(struct VNode *vnode) {
-  Info("VNodeLock %08x", vnode);
-
   vnode->busy = 0;
 //  TaskWakeupAll(&vnode->rendez);
 }
