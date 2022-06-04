@@ -107,6 +107,7 @@ SYSCALL int SysSleep(int seconds) {
   struct Process *current;
   struct Timer *timer;
   
+  Info ("SysSleep(%d)", seconds);
   
   current = GetCurrentProcess();
     

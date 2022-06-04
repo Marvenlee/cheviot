@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+// #define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -34,7 +34,7 @@ static struct VNode *VNodeFind(struct SuperBlock *sb, int inode_nr);
 struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
-//  KLog ("VNodeNew sb = %08x, ino = %d", (vm_addr)sb, inode_nr);
+  Info ("VNodeNew: %d", inode_nr);
 
   vnode = LIST_HEAD(&vnode_free_list);
 
@@ -55,11 +55,12 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   
 
   memset(vnode, 0, sizeof *vnode);
-// FIXME vnode->vnode_mounted_here = NULL;
-//  vnode->vnode_covered = NULL;
+  
+  vnode->busy = true;
+  
+  vnode->vnode_mounted_here = NULL;
+  vnode->vnode_covered = NULL;
 
-// TODO: Replace with rendez/rw direction flag (third state = write pending) /read lock count/
-//  vnode->busy = 1;
   vnode->reader_cnt = 0;
   vnode->writer_cnt = 0;
   
@@ -75,7 +76,7 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   
   InitRendez(&vnode->rendez);
   
-  Info ("vnode_new (ino_nr = %d, sb = %08x)", vnode->inode_nr, (vm_addr)sb);
+  Info ("VNodeNew (ino_nr = %d, sb = %08x)", vnode->inode_nr, (vm_addr)sb);
   return vnode;
 }
 
@@ -94,22 +95,26 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
 struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
-  KLog ("VNodeGet sb = %08x, ino = %d", (vm_addr)sb, inode_nr);
+  Info ("VNodeGet sb = %08x, ino = %d", (vm_addr)sb, inode_nr);
 
   while (1) {
+    Info ("VNodeGet while(1)");
+    
     if (sb->flags & S_ABORT)
       return NULL;
 
     if ((vnode = VNodeFind(sb, inode_nr)) != NULL) {
-/*
-      if (vnode->busy == 1) {
-        KLog ("Found vnode, vnode busy, sleeping");
+
+      // Use VNodeLock outside of this.
+/*      
+      if (vnode->busy == true) {
+        Info ("******** Found vnode, vnode busy, sleeping **********");
         TaskSleep(&vnode->rendez);
         continue;
       }
 */
-      Info ("VNodeGet found vnode: %08x, inode_nr = %d", (vm_addr)vnode, vnode->inode_nr);
 
+      Info ("VNodeGet found vnode: %08x, inode_nr = %d", (vm_addr)vnode, vnode->inode_nr);
 
       if ((vnode->flags & V_FREE) == V_FREE) {
         LIST_REM_ENTRY(&vnode_free_list, vnode, vnode_entry);
@@ -117,12 +122,12 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
 
 //      vnode->busy = 1;
 
-
       vnode->reference_cnt++;
       sb->reference_cnt++;
 
       return vnode;
     } else {
+      Info ("VNodeFind couldn't find %d", inode_nr);
       return NULL;
     }
   }
@@ -137,14 +142,9 @@ void VNodeIncRef(struct VNode *vnode) {
   vnode->superblock->reference_cnt++;
 }
 
-void VNodeDecRef(struct VNode *vnode) {
-  vnode->reference_cnt--;
-  vnode->superblock->reference_cnt--;
-}
-
-
 // FIXME:  Needed? Used to destroy anonymous vnodes such as pipes/queues
 // Will be needed if VFS is unmounted to remove all vnodes belonging to VFS
+
 void VNodeFree(struct VNode *vnode) {
 
   if (vnode == NULL) {
@@ -159,31 +159,23 @@ void VNodeFree(struct VNode *vnode) {
   TaskWakeupAll(&vnode->rendez);
 }
 
-
-
 /*
  * @brief Release a VNode
  *
  * VNode is returned to the cached pool where it can lazily be freed.
  */
 void VNodePut(struct VNode *vnode) {
+  Info ("vnode put vnode:%08x", vnode);
 
-  if (vnode == NULL) {
-    Warn("VNodePut null");
-    return;
-  }
-
-  vnode->reference_cnt--;
+  KASSERT(vnode != NULL);
+  KASSERT(vnode->superblock != NULL);
+//  KASSERT(vnode->busy == true);     // This should be locked prior to putting
   
-  if (vnode->superblock != NULL) {  
-    vnode->superblock->reference_cnt--;
-  } else {
-    Warn("vnode->superblock null");
-  }
+  
+  vnode->reference_cnt--;  
+  vnode->superblock->reference_cnt--;
   
   if (vnode->reference_cnt == 0) {
-
-    
     // FIXME: IF vnode->link_count == 0,  delete entries in cache.
  /*
     
@@ -198,15 +190,13 @@ void VNodePut(struct VNode *vnode) {
       vnode->flags |= V_FREE;
       LIST_ADD_TAIL(&vnode_free_list, vnode, vnode_entry);
     }
-    
-    vnode->superblock = NULL;
-    vnode->flags = 0;
-
-    // FIXME: may want to reinstate: decrement sb ref count 
-
   }
-
-  vnode->busy = 0;
+  else
+  {
+    // Do we mark it as false
+    vnode->busy = false;
+  }
+  
   TaskWakeupAll(&vnode->rendez);
 }
 
@@ -214,9 +204,11 @@ void VNodePut(struct VNode *vnode) {
  * 
  */
 void VNodeLock(struct VNode *vnode) {
-  while (vnode->busy == 1) {
-    TaskSleep(&vnode->rendez);
-  }
+  Info("VNodeLock %08x", vnode);
+
+//  while (vnode->busy == 1) {
+//    TaskSleep(&vnode->rendez);
+//  }
 
   vnode->busy = 1;
 }
@@ -225,8 +217,10 @@ void VNodeLock(struct VNode *vnode) {
  *
  */
 void VNodeUnlock(struct VNode *vnode) {
+  Info("VNodeLock %08x", vnode);
+
   vnode->busy = 0;
-  TaskWakeupAll(&vnode->rendez);
+//  TaskWakeupAll(&vnode->rendez);
 }
 
 

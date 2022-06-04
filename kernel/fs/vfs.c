@@ -19,7 +19,7 @@
  * servers.
  */
 
-//#define KDEBUG
+// #define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -42,18 +42,22 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   struct Msg msg;
   struct IOV iov[3];
   
-  Info ("name = %08x", (uint32_t)name);
+  Info ("name addr = %08x", (uint32_t)name);
   Info ("vfs_lookup(%s)", name);
-  
+  Info ("dvnode=%08x", dvnode);
+    
   memset(&req, 0, sizeof req);
   sb = dvnode->superblock;
   name_sz = StrLen(name) + 1;
 
+  Info ("sb=%08x", sb);
   Info ("name_sz = %d", name_sz);
 
   req.cmd = CMD_LOOKUP;
   req.args.lookup.dir_inode_nr = dvnode->inode_nr;
   req.args.lookup.name_sz = name_sz;
+
+  Info ("req ok");
 
   iov[0].addr = &req;
   iov[0].size = sizeof req;
@@ -62,8 +66,12 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   iov[2].addr = &reply;
   iov[2].size = sizeof reply;
 
+  Info ("iov ok");
+
   msg.iov_cnt = 3;
   msg.iov = iov;
+
+  Info ("msg ok");
 
   Info ("sb = %08x", sb);
   Info ("sb->msgport = %08x", sb->msgport);
@@ -73,46 +81,44 @@ int vfs_lookup(struct VNode *dvnode, char *name,
 
   Info ("KSendMsg reply received");
 
-  if (reply.args.lookup.status == 0) {
-
-    // FIXME: Can we move this into higher level? 
-    // Is there a potential race condition?  What is it fails to allocate
-    // but the message has created a node on disk?
-    
-    if (reply.args.lookup.inode_nr == dvnode->inode_nr) {
-      VNodeIncRef(dvnode);
-      vnode = dvnode;
-    } else {
-      vnode = VNodeGet(dvnode->superblock, reply.args.lookup.inode_nr);
-    }
-
-    if (vnode == NULL) {
-      vnode = VNodeNew(sb, reply.args.lookup.inode_nr);
-
-      if (vnode == NULL) {
-        return -ENOMEM;
-      }
-
-      // FIXME: Need to get nlink
-      vnode->nlink = 1;      
-      // vnode->data = NULL;
-      vnode->reference_cnt = 1;
-      vnode->size = reply.args.lookup.size;      
-      vnode->uid = reply.args.lookup.uid;  
-      vnode->gid = reply.args.lookup.gid;
-      vnode->mode = reply.args.lookup.mode;
-      vnode->flags = V_VALID;
-
-      *result = vnode;
-      return 0;
-    } else {
-      *result = vnode;
-      return 0;
-    }
+  if (reply.args.lookup.status != 0) {
+    *result = NULL;
+    return -EIO;  
   }
 
-  *result = NULL;
-  return -EIO;
+  // FIXME: Can we move this into higher level? 
+  // Is there a potential race condition?  What is it fails to allocate
+  // but the message has created a node on disk?
+  
+  if (reply.args.lookup.inode_nr == dvnode->inode_nr) {
+    VNodeIncRef(dvnode);
+    vnode = dvnode;
+  } else {
+    vnode = VNodeGet(dvnode->superblock, reply.args.lookup.inode_nr);
+  }
+
+  if (vnode == NULL) {
+    vnode = VNodeNew(sb, reply.args.lookup.inode_nr);
+
+    if (vnode == NULL) {
+      return -ENOMEM;
+    }
+
+    // FIXME: Need to get nlink
+    vnode->nlink = 1;      
+    // vnode->data = NULL;
+    vnode->reference_cnt = 1;
+    vnode->size = reply.args.lookup.size;      
+    vnode->uid = reply.args.lookup.uid;  
+    vnode->gid = reply.args.lookup.gid;
+    vnode->mode = reply.args.lookup.mode;
+    vnode->flags = V_VALID;
+  }
+
+  Info("vfs_lookup ok vnode:%08x", vnode);
+
+  *result = vnode;
+  return 0;
 }
 
 /*

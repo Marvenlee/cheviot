@@ -24,7 +24,6 @@
 
 static void InitFSLists(void);
 static void InitCache(void);
-static int MountRoot(void);
 
 /*
  *
@@ -35,7 +34,8 @@ int InitVFS(void) {
   InitFSLists();
   InitCache();
   InitPipes();
-  MountRoot();
+  
+  root_vnode = NULL;
      
   Info("InitVFS done");
   return 0;
@@ -114,92 +114,5 @@ static void InitCache(void) {
     LIST_INIT(&buf_hash[t]);
   }
 }
-
-
-
-
-
-/*
- * Create the root '/' mount point.
- *
- * This root vnode is "covered" by future mounts of '/' and avoids special
- * casing of mounting the '/' in SysMount.
- */
-
-static int MountRoot(void) {
-  int handle = -1;
-  int error;
-  struct VNode *server_vnode = NULL;
-  struct VNode *client_vnode = NULL;
-  struct Filp *filp = NULL;
-  struct SuperBlock *sb = NULL;
-  
-  Info("MountRoot");
-
-  sb = AllocSuperBlock();
-
-  if (sb == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  // Server vnode set to -1.
-  server_vnode = VNodeNew(sb, -1);
-
-  if (server_vnode == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  // TODO: Set Client VNODE to some parameter of stat
-  client_vnode = VNodeNew(sb, 0);
-
-  if (client_vnode == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  InitRendez(&sb->rendez);
-  InitMsgPort(&sb->msgport, server_vnode);
-
-  sb->server_vnode = server_vnode; // FIXME: Needed?
-  sb->root = client_vnode;         // FIXME: Needed?
-  sb->flags = 0;
-  sb->reference_cnt = 2;
-  sb->busy = false;
-
-  server_vnode->flags = V_VALID;
-  server_vnode->reference_cnt = 1;
-  server_vnode->uid = 0;
-  server_vnode->gid = 0;
-  server_vnode->mode = 0777 | _IFPORT;
-  server_vnode->size = 0;
-
-  client_vnode->flags = V_VALID | V_ROOT;
-  client_vnode->reference_cnt = 1;
-  client_vnode->uid = 0;
-  client_vnode->gid = 0;
-  client_vnode->mode = 0770 | _IFDIR;
-  client_vnode->size = 0;
-
-  client_vnode->vnode_covered = NULL;
-  client_vnode->vnode_mounted_here = NULL;
-  
-  root_vnode = client_vnode;
-
-//  VNodeUnlock(server_vnode);
-//  VNodeUnlock(client_vnode);
-
-  Info ("root sb = %08x", sb);
-  Info ("root client_vnode = %08x", client_vnode);
-  Info ("root server_vnode = %08x", server_vnode);
-  
-  Info("!! Root initialized !!");
-  
-exit:
-  Info ("MountRoot FAILED!!!!!!!!!!!!!!!1");
-  return error;
-}
-
 
 

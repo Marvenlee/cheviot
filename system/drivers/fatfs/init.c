@@ -32,6 +32,7 @@
 #include <sys/syscalls.h>
 #include <unistd.h>
 
+
 void init(int argc, char *argv[]) {
   struct stat stat;
   int sc;
@@ -97,17 +98,16 @@ void init(int argc, char *argv[]) {
 }
 
 /*
- *
+ * -u default user-id
+ * -g default gid
+ * -m default mod bits
+ * -D KLog level ?
+ * mount path (default arg)
+ * device path
  */
 int processArgs(int argc, char *argv[]) {
   int c;
 
-  // -u default user-id
-  // -g default gid
-  // -m default mod bits
-  // -D KLog level ?
-  // mount path (default arg)
-  // device path
 
   if (argc <= 1) {
     KLog ("processArgs failed, argc = %d", argc);

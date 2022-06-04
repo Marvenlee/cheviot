@@ -44,7 +44,6 @@ int main(int argc, char *argv[]) {
   struct pollfd pfd;
   
   init(argc, argv);
-
   
   KLog("FAT: Main Event loop...");
   while (1) {  

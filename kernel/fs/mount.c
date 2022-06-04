@@ -34,6 +34,8 @@ SYSCALL int SysMkNod(char *_path, uint32_t flags, struct stat *_stat) {
   int fd = -1;
   int status = -ENOTSUP;
   struct VNode *vnode = NULL;
+
+  Info ("**** SysMkNod ****");
   
   current = GetCurrentProcess();
 
@@ -53,9 +55,14 @@ SYSCALL int SysMkNod(char *_path, uint32_t flags, struct stat *_stat) {
     goto exit;  
   }
     
+  Info ("SysMkNod parent:08x", lookup.parent);
+  Info ("SysMkNod comp: %s", lookup.last_component);
+    
   status = vfs_mknod(lookup.parent, lookup.last_component, &stat, &vnode);
 
   VNodeUnlock(lookup.parent);
+
+  Info ("SysMknod");
 
 exit:
   return status;
@@ -85,21 +92,37 @@ SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
     return -EFAULT;
   }
 
-  if ((error = Lookup(_path, 0, &lookup)) != 0) {
-    return error;
-  }
-  
-  vnode_covered = lookup.vnode;
 
-  if (vnode_covered == NULL) {
-    error = -ENOENT;
-    goto exit;
+  if (root_vnode != NULL) {
+    if ((error = Lookup(_path, 0, &lookup)) != 0) {
+      Info ("Mount lookup error:%d", error);
+      return error;
+    }
+    
+    Info ("Mount lookup ok");
+    vnode_covered = lookup.vnode;
+
+    if (vnode_covered == NULL) {
+      error = -ENOENT;
+      goto exit;
+    }
+
+    // TODO: Check stat.st_mode against vnode.mode  TYPE.
+    // As in only mount directories on directories ?
+    
+    // What about permissions, keep covered permissions ?  
+
+    DNamePurgeVNode(vnode_covered);
+
+    if (vnode_covered->vnode_covered != NULL) {
+      error = -EEXIST;
+      goto exit;
+    }
+
+  } else {
+    vnode_covered = NULL;  
   }
 
-  // TODO: Check stat.st_mode against vnode.mode  TYPE.
-  // As in only mount directories on directories ?
-  
-  // What about permissions, keep covered permissions ?  
 
   sb = AllocSuperBlock();
 
@@ -108,12 +131,6 @@ SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
     goto exit;
   }
 
-  DNamePurgeVNode(vnode_covered);
-
-  if (vnode_covered->vnode_covered != NULL) {
-    error = -EEXIST;
-    goto exit;
-  }
 
   server_vnode = VNodeNew(sb, -1);
 
@@ -160,8 +177,6 @@ SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
     goto exit;
   }
 
-  client_vnode->vnode_covered = vnode_covered;
-  vnode_covered->vnode_mounted_here = client_vnode;   // Or should it be SuperBlock (rename to VFS?) mounted here?
 
   Info ("Mount client_vnode = %08x", client_vnode);
   Info ("Mount server_vnode = %08x", server_vnode);
@@ -169,26 +184,40 @@ SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
   Info ("Mount vnode covered = %08x", vnode_covered);
   Info ("Mount client sb=%08x", client_vnode->superblock);
   Info ("Mount server sb=%08x", server_vnode->superblock);
-  
-  WakeupPolls(vnode_covered, POLLPRI, POLLPRI);
-  WakeupPolls(client_vnode, POLLPRI, POLLPRI);
 
+
+  client_vnode->vnode_covered = vnode_covered;
+  WakeupPolls(client_vnode, POLLPRI, POLLPRI);
+  
+  if (vnode_covered != NULL) {
+    vnode_covered->vnode_mounted_here = client_vnode;   // Or should it be SuperBlock (rename to VFS?) mounted here?
+    WakeupPolls(vnode_covered, POLLPRI, POLLPRI);
+  }
+  
   filp = GetFilp(fd);
 
   filp->vnode = server_vnode;
   filp->offset = 0;
 
-  VNodeIncRef(vnode_covered);
+  if (root_vnode == NULL) {
+    root_vnode = client_vnode;
+  }    
+
+  if (vnode_covered != NULL) {
+    VNodeIncRef(vnode_covered);
+    VNodeUnlock(vnode_covered);
+  }
+
   VNodeIncRef(client_vnode);
   VNodeIncRef(server_vnode);
 
-  VNodeUnlock(vnode_covered);
   VNodeUnlock(server_vnode);
   VNodeUnlock(client_vnode);
 
   Info ("sb = %08x", sb);
   Info ("SysMount fd = %d", fd);
-
+  Info ("*************************************");
+  
   // TODO: As the mount has changed, may want to wakeup tasks polling it for changes
 
   return fd;
@@ -320,12 +349,12 @@ SYSCALL int SysPivotRoot(char *_new_root, char *_old_root) {
     return -ENOENT;
   }
 
-  current_root_vnode = root_vnode->vnode_mounted_here;
+  current_root_vnode = root_vnode;
   
   old_root_vnode->vnode_mounted_here = current_root_vnode;
   current_root_vnode->vnode_covered = old_root_vnode;
 
-  root_vnode->vnode_mounted_here = new_root_vnode;
+  root_vnode = new_root_vnode;
   new_root_vnode->vnode_covered = root_vnode;
 
   // TODO: Do we need to do any reference counting tricks, esp for current_vnode?

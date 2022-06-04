@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -52,7 +52,6 @@ SYSCALL int SysChDir(char *_path) {
     VNodePut(current->current_dir);
   }
 
-  VNodePut(current->current_dir);
   current->current_dir = lookup.vnode;
   VNodeUnlock(current->current_dir);
   return 0;

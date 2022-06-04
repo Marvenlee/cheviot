@@ -75,6 +75,10 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
   vnode = lookup->vnode;
   dvnode = lookup->parent;
   
+  Info ("DoOoen vnode = %08x", vnode);
+  Info ("DoOpen dvnode = %08x", dvnode);
+  
+  
   if (vnode == NULL) {
     if ((oflags & O_CREAT) && IsAllowed(dvnode, W_OK) != 0) {
       VNodePut(dvnode);
@@ -90,7 +94,7 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
       return err;
     }
 
-    DNameEnter(dvnode, vnode, lookup->last_component);
+//    DNameEnter(dvnode, vnode, lookup->last_component);
   } else {
 // FIXME:   if (vnode->vnode_mounted_here != NULL) {
       //	        VNodePut(vnode);
@@ -123,9 +127,12 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
     filp->offset = 0;
 
   VNodeUnlock(vnode);  
+
+  Info ("DoOpen success");
   return fd;
   
 exit:
+  Info ("DoOpen failed: %d", err);
   FreeHandle(fd);
   VNodePut(vnode);
   return err;

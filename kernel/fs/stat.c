@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG 1
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -27,9 +27,15 @@ SYSCALL int SysStat(char *_path, struct stat *_stat) {
   struct Lookup lookup;
   int sc;
 
+  Info ("SysStat");
+
   if ((sc = Lookup(_path, 0, &lookup)) != 0) {
+    Info ("SysStat lookup: sc:%d", sc);
     return sc;
   }
+
+  Info ("SysStat vnode:%08x", lookup.vnode);  
+  Info ("SysStat parent:%08x", lookup.parent);
 
   stat.st_dev = lookup.vnode->superblock->dev;
   stat.st_ino = lookup.vnode->inode_nr;
@@ -44,6 +50,7 @@ SYSCALL int SysStat(char *_path, struct stat *_stat) {
   stat.st_ctime = lookup.vnode->ctime;
   stat.st_blocks = lookup.vnode->blocks;
   stat.st_blksize = lookup.vnode->blksize;
+
   VNodePut(lookup.vnode);
 
   if (_stat == NULL) {
@@ -60,6 +67,8 @@ SYSCALL int SysFStat(int fd, struct stat *_stat) {
   struct Filp *filp;
   struct VNode *vnode;
   struct stat stat;
+
+  Info ("SysFStat");
 
   filp = GetFilp(fd);
 

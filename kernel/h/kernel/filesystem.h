@@ -394,7 +394,7 @@ struct Lookup {
   char path[PATH_MAX];
   char *last_component;
   char *position;
-  bool isLastName;
+  char separator;
   int flags;
 };
 

@@ -12,7 +12,7 @@
 #include <sys/syslimits.h>
 #include <sys/wait.h>
 
-#define NDEBUG
+//#define NDEBUG
 
 // Constants
 #define ARG_SZ 256
@@ -75,11 +75,18 @@ int DoInit(void) {
     return -1;
   }
   
+  KLog("!!! Opened startup.cfg !!!");
+  
+  KLog("!!! fstat startup.cfg !!!");
+
   if ((sc = fstat(startup_cfg_fd, &stat)) != 0) {
     KLog ("fstat failed %d", sc);
     close(startup_cfg_fd);
     return -1;
   }
+  
+  KLog("!!! Stat OK startup.cfg !!!");
+
   
   buf = malloc (stat.st_size + 1);
   
@@ -94,6 +101,8 @@ int DoInit(void) {
   
   buf[stat.st_size] = '\0';
   src = buf;
+  
+  KLog ("Init event loop");
   
   while ((line = readLine()) != NULL) {
     cmd = tokenize(line);
@@ -145,6 +154,8 @@ int cmdStart (void) {
   char *tok;
   int pid;
 
+  KLog("cmdStart");
+
   for (int t=0; t<ARG_SZ; t++)
   {
     tok = tokenize(NULL);
@@ -187,7 +198,9 @@ int cmdMknod (void) {
   char *typestr;
   char *modestr;
   int status;
-  
+
+  KLog("****** cmdMknod *********");
+    
   fullpath = tokenize(NULL);
 
   if (fullpath == NULL) {
@@ -224,6 +237,8 @@ int cmdMknod (void) {
   stat.st_uid = 0;
   stat.st_gid = 0;
   stat.st_mode = mode;
+  
+  KLog ("**** mknod path:%s", fullpath);    
     
   status = MkNod(fullpath, 0, &stat);
 
@@ -234,6 +249,8 @@ int cmdMknod (void) {
 
 int cmdChdir (void) {
   char *fullpath;
+  
+  KLog("cmdChdir");
   
   fullpath = tokenize(NULL);
 
@@ -255,6 +272,8 @@ int cmdWaitfor (void) {
   int fd = -1;
   struct pollfd pfd;
   int sc;
+  
+  KLog ("cmdWaitfor");
   
   fullpath = tokenize(NULL);
   
@@ -313,7 +332,7 @@ exit:
 
 int cmdSleep (void) {
     int seconds = 0;
-    char *tok;
+    char *tok;    
 
     tok = tokenize(NULL);
   
@@ -323,6 +342,9 @@ int cmdSleep (void) {
     }
 
     seconds = atoi(tok);
+
+    KLog ("cmdSleep %d", seconds);
+    
     Sleep(seconds);    
     return 0;
 }
@@ -332,6 +354,8 @@ int cmdPivot (void) {
   char *new_root;
   char *old_root;
   int sc;
+  
+  KLog("cmdPivot");
   
   new_root = tokenize(NULL);  
   if (new_root == NULL) {

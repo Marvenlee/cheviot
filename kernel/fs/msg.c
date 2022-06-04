@@ -25,7 +25,7 @@
  * server indicates it is finished with the message by calling ReplyMsg.
  */
 
-//#define KDEBUG
+// #define KDEBUG
 
 #include <kernel/arm/boot.h>
 #include <kernel/dbg.h>
@@ -76,6 +76,12 @@ int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
   KASSERT (port->server_vnode != NULL);
   KASSERT (current->msg == NULL);
 
+  Info ("msg = %08x", msg);
+  Info ("port = %08x", port);
+  Info ("vnode = %08x", vnode);
+  Info ("port->server_vnode = %08x", port->server_vnode);
+  
+
   current->msg = msg;  
   msg->offset = 0;
   msg->state = MSG_STATE_SEND;
@@ -87,6 +93,8 @@ int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
   Info ("port->server_vnode = %08x", port->server_vnode);
   
   WakeupPolls(port->server_vnode, POLLIN, POLLIN);
+
+  Info ("Wakeup polls sendmsg ok");
 
   while (msg->state != MSG_STATE_REPLIED) {
     TaskSleep(&msg->rendez);
@@ -114,14 +122,21 @@ SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
   filp = GetFilp(server_fd);
 
   if (filp == NULL) {
+    Info("ReceiveMsg filp==NULL");
     return -EINVAL;
   }
 
   svnode = filp->vnode;
   sb = svnode->superblock;
+
+  Info("svnode->superblock %08x", sb);
+  
   msg = LIST_HEAD(&sb->msgport.pending_msg_list);
 
+  // FIXME: Should ReceiveMsg be blocking instead?
+
   if (msg == NULL) {
+    Info("ReceiveMsg no msg, returning 0");
     return 0;    
   }
 
@@ -145,6 +160,8 @@ SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
     i++;
   }
 
+  Info("ReceiveMsg nbytes:%d, pid = %d", nbytes_read, msg->pid);
+
   return nbytes_read;
 }
 
@@ -156,6 +173,8 @@ SYSCALL int SysReplyMsg(int server_fd, int pid, int status) {
   struct VNode *svnode;
   struct Msg *msg;
   struct Process *proc;
+
+  Info("StsReplyMsg fd:%d, pid:%d", server_fd, pid);
 
   filp = GetFilp(server_fd);
 
@@ -169,20 +188,24 @@ SYSCALL int SysReplyMsg(int server_fd, int pid, int status) {
   proc = GetProcess(pid);
   
   if (proc == NULL) {
+    Info("ReplyMsg: proc==NULL");
     return -EINVAL;
   }
 
   msg = proc->msg;
   
   if (msg == NULL) {
+    Info("ReplyMsg: msg==NULL");
     return -EINVAL;
   }
   
   if (msg->port->server_vnode != svnode) {
+    Info("ReplyMsg: server_vnode != svnode");
       return -EINVAL;
   }
   
   if (msg->state != MSG_STATE_RECEIVED) {
+      Info("ReplyMsg: state != MSG_STATE_RECEIVED");
       return -EINVAL;
   }
     
