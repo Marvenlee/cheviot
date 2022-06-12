@@ -145,7 +145,6 @@
  */
 struct VNode;
 struct Filp;
-struct stat;
 struct VFS;
 struct DName;
 struct InterruptAPI;    // TODO: Remove, run interrupt in user-mode, change API.

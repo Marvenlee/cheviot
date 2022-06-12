@@ -311,7 +311,6 @@ int cmdWaitfor (void) {
   
     if (Stat(fullpath, &stat) != 0) {
       KLog ("waitfor failed to stat file");
-//      sleep (-1);
       continue;
     }
     

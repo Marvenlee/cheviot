@@ -115,11 +115,12 @@ static int InitLookup(char *_path, uint32_t flags, struct Lookup *lookup)
   
   current = GetCurrentProcess();
   
-  memset(lookup, 0, sizeof *lookup);
   lookup->vnode = NULL;
   lookup->parent = NULL;
   lookup->position = lookup->path;
+  lookup->last_component = NULL;
   lookup->flags = flags;
+  lookup->path[0] = '\0';
 
   if (flags & LOOKUP_KERNEL) {
     StrLCpy(lookup->path, _path, sizeof lookup->path);
@@ -132,7 +133,14 @@ static int InitLookup(char *_path, uint32_t flags, struct Lookup *lookup)
   }
   
   lookup->start_vnode = (lookup->path[0] == '/') ? root_vnode : current->current_dir;    
+
   KASSERT(lookup->start_vnode != NULL);
+
+  if (!S_ISDIR(lookup->start_vnode->mode)) {
+    Info ("root vnode is not a directory");
+    return -ENOTDIR;
+  }
+
   return 0;
 }
 
@@ -172,7 +180,7 @@ static int LookupPath(struct Lookup *lookup)
     }  
                     
     lookup->parent = lookup->vnode;
-    lookup->vnode = NULL;
+    lookup->vnode = NULL;    
     
     rc = WalkComponent(lookup);
 
@@ -310,8 +318,12 @@ static int WalkComponent (struct Lookup *lookup)
   KASSERT(lookup->parent != NULL);
   KASSERT(lookup->vnode == NULL);
   KASSERT(lookup->last_component != NULL);
-      
-  if (StrCmp(lookup->last_component, ".") == 0) {    
+  
+  if (!S_ISDIR(lookup->parent->mode)) {
+    Info ("lookup->parent is not a directory");
+    return -ENOTDIR;   
+ 
+  } else if (StrCmp(lookup->last_component, ".") == 0) {    
     VNodeIncRef(lookup->parent);    
     lookup->vnode = lookup->parent;
     return 0;
@@ -321,6 +333,7 @@ static int WalkComponent (struct Lookup *lookup)
       VNodeIncRef(root_vnode);
       lookup->vnode = root_vnode;
       return 0;
+ 
     } else if (lookup->parent->vnode_covered != NULL) {
       VNodeIncRef(lookup->parent->vnode_covered);
       VNodePut(lookup->parent);
@@ -335,7 +348,9 @@ static int WalkComponent (struct Lookup *lookup)
   }
   
   vnode_mounted_here = lookup->vnode->vnode_mounted_here;
-  
+
+  // TODO: Check permissions/access here
+    
   if (vnode_mounted_here != NULL) {
     VNodePut(lookup->vnode);
     lookup->vnode = vnode_mounted_here;
