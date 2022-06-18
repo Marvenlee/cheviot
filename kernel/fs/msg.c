@@ -25,7 +25,7 @@
  * server indicates it is finished with the message by calling ReplyMsg.
  */
 
-// #define KDEBUG
+//#define KDEBUG
 
 #include <kernel/arm/boot.h>
 #include <kernel/dbg.h>
@@ -127,6 +127,9 @@ SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
   }
 
   svnode = filp->vnode;
+  
+//  VNodeLock(svnode);
+  
   sb = svnode->superblock;
 
   Info("svnode->superblock %08x", sb);
@@ -137,6 +140,7 @@ SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
 
   if (msg == NULL) {
     Info("ReceiveMsg no msg, returning 0");
+//  VNodeUnlock(svnode);
     return 0;    
   }
 
@@ -160,6 +164,8 @@ SYSCALL int SysReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
     i++;
   }
 
+//  VNodeUnlock(svnode);
+
   Info("ReceiveMsg nbytes:%d, pid = %d", nbytes_read, msg->pid);
 
   return nbytes_read;
@@ -176,6 +182,13 @@ SYSCALL int SysReplyMsg(int server_fd, int pid, int status) {
 
   Info("StsReplyMsg fd:%d, pid:%d", server_fd, pid);
 
+  proc = GetProcess(pid);   // TODO: pid should be recv_id
+  
+  if (proc == NULL) {
+    Info("ReplyMsg: proc==NULL");
+    return -EINVAL;
+  }
+
   filp = GetFilp(server_fd);
 
   if (filp == NULL) {
@@ -185,29 +198,30 @@ SYSCALL int SysReplyMsg(int server_fd, int pid, int status) {
 
   svnode = filp->vnode;
 
-  proc = GetProcess(pid);
-  
-  if (proc == NULL) {
-    Info("ReplyMsg: proc==NULL");
-    return -EINVAL;
-  }
+//  VNodeLock(svnode);
 
   msg = proc->msg;
   
   if (msg == NULL) {
     Info("ReplyMsg: msg==NULL");
+//  VNodeUnlock(svnode);
     return -EINVAL;
   }
   
   if (msg->port->server_vnode != svnode) {
     Info("ReplyMsg: server_vnode != svnode");
+//  VNodeUnlock(svnode);
       return -EINVAL;
   }
   
   if (msg->state != MSG_STATE_RECEIVED) {
       Info("ReplyMsg: state != MSG_STATE_RECEIVED");
+//  VNodeUnlock(svnode);
       return -EINVAL;
   }
+
+//  VNodeUnlock(svnode);
+
     
   msg->reply_status = status;
   msg->state = MSG_STATE_REPLIED;
@@ -239,27 +253,36 @@ SYSCALL int SysReadMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
     return -EINVAL;
   }
 
-  svnode = filp->vnode;
-
   proc = GetProcess(pid);
   
   if (proc == NULL) {
     return -EINVAL;
   }
-  
+
   msg = proc->msg;
 
   if (msg == NULL) {
     return -EINVAL;
   }
   
+
+  svnode = filp->vnode;
+  
+    
+  //  VNodeunlock(svnode);
+
   if (msg->port->server_vnode != svnode) {
+  //  VNodeunlock(svnode);
       return -EINVAL;
   }
   
   if (msg->state != MSG_STATE_RECEIVED) {
+  //  VNodeunlock(svnode);
       return -EINVAL;
   }
+    
+    
+    
     
   nbytes_read = 0;
   base_offset = 0;
@@ -286,6 +309,9 @@ SYSCALL int SysReadMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
     i++;
     iov_remaining = msg->iov[i].size;
   }
+  
+  //  VNodeUnlock(svnode);
+
 
   return nbytes_read;
 }
@@ -312,25 +338,30 @@ SYSCALL int SysWriteMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
     return -EINVAL;
   }
 
-  svnode = filp->vnode;
-  
   proc = GetProcess(pid);
   
   if (proc == NULL) {
     return -EINVAL;
   }
+
+  svnode = filp->vnode;
+  
+  //  VNodeLock(svnode);
   
   msg = proc->msg;
   
   if (msg == NULL) {
+  //  VNodeunlock(svnode);
     return -EINVAL;
   }
 
   if (msg->port->server_vnode != svnode) {
+  //  VNodeUnlock(svnode);
       return -EINVAL;
   }
   
   if (msg->state != MSG_STATE_RECEIVED) {
+  //  VNodeunlock(svnode);
       return -EINVAL;
   }
 
@@ -366,6 +397,9 @@ SYSCALL int SysWriteMsg(int server_fd, int pid, void *buf, size_t buf_sz) {
     iov_remaining = msg->iov[i].size;
   }
 
+  //  VNodeunlock(svnode);
+
+
 //  Info ("WriteMsg nbytes_written:%d", nbytes_written);
   return nbytes_written;
 }
@@ -390,18 +424,23 @@ SYSCALL int SysSeekMsg(int server_fd, int pid, off_t offset) {
   if (proc == NULL) {
     return -EINVAL;
   }
+
+  //  VNodeLock(svnode);
   
   msg = proc->msg;
   
   if (msg == NULL) {
+  //  VNodeuock(svnode);
     return -EINVAL;
   }
 
   if (msg->port->server_vnode != svnode) {
+  //  VNodeunock(svnode);
       return -EINVAL;
   }
   
   if (msg->state != MSG_STATE_RECEIVED) {
+  //  VNodeunlock(svnode);
       return -EINVAL;
   }
 

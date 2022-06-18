@@ -33,6 +33,8 @@ SYSCALL ssize_t SysRead(int fd, void *dst, size_t sz) {
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;
+
+  Info ("SysRead fd:%d, sz:%d", fd, sz);
   
   filp = GetFilp(fd);
 
@@ -84,6 +86,8 @@ ssize_t KRead(int fd, void *dst, size_t sz) {
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;
+  
+  Info("KRead fd=%d, sz=%d", fd, sz);
   
   filp = GetFilp(fd);
 

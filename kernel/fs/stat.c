@@ -82,6 +82,8 @@ SYSCALL int SysFStat(int fd, struct stat *_stat) {
 
   vnode = filp->vnode;
 
+  VNodeLock(vnode);
+  
   // FIXME: Should have vnodehold  when we know the vnode
   // But we don't acquire it , so no need for hold/put here.
 
@@ -100,6 +102,8 @@ SYSCALL int SysFStat(int fd, struct stat *_stat) {
   stat.st_ctime = vnode->ctime;
   stat.st_blocks = vnode->blocks;
   stat.st_blksize = vnode->blksize;
+
+  VNodeUnlock(vnode);
 
   if (_stat == NULL) {
     return -EFAULT;

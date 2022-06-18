@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// #define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -30,11 +30,14 @@ static struct VNode *VNodeFind(struct SuperBlock *sb, int inode_nr);
 
 /* @brief Allocate a new vnode
  *
+ * Allocate a new vnode object, assign an inode_nr to it and lock it.
+ * A call to VNodeFind() should be called prior to this to see if the vnode
+ * already exists.
  */
 struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
-  Info ("VNodeNew: %d", inode_nr);
+  Info ("VNodeNew(sb=%08x, ino=%d)", sb, inode_nr);
 
   vnode = LIST_HEAD(&vnode_free_list);
 
@@ -50,12 +53,6 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   // BSync(vnode)
   //
 
-  // Make sure vnode doesn't already exist
-  
-  
-
-  memset(vnode, 0, sizeof *vnode);
-  
   vnode->busy = true;
   
   vnode->vnode_mounted_here = NULL;
@@ -76,7 +73,7 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
   
   InitRendez(&vnode->rendez);
   
-  Info ("VNodeNew (ino_nr = %d, sb = %08x)", vnode->inode_nr, (vm_addr)sb);
+  Info ("VNodeNew => vnode = %08x", vnode);
   return vnode;
 }
 
@@ -95,31 +92,32 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
 struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
+  Info ("VNodeGet(sb=%08x, ino=%d",sb, inode_nr);
+
   while (1) {
     if (sb->flags & S_ABORT)
       return NULL;
 
     if ((vnode = VNodeFind(sb, inode_nr)) != NULL) {
-
-      // Use VNodeLock outside of this.
-/*      
-      if (vnode->busy == true) {
-        Info ("******** Found vnode, vnode busy, sleeping **********");
+      vnode->reference_cnt++;
+      sb->reference_cnt++;
+    
+      while (vnode->busy) {
+        Info ("**** Found vnode %08x, busy, sleeping ***", vnode);
         TaskSleep(&vnode->rendez);
-        continue;
       }
-*/
+
+      vnode->busy = true;
+
       if ((vnode->flags & V_FREE) == V_FREE) {
         LIST_REM_ENTRY(&vnode_free_list, vnode, vnode_entry);
       }
 
-//      vnode->busy = 1;
-
-      vnode->reference_cnt++;
-      sb->reference_cnt++;
-
+      Info ("VNodeGet => vnode = %08x", vnode);
       return vnode;
+      
     } else {
+      Info ("VNodeGet => NULL");
       return NULL;
     }
   }
@@ -130,6 +128,7 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
  * that proc->current_dir counts as reference.
  */
 void VNodeIncRef(struct VNode *vnode) {
+  Info("VNodeIncRef ****");
   vnode->reference_cnt++;
   vnode->superblock->reference_cnt++;
 }
@@ -139,6 +138,8 @@ void VNodeIncRef(struct VNode *vnode) {
 
 void VNodeFree(struct VNode *vnode) {
 
+  Info("VNodeFree ****");
+  
   if (vnode == NULL) {
     return;
   }
@@ -146,7 +147,7 @@ void VNodeFree(struct VNode *vnode) {
   vnode->flags = V_FREE;
   LIST_ADD_HEAD(&vnode_free_list, vnode, vnode_entry);
 
-  vnode->busy = 0;
+  vnode->busy = false;
   vnode->reference_cnt = 0;
   TaskWakeupAll(&vnode->rendez);
 }
@@ -159,32 +160,31 @@ void VNodeFree(struct VNode *vnode) {
 void VNodePut(struct VNode *vnode) {
   KASSERT(vnode != NULL);
   KASSERT(vnode->superblock != NULL);
-//  KASSERT(vnode->busy == true);     // This should be locked prior to putting
+  // KASSERT(vnode->busy == true);     // Fails if vnode and parent are same path = "/." then most ops do 2 VNodePuts on same vnode.
   
-  
+
+  Info ("VNodePut(vnode=%08x)", vnode);
+
+  vnode->busy = false;
+    
   vnode->reference_cnt--;  
   vnode->superblock->reference_cnt--;
   
   if (vnode->reference_cnt == 0) {
     // FIXME: IF vnode->link_count == 0,  delete entries in cache.
- /*
     
+    /*
     if (vnode->nlink == 0) {
       
       // Thought we removed vnode->vfs ??????????
       vnode->vfs->remove(vnode);
     }  
-*/    
+    */
 
     if ((vnode->flags & V_ROOT) == 0) {
       vnode->flags |= V_FREE;
       LIST_ADD_TAIL(&vnode_free_list, vnode, vnode_entry);
     }
-  }
-  else
-  {
-    // Do we mark it as false
-    vnode->busy = false;
   }
   
   TaskWakeupAll(&vnode->rendez);
@@ -194,19 +194,31 @@ void VNodePut(struct VNode *vnode) {
  * 
  */
 void VNodeLock(struct VNode *vnode) {
-//  while (vnode->busy == 1) {
-//    TaskSleep(&vnode->rendez);
-//  }
+  KASSERT(vnode != NULL);
+  
+  Info ("VNodeLock(%08x)", vnode);
 
-  vnode->busy = 1;
+  while (vnode->busy == true) {
+    Info ("**** vnode %08x busy, sleeping", vnode);
+    TaskSleep(&vnode->rendez);
+  }
+
+  Info ("VNodeLock => locked vn=%08x", vnode);
+
+  vnode->busy = true;
 }
 
 /* @brief Relinquish exclusive access to a vnode
  *
  */
 void VNodeUnlock(struct VNode *vnode) {
-  vnode->busy = 0;
-//  TaskWakeupAll(&vnode->rendez);
+  KASSERT(vnode != NULL);
+  KASSERT(vnode->busy == true);
+  
+  Info ("VNodeUnlock(%08x)", vnode);
+
+  vnode->busy = false;
+  TaskWakeupAll(&vnode->rendez);
 }
 
 

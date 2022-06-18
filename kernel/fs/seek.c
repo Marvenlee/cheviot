@@ -23,6 +23,9 @@
 
 /*
  * FIXME: Limit block seeks to stat.block size multiples?
+ *
+ * vnode lock not needed
+ * filp will need to either atomically set seek position or need locking if we remove BKL
  */
 SYSCALL off_t SysSeek(int fd, off_t pos, int whence) {
   struct Filp *filp;

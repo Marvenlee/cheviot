@@ -46,11 +46,15 @@ SYSCALL int SysMkNod(char *_path, uint32_t flags, struct stat *_stat) {
   if ((status = Lookup(_path, LOOKUP_PARENT, &lookup)) != 0) {
     return status;
   }
+
+  Info ("MkNod lookupp complete");
+  Info ("lookup.parent = %08x", lookup.parent);
+  Info ("lookup.vnode = %08x", lookup.vnode);
   
   if (lookup.vnode != NULL)
   {    
-    VNodeUnlock(lookup.vnode);
-    VNodeUnlock(lookup.parent);
+    VNodePut(lookup.vnode);
+    VNodePut(lookup.parent);
     status = -EEXIST;
     goto exit;  
   }
@@ -60,8 +64,9 @@ SYSCALL int SysMkNod(char *_path, uint32_t flags, struct stat *_stat) {
     
   status = vfs_mknod(lookup.parent, lookup.last_component, &stat, &vnode);
 
-  VNodeUnlock(lookup.parent);
-
+  VNodePut(vnode);
+  VNodePut(lookup.parent);
+  
   Info ("SysMknod");
 
 exit:
@@ -226,13 +231,18 @@ exit:
 
   // FIXME: Need to understand/cleanup what vnode get/put/free/ alloc? do
 
+  Info ("Mount: Vnodeput server_vnode");
   VNodePut(server_vnode); // FIXME: Not a PUT?  Removed below?
   FreeHandle(fd);
+
+  Info ("Mount: Vnodeput lookup.vnode");
   VNodePut(lookup.vnode);
   
   VNodeFree(client_vnode);
   VNodeFree(server_vnode);
   FreeSuperBlock(sb);
+
+  Info ("Mount: Vnodeput vnode_covered");  
   VNodePut(vnode_covered);
   return error;
 }

@@ -29,6 +29,15 @@
 #include <kernel/utility.h>
 #include <string.h>
 
+
+int vfs_put(struct VNode *vnode)
+{
+  KASSERT(vnode != NULL);
+  
+  VNodePut(vnode);
+}
+
+
 /*
  *
  */
@@ -42,6 +51,10 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   struct Msg msg;
   struct IOV iov[3];
   
+  KASSERT(dvnode != NULL);
+  KASSERT(name != NULL);
+  KASSERT(result != NULL);  
+    
   Info ("name addr = %08x", (uint32_t)name);
   Info ("vfs_lookup(%s)", name);
   Info ("dvnode=%08x", dvnode);
@@ -85,10 +98,6 @@ int vfs_lookup(struct VNode *dvnode, char *name,
     *result = NULL;
     return -EIO;  
   }
-
-  // FIXME: Can we move this into higher level? 
-  // Is there a potential race condition?  What is it fails to allocate
-  // but the message has created a node on disk?
   
   if (reply.args.lookup.inode_nr == dvnode->inode_nr) {
     VNodeIncRef(dvnode);
@@ -104,9 +113,7 @@ int vfs_lookup(struct VNode *dvnode, char *name,
       return -ENOMEM;
     }
 
-    // FIXME: Need to get nlink
-    vnode->nlink = 1;      
-    // vnode->data = NULL;
+    vnode->nlink = 1;           // FIXME: Need to get nlink. Do we have dev id in each vnode (from superblock)?
     vnode->reference_cnt = 1;
     vnode->size = reply.args.lookup.size;      
     vnode->uid = reply.args.lookup.uid;  
@@ -602,7 +609,9 @@ exit:
 }
 
 /*
- *
+ * Does this call VNodePut, or is it higher layer 
+ * is the put done after the vfs_unlink ?  We should be the only reference
+ * when this is called.
  */
 int vfs_unlink(struct VNode *dvnode, char *name) {
   struct fsreq req;

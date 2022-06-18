@@ -85,6 +85,7 @@ SYSCALL int SysChmod(char *_path, mode_t mode) {
   }
 
   WakeupPolls(vnode, POLLPRI,POLLPRI);
+  
   VNodePut(vnode);
   return err;
 }

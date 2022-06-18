@@ -237,14 +237,16 @@ SYSCALL int SysClose(int fd) {
   vnode = filp->vnode;
   
   if (vnode != NULL) {
-     
+    
+    VNodeLock(vnode);
+    
     if (S_ISFIFO(vnode->mode)) {
       Info ("*** Do close pipe, wakeup rendez");
       pipe = vnode->pipe;    
       TaskWakeupAll(&pipe->rendez);
     }
 
-    Info ("Close vnode put = %08x", vnode);
+    Info ("SysClose vnodeput = %08x", vnode);
     VNodePut(vnode);
   }
   else
@@ -369,8 +371,8 @@ int FreeHandle(int fd) {
 /*
  *
  */
-void InitProcessHandles(struct Process *proc) {
-
+void InitProcessHandles(struct Process *proc)
+{
   for (int fd = 0; fd < NPROC_FD; fd++) {
     proc->fd_table[fd] = NULL;
   }
@@ -384,8 +386,10 @@ void InitProcessHandles(struct Process *proc) {
 /*
  *
  */
-void FreeProcessHandles(struct Process *proc) {
-
+void FreeProcessHandles(struct Process *proc)
+{
+  Info ("FreeProcessHandles()");
+  
   for (int fd = 0; fd < NPROC_FD; fd++) {
     if (proc->fd_table[fd] != NULL) {
       SysClose(fd);
@@ -399,6 +403,8 @@ void FreeProcessHandles(struct Process *proc) {
 int ForkProcessHandles(struct Process *newp, struct Process *oldp) {
   int fd;
   uint16_t filp_idx;
+  
+  Info ("ForkProcessHandles()");
   
   for (fd = 0; fd < NPROC_FD; fd++) {
     newp->fd_table[fd] = oldp->fd_table[fd];
@@ -420,6 +426,7 @@ int ForkProcessHandles(struct Process *newp, struct Process *oldp) {
 int CloseOnExecProcessHandles(void) {
   struct Process *current;
 
+  Info("CloseOnExecProcessHandles()");
   current = GetCurrentProcess();
 
   for (int fd = 0; fd < NPROC_FD; fd++) {
@@ -427,6 +434,9 @@ int CloseOnExecProcessHandles(void) {
       SysClose(fd);
     }
   }
+
+  VNodeLock(current->current_dir);
+  VNodePut(current->current_dir);
 
   return 0;
 }

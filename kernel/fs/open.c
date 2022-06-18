@@ -75,12 +75,10 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
   vnode = lookup->vnode;
   dvnode = lookup->parent;
   
-  Info ("DoOoen vnode = %08x", vnode);
-  Info ("DoOpen dvnode = %08x", dvnode);
-  
-  
+    
   if (vnode == NULL) {
     if ((oflags & O_CREAT) && IsAllowed(dvnode, W_OK) != 0) {
+      Info("SysOpen VnodePut O_CREAT");
       VNodePut(dvnode);
       return -ENOENT;
     }
@@ -90,6 +88,7 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
     stat.st_gid = current->gid;
 
     if ((err = vfs_create(dvnode, lookup->last_component, oflags, &stat, &vnode)) != 0) {
+      Info("SysOpen VnodePut vfs_create");
       VNodePut(dvnode);      
       return err;
     }
@@ -103,10 +102,12 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
 //    }
   }
 
+  Info("SysOpen VnodePut dvnode");
   VNodePut(dvnode);
 
   if (oflags & O_TRUNC) {
     if ((err = vfs_truncate(vnode, 0)) != 0) {
+      Info("SysOpen VnodePut vfs_truncate");
       VNodePut(vnode);
       return err;
     }
@@ -126,7 +127,7 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
   else
     filp->offset = 0;
 
-  VNodeUnlock(vnode);  
+  VNodeUnlock(vnode);
 
   Info ("DoOpen success");
   return fd;
@@ -134,6 +135,8 @@ static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
 exit:
   Info ("DoOpen failed: %d", err);
   FreeHandle(fd);
+
+  Info("SysOpen VnodePut exit:");
   VNodePut(vnode);
   return err;
 }

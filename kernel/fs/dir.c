@@ -45,20 +45,18 @@ SYSCALL int SysChDir(char *_path) {
 
   if (!S_ISDIR(lookup.vnode->mode)) {
     Info ("ChDir -ENOTDIR");
+    VNodePut(lookup.vnode);
     return -ENOTDIR;
   }
 
   if (current->current_dir != NULL) {
+    Info ("ChDir - current_Dir != NULL");
     VNodePut(current->current_dir);
   }
 
   current->current_dir = lookup.vnode;
   VNodeUnlock(current->current_dir);
   return 0;
-  
-exit:
-  VNodePut(lookup.vnode);
-  return err;
 }
 
 
@@ -80,12 +78,15 @@ SYSCALL int SysFChDir(int fd) {
     return -EINVAL;
   }
 
+  // FIXME: Do we need to lock vnode if we don't block ?
+
   vnode = filp->vnode;
 
   if (!S_ISDIR(vnode->mode)) {
     return -ENOTDIR;
   }
 
+  Info ("SysFChdir vnodeput");
   VNodePut(current->current_dir);
   current->current_dir = vnode;
   VNodeIncRef(vnode);
@@ -102,6 +103,8 @@ SYSCALL int SysOpenDir(char *_path) {
   int fd;
   struct Filp *filp = NULL;
   int err;
+
+  Info("SysOpenDir");
 
   current = GetCurrentProcess();
 
@@ -132,6 +135,7 @@ SYSCALL int SysOpenDir(char *_path) {
 
 exit:
     FreeHandle(fd);
+    Info ("SysOpenDir vnodeput");
     VNodePut(lookup.vnode);
     return -ENOMEM;
 }
@@ -158,6 +162,8 @@ SYSCALL ssize_t SysReadDir(int fd, void *dst, size_t sz) {
   ssize_t dirents_sz;
   off64_t cookie;
   uint8_t buffer[512];    // FIXME: add constant name, 255 is max filename length, 512 reasonable size for multiple dirents 
+
+  Info("SysReaddir");
   
   filp = GetFilp(fd);
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// #define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -49,36 +49,56 @@ int Lookup(char *_path, int flags, struct Lookup *lookup)
   int rc;
   
   if ((rc = InitLookup(_path, flags, lookup)) != 0) {
+    Info ("Lookup init failed");
     return rc;
   }
 
   if (flags & LOOKUP_PARENT) {    
+    Info("---");
+    Info("Lookup parent");
+    
     if (lookup->path[0] == '/' && lookup->path[1] == '\0') {  // Replace with IsPathRoot()
+      Info ("Lookup failed root");
       return -EINVAL;  
     }
 
     if ((rc = LookupPath(lookup)) != 0) {
+      Info ("Lookup failed x");
       return rc;
     }
 
     lookup->parent = lookup->vnode;
     lookup->vnode = NULL;
+    
+    Info ("Lookup.parent = %08x", lookup->parent);
 
     rc = LookupLastComponent(lookup);
+
+    Info ("Lookup last component rc=%d", rc);
+    
+    // What if it failed for some other reason than it doesn't exit, could this be a vulnerability?    
+
+    // What if it is path/.
+    // Need to throw an error, we are looking for a path and a last component, path/. is not valid
+
     return 0;
 
   } else if (flags & LOOKUP_REMOVE) {
+    Info("Lookup remove failed");
     return -ENOTSUP;
     
   } else {
       if (lookup->path[0] == '/' && lookup->path[1] == '\0') { // Replace with IsPathRoot()
+        Info("Lookup locking root");
         lookup->parent = NULL;
         lookup->vnode = root_vnode;
         VNodeIncRef(lookup->vnode);
+        VNodeLock(lookup->vnode);
         return 0;
       }
 
       if ((rc = LookupPath(lookup)) != 0) {
+        Info ("Lookup failed");
         return rc;
       }
             
@@ -88,11 +108,14 @@ int Lookup(char *_path, int flags, struct Lookup *lookup)
       KASSERT(lookup->parent != NULL);
                   
       rc = LookupLastComponent(lookup);
-      
-      if (rc == 0) {
+
+      if (lookup->parent != lookup->vnode)            
+      {
+        Info ("Lookup . parent == vnode = %08x", lookup->parent);
         VNodePut(lookup->parent);
       }
-
+      
+      Info ("Lookup ret=%d", rc);      
       return rc;
   }
 }
@@ -132,6 +155,8 @@ static int InitLookup(char *_path, uint32_t flags, struct Lookup *lookup)
     lookup->path[i] = '\0';
   }
   
+  Info ("Lookup patn:%s", lookup->path);
+  
   lookup->start_vnode = (lookup->path[0] == '/') ? root_vnode : current->current_dir;    
 
   KASSERT(lookup->start_vnode != NULL);
@@ -157,11 +182,13 @@ static int LookupPath(struct Lookup *lookup)
   
   KASSERT(lookup->start_vnode != NULL);
 
+  Info("LookupPath()");
+
   lookup->parent = NULL;
   lookup->vnode = lookup->start_vnode;
 
-  
-//  VNodeLock(dvnode);
+  VNodeIncRef(lookup->vnode);
+  VNodeLock(lookup->vnode);  
   
   for(;;) {    
     lookup->last_component = PathToken(lookup);
@@ -169,15 +196,16 @@ static int LookupPath(struct Lookup *lookup)
     if (lookup->last_component == NULL) {
       return -EINVAL;
     }
-    
-    if (IsLastComponent(lookup)) {
-      return 0; 
-    }    
 
     if (lookup->parent != NULL) {
+      Info("lookuppath vnodeput 1");
       VNodePut(lookup->parent);
       lookup->parent = NULL;
     }  
+    
+    if (IsLastComponent(lookup)) {
+      return 0;
+    }    
                     
     lookup->parent = lookup->vnode;
     lookup->vnode = NULL;    
@@ -186,6 +214,7 @@ static int LookupPath(struct Lookup *lookup)
 
     if (rc != 0)
     {
+      Info("lookuppath vnodeput 2");
       VNodePut(lookup->parent);
       lookup->parent = NULL;
       return rc;
@@ -319,11 +348,15 @@ static int WalkComponent (struct Lookup *lookup)
   KASSERT(lookup->vnode == NULL);
   KASSERT(lookup->last_component != NULL);
   
+  Info("WalkComponent path:%s", lookup->last_component);
+  
   if (!S_ISDIR(lookup->parent->mode)) {
     Info ("lookup->parent is not a directory");
     return -ENOTDIR;   
  
   } else if (StrCmp(lookup->last_component, ".") == 0) {    
+    
+    Info("Walk . lookup->parent = %08x", lookup->parent);    
     VNodeIncRef(lookup->parent);    
     lookup->vnode = lookup->parent;
     return 0;
@@ -336,6 +369,8 @@ static int WalkComponent (struct Lookup *lookup)
  
     } else if (lookup->parent->vnode_covered != NULL) {
       VNodeIncRef(lookup->parent->vnode_covered);
+  
+      Info("walkcomponent vnodeput 1");
       VNodePut(lookup->parent);
       lookup->parent = lookup->parent->vnode_covered;
     }
@@ -352,9 +387,11 @@ static int WalkComponent (struct Lookup *lookup)
   // TODO: Check permissions/access here
     
   if (vnode_mounted_here != NULL) {
+      Info("walkcomponent vnodeput 2");
     VNodePut(lookup->vnode);
     lookup->vnode = vnode_mounted_here;
     VNodeIncRef(lookup->vnode);
+    VNodeLock(lookup->vnode);
   }
 
   return 0;
