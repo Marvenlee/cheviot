@@ -107,11 +107,9 @@ ssize_t WriteToChar (struct VNode *vnode, void *src, size_t sz) {
 /*
  *
  */
-SYSCALL int SysTCSetAttr (int fd, struct termios *_termios)
+SYSCALL int sys_tcsetattr (int fd, struct termios *_termios)
 {
   // Allow only a single command at a time for this vnode
-  Info ("TCSetAttr");
-  
   return -ENOSYS;
 }
 
@@ -119,9 +117,8 @@ SYSCALL int SysTCSetAttr (int fd, struct termios *_termios)
 /*
  *
  */
-SYSCALL int SysTCGetAttr (int fd, struct termios *_termios)
+SYSCALL int sys_tcgetattr (int fd, struct termios *_termios)
 {
-  Info ("TCGetAttr");
   return -ENOSYS;
 }
 
@@ -130,7 +127,7 @@ SYSCALL int SysTCGetAttr (int fd, struct termios *_termios)
  * Add IsATTY here
  */
 
-SYSCALL int SysIsATTY(int fd)
+SYSCALL int sys_isatty(int fd)
 {
   Info ("IsATTY always true, fd: %d", fd);
   return 1;

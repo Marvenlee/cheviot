@@ -71,12 +71,12 @@ void FiqHandler(void) {
  *
  */
 
-void SysUnknownSyscallHandler(struct UserContext *context) {
+SYSCALL void sys_unknownsyscallhandler(struct UserContext *context) {
   struct Process *current;
   
   current = GetCurrentProcess();
   current->signal.si_code[SIGSYS-1] = 0;
-  SysKill(current->pid, SIGSYS);
+  sys_kill(current->pid, SIGSYS);
 }
 
 /*
@@ -95,7 +95,7 @@ void UndefInstrHandler(struct UserContext *context) {
 
   current->signal.si_code[SIGILL-1] = 0;
   current->signal.sigill_ptr = context->pc;
-  SysKill(current->pid, SIGILL);
+  sys_kill(current->pid, SIGILL);
 }
 
 /*
@@ -133,7 +133,7 @@ void PrefetchAbortHandler(struct UserContext *context) {
 
       current->signal.si_code[SIGSEGV-1] = 0;    // TODO: Could be access bit?
       current->signal.sigsegv_ptr = fault_addr;
-      SysKill(current->pid, SIGSEGV);
+      sys_kill(current->pid, SIGSEGV);
       
     } else {
       PrintUserContext(context);
@@ -204,7 +204,7 @@ void DataAbortHandler(struct UserContext *context) {
 
       current->signal.si_code[SIGSEGV-1] = 0;    // TODO: Could be access bit?
       current->signal.sigsegv_ptr = fault_addr;
-      SysKill(current->pid, SIGSEGV);
+      sys_kill(current->pid, SIGSEGV);
             
     } else {
       PrintUserContext(context);

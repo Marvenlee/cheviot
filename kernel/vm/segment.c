@@ -33,7 +33,7 @@
  *
  */
 
-vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
+vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
                       int type, bits32_t flags) {
   vm_addr *seg;
   vm_addr base;
@@ -47,7 +47,7 @@ vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
   }
 
   if (flags & MAP_FIXED) {
-    if ((seg = SegmentFind(as, addr)) == NULL) {
+    if ((seg = segment_find(as, addr)) == NULL) {
       return (vm_addr)NULL;
     }
 
@@ -59,7 +59,7 @@ vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
       return (vm_addr)NULL;
     }
 
-  } else if ((seg = SegmentAlloc(as, size, flags, &addr)) == NULL) {
+  } else if ((seg = segment_alloc(as, size, flags, &addr)) == NULL) {
     return (vm_addr)NULL;
   }
 
@@ -75,7 +75,7 @@ vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
 
     base = *seg & SEG_ADDR_MASK;
 
-    SegmentInsert(as, t, 2);
+    segment_insert(as, t, 2);
 
     *seg = base | SEG_TYPE_FREE;
     *(seg + 1) = addr | (type & SEG_TYPE_MASK);
@@ -86,7 +86,7 @@ vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
 
     base = *seg & SEG_ADDR_MASK;
 
-    SegmentInsert(as, t, 1);
+    segment_insert(as, t, 1);
 
     *seg = addr | (type & SEG_TYPE_MASK);
     *(seg + 1) = (addr + size) | SEG_TYPE_FREE;
@@ -95,7 +95,7 @@ vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
 
     base = *seg & SEG_ADDR_MASK;
 
-    SegmentInsert(as, t, 1);
+    segment_insert(as, t, 1);
 
     *seg = base | SEG_TYPE_FREE;
     *(seg + 1) = addr | (type & SEG_TYPE_MASK);
@@ -104,7 +104,7 @@ vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
   return addr;
 }
 
-void SegmentFree(struct AddressSpace *as, vm_addr base, vm_size size) {
+void segment_free(struct AddressSpace *as, vm_addr base, vm_size size) {
   int lo;
   int hi;
   
@@ -112,15 +112,15 @@ void SegmentFree(struct AddressSpace *as, vm_addr base, vm_size size) {
     return;
   }
 
-  lo = SegmentSplice(as, base);
-  hi = SegmentSplice(as, base + size);
+  lo = segment_splice(as, base);
+  hi = segment_splice(as, base + size);
 
   for (int t = lo; t < hi; t++) {
     as->segment_table[t] =
         (as->segment_table[t] & SEG_ADDR_MASK) | SEG_TYPE_FREE;
   }
 
-  SegmentCoalesce(as);
+  segment_coalesce(as);
 }
 
 /*
@@ -134,7 +134,7 @@ void SegmentFree(struct AddressSpace *as, vm_addr base, vm_size size) {
  *
  */
 
-void SegmentInsert(struct AddressSpace *as, int index, int cnt) {
+void segment_insert(struct AddressSpace *as, int index, int cnt) {
   int t;
 
   for (t = as->segment_cnt - 1 + cnt; t >= (index + cnt); t--) {
@@ -149,7 +149,7 @@ void SegmentInsert(struct AddressSpace *as, int index, int cnt) {
  *
  */
 
-vm_addr *SegmentFind(struct AddressSpace *as, vm_addr addr) {
+vm_addr *segment_find(struct AddressSpace *as, vm_addr addr) {
   int low = 0;
   int high = as->segment_cnt - 1;
   int mid;
@@ -174,7 +174,7 @@ vm_addr *SegmentFind(struct AddressSpace *as, vm_addr addr) {
  * MemAreaCoalesce();
  */
 
-void SegmentCoalesce(struct AddressSpace *as) {
+void segment_coalesce(struct AddressSpace *as) {
   int t, s;
 
   for (t = 0, s = 0; t <= as->segment_cnt; t++) {
@@ -195,7 +195,7 @@ void SegmentCoalesce(struct AddressSpace *as) {
  * FIXME:  Allocate above *ret_addr
  */
 
-vm_addr *SegmentAlloc(struct AddressSpace *as, vm_size size, uint32_t flags,
+vm_addr *segment_alloc(struct AddressSpace *as, vm_size size, uint32_t flags,
                       vm_addr *ret_addr) {
   int i;
   vm_addr addr;
@@ -227,7 +227,7 @@ vm_addr *SegmentAlloc(struct AddressSpace *as, vm_size size, uint32_t flags,
   return NULL;
 }
 
-int SegmentSplice(struct AddressSpace *as, vm_addr addr) {
+int segment_splice(struct AddressSpace *as, vm_addr addr) {
   // Find a segment and if necessary split it, do not change flags etc.
   vm_addr *seg;
   int i;
@@ -236,7 +236,7 @@ int SegmentSplice(struct AddressSpace *as, vm_addr addr) {
     return NSEGMENT;
   }
 
-  seg = SegmentFind(as, addr);
+  seg = segment_find(as, addr);
 
   if (seg == NULL) {
     return -1;
@@ -248,7 +248,7 @@ int SegmentSplice(struct AddressSpace *as, vm_addr addr) {
     return i;
   }
 
-  SegmentInsert(as, i, 1);
+  segment_insert(as, i, 1);
 
   as->segment_table[i + 1] = as->segment_table[i];
 

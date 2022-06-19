@@ -22,7 +22,7 @@
 #include <kernel/types.h>
 #include <sys/mount.h>
 
-SYSCALL int SysStat(char *_path, struct stat *_stat) {
+SYSCALL int sys_stat(char *_path, struct stat *_stat) {
   struct stat stat;
   struct Lookup lookup;
   int sc;
@@ -67,7 +67,7 @@ SYSCALL int SysStat(char *_path, struct stat *_stat) {
 /*
  *
  */
-SYSCALL int SysFStat(int fd, struct stat *_stat) {
+SYSCALL int sys_fstat(int fd, struct stat *_stat) {
   struct Filp *filp;
   struct VNode *vnode;
   struct stat stat;

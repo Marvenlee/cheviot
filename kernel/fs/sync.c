@@ -22,11 +22,11 @@
 #include <kernel/vm.h>
 
 
-SYSCALL int SysSync(void) {
+SYSCALL int sys_sync(void) {
   return -ENOSYS;
 }
 
-SYSCALL int SysFSync(int fd)
+SYSCALL int sys_fsync(int fd)
 { 
   return -ENOSYS;
 }

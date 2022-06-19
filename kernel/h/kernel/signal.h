@@ -75,7 +75,7 @@ extern const uint32_t sigprop[NSIG];
  */
 
 
-int Kill(int pid, int signal);
+int sys_kill(int pid, int signal);
 int SigAction(int how, const struct sigaction *act, struct sigaction *oact);
 int SigSuspend(const sigset_t *mask);
 int SigProcMask(int how, const sigset_t *set, sigset_t *oset);

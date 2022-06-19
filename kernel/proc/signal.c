@@ -74,14 +74,14 @@ const uint32_t sigprop[NSIG] =
  */
 void SigExit(int signal)
 {
-  SysExit(signal<<8);  // TODO: FIXME signal exit
+  sys_exit(signal<<8);  // TODO: FIXME signal exit
 }
 
 
 /*
  * SigFork()
  */ 
-void SysSigFork (struct Process *src, struct Process *dst)
+void SigFork (struct Process *src, struct Process *dst)
 {
 	int t;
 	
@@ -110,7 +110,7 @@ void SysSigFork (struct Process *src, struct Process *dst)
 /*
  *
  */
-void SysSigInit (struct Process *dst)
+void SigInit (struct Process *dst)
 {
 	int t;
 	
@@ -139,7 +139,7 @@ void SysSigInit (struct Process *dst)
 /*
  *
  */
-void SysSigExec (struct Process *dst)
+void SigExec (struct Process *dst)
 {
 	int t;
 	
@@ -170,8 +170,7 @@ void SysSigExec (struct Process *dst)
 /*
  *
  */
-
-int SysSigAction (int signal, const struct sigaction *act_in, struct sigaction *oact_out)
+SYSCALL int sys_sigaction (int signal, const struct sigaction *act_in, struct sigaction *oact_out)
 {
 	struct sigaction act, oact;
 	struct Process *current;
@@ -236,8 +235,7 @@ int SysSigAction (int signal, const struct sigaction *act_in, struct sigaction *
 /*
  *
  */
-
-int SysKill (int pid, int signal)
+SYSCALL int sys_kill (int pid, int signal)
 {
 	struct Process *proc;
 	int rc = 0;	
@@ -326,7 +324,7 @@ int SysKill (int pid, int signal)
  * to sigsuspend_oldmask _after_ choosing what signal to deliver based on the current
  * mask that was set in USigSuspend().
  */
-int SysSigSuspend (const sigset_t *mask_in)
+SYSCALL int sys_sigsuspend (const sigset_t *mask_in)
 {
 	sigset_t mask;
 	uint32_t intstate;
@@ -357,7 +355,7 @@ int SysSigSuspend (const sigset_t *mask_in)
 /*
  *
  */
-int SysSigProcMask (int how, const sigset_t *set_in, sigset_t *oset_out)
+SYSCALL int sys_sigprocmask (int how, const sigset_t *set_in, sigset_t *oset_out)
 {
 	sigset_t set;
 	struct Process *current;
@@ -394,7 +392,7 @@ int SysSigProcMask (int how, const sigset_t *set_in, sigset_t *oset_out)
 /*
  *
  */
-int SysSigPending (sigset_t *set_out)
+SYSCALL int sys_sigpending (sigset_t *set_out)
 {
 	sigset_t set;
 	struct Process *current;

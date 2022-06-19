@@ -36,7 +36,7 @@ char execargs_buf[MAX_ARGS_SZ];
 
 // Private prototypes
 
-int DoExec(int fd, struct execargs *_args);
+int do_exec(int fd, struct execargs *_args);
 static int CheckELFHeaders(int fd);
 static int LoadProcess(struct Process *proc, int fd, void **entry_point);
 ssize_t ReadFile (int fd, off_t offset, void *vaddr, size_t sz);
@@ -47,13 +47,14 @@ ssize_t KReadFile (int fd, off_t offset, void *vaddr, size_t sz);
 /*
  * Exec system call.
  */
-SYSCALL int SysExec(char *filename, struct execargs *_args) {
+SYSCALL int sys_exec(char *filename, struct execargs *_args)
+{
   int sc;
   int fd;
     
   Info("Exec(%s. execargs:%08x)", filename, (vm_addr)_args);
 
-  if ((fd = Kopen(filename, O_RDONLY, 0)) < 0) {
+  if ((fd = kopen(filename, O_RDONLY, 0)) < 0) {
     Info ("*** Exec failed to open file, fd = %d", fd);
     return -ENOENT;
   }
@@ -70,13 +71,13 @@ SYSCALL int SysExec(char *filename, struct execargs *_args) {
   }
   */
 
-  sc = DoExec(fd, _args);
+  sc = do_exec(fd, _args);
   
-  SysClose(fd);
+  sys_close(fd);
   
   if (sc == -ENOMEM) {
     Info ("********* Exec failed to exec, sc = %d", sc);
-    SysExit(-1);
+    sys_exit(-1);
   }
   
   return sc; 
@@ -85,7 +86,8 @@ SYSCALL int SysExec(char *filename, struct execargs *_args) {
 /*
  *
  */
-int DoExec(int fd, struct execargs *_args) {
+int do_exec(int fd, struct execargs *_args)
+{
   void *entry_point;
   void *stack_pointer;
   void *stack_base;
@@ -131,7 +133,7 @@ int DoExec(int fd, struct execargs *_args) {
 
   Info("Allocate Stack");
   
-  if ((stack_base = SysVirtualAlloc((void *)0x30000000, USER_STACK_SZ, PROT_READWRITE)) == NULL) {
+  if ((stack_base = sys_virtualalloc((void *)0x30000000, USER_STACK_SZ, PROT_READWRITE)) == NULL) {
     Info("Allocate stack failed");
     FreeArgPool(pool);
     return -ENOMEM;
@@ -426,7 +428,7 @@ static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
     sec_mem_sz = segment_ceiling - segment_base;
 
     if (sec_mem_sz != 0) {
-      ret_addr = SysVirtualAlloc(sec_addr, sec_mem_sz, PROT_READWRITE | PROT_EXEC | MAP_FIXED);
+      ret_addr = sys_virtualalloc(sec_addr, sec_mem_sz, PROT_READWRITE | PROT_EXEC | MAP_FIXED);
 
       if (ret_addr == NULL) {
         Info("Failed to alloc fixed mem");
@@ -443,7 +445,7 @@ static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
       }
     }
 
-//    VirtualProtect(sec_addr, sec_mem_sz, sec_prot);
+//    sys_virtualprotect(sec_addr, sec_mem_sz, sec_prot);
   }
 
   return 0;
@@ -455,11 +457,11 @@ ssize_t ReadFile (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
-  if (SysSeek(fd, offset, SEEK_SET) == -1) {
+  if (sys_lseek(fd, offset, SEEK_SET) == -1) {
     return -1;
   }
 
-  nbytes_read = SysRead(fd, vaddr, sz);
+  nbytes_read = sys_read(fd, vaddr, sz);
   
   return nbytes_read;
 }
@@ -469,11 +471,11 @@ ssize_t KReadFile (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
-  if (SysSeek(fd, offset, SEEK_SET) == -1) {
+  if (sys_lseek(fd, offset, SEEK_SET) == -1) {
     return -1;
   }
 
-  nbytes_read = KRead(fd, vaddr, sz);
+  nbytes_read = kread(fd, vaddr, sz);
   
   return nbytes_read;
 }

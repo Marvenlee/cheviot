@@ -27,7 +27,7 @@
  * vnode lock not needed
  * filp will need to either atomically set seek position or need locking if we remove BKL
  */
-SYSCALL off_t SysSeek(int fd, off_t pos, int whence) {
+SYSCALL off_t sys_lseek(int fd, off_t pos, int whence) {
   struct Filp *filp;
   struct VNode *vnode;
 
@@ -58,7 +58,7 @@ SYSCALL off_t SysSeek(int fd, off_t pos, int whence) {
 /*
  *
  */
-SYSCALL int SysSeek64(int fd, off64_t *_pos, int whence) {
+SYSCALL int sys_lseek64(int fd, off64_t *_pos, int whence) {
   struct Filp *filp;
   struct VNode *vnode;
   off64_t pos;

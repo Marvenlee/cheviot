@@ -216,19 +216,16 @@ SYSCALL int CreateInterrupt(int irq, void (*callback)(int irq, struct InterruptA
 
 
 // TODO: Move Exec protos into filesystem.c
-SYSCALL int SysExec(char *filename, struct execargs *args);
 
-SYSCALL void SysExit(int status);
-SYSCALL int SysWaitPid(int handle, int *status, int options);
 
 // proc.c
 
-SYSCALL int SysFork(void);
+SYSCALL int sys_fork(void);
+SYSCALL void sys_exit(int status);
+SYSCALL int sys_waitpid(int handle, int *status, int options);
 
 struct Process *AllocProcess(void);
 void FreeProcess(struct Process *proc);
-struct Process *GetProcess(int idx);
-
 struct Process *GetProcess(int pid);
 int GetProcessPid(struct Process *proc);
 int GetPid(void);
@@ -282,8 +279,8 @@ void ArchFreeProcess(struct Process *proc);
 
 int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events);
 
-int SYSCALL SysUnmaskInterrupt(int irq);
-int SYSCALL SysMaskInterrupt(int irq);
+int SYSCALL sys_unmaskinterrupt(int irq);
+int SYSCALL sys_maskinterrupt(int irq);
 
 void InterruptLock(void); // Effectively spinlock_irq_save(&intr_spinlock);
 void InterruptUnlock(void);

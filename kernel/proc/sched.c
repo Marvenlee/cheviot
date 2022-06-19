@@ -186,7 +186,7 @@ void SchedUnready(struct Process *proc) {
 /*
  * Sets the scheduling policy, either round-robin or stride scheduler
  */
-SYSCALL int SysSetSchedParams(int policy, int priority) {
+SYSCALL int sys_setschedparams(int policy, int priority) {
   struct Process *current;
   current = GetCurrentProcess();
 

@@ -27,7 +27,7 @@
 /*
  * Make a node of a given type char, block, etc which can serve as a mount point
  */ 
-SYSCALL int SysMkNod(char *_path, uint32_t flags, struct stat *_stat) {
+SYSCALL int sys_mknod(char *_path, uint32_t flags, struct stat *_stat) {
   struct Lookup lookup;
   struct stat stat;
   struct Process *current;
@@ -77,7 +77,7 @@ exit:
  * Mount()
  *
  */ 
-SYSCALL int SysMount(char *_path, uint32_t flags, struct stat *_stat) {
+SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
   struct Lookup lookup;
   struct stat stat;
   struct Process *current;
@@ -248,17 +248,17 @@ exit:
 }
 
 /*
- * ~unmount()
+ * Do we need this as a syscall?
  */
-SYSCALL int SysUnmount(int fd, bool force) {
-  // send umount to all nodes to flush data
+SYSCALL int sys_unmount(int fd, bool force)
+{
   return -ENOSYS;
 }
 
 /*
  *
  */ 
-SYSCALL int SysChRoot(char *_new_root) {
+SYSCALL int sys_chroot(char *_new_root) {
   // Change the root for the current process.
   return -ENOSYS;
 }
@@ -269,7 +269,7 @@ SYSCALL int SysChRoot(char *_new_root) {
  *
  * Alternatively we would have to handle '/dev' in PivotRoot
  */
-SYSCALL int SysMoveMount(char *_new_path, char *_old_path) {
+SYSCALL int sys_movemount(char *_new_path, char *_old_path) {
   struct Lookup lookup;
   struct VNode *new_vnode;
   struct VNode *old_vnode;
@@ -323,7 +323,7 @@ exit:
 /*
  *
  */
-SYSCALL int SysPivotRoot(char *_new_root, char *_old_root) {
+SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
   struct Lookup lookup;
   struct VNode *new_root_vnode;
   struct VNode *old_root_vnode;

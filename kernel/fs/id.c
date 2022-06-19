@@ -19,14 +19,14 @@
 
 
 
-SYSCALL int SysGetPID (void) {
+SYSCALL int sys_getpid (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();
   return current->pid;    
 }
 
-SYSCALL int SysGetPPID (void) {
+SYSCALL int sys_getppid (void) {
   struct Process *current;  
 
 // Will need a proc lock if going to fine grained locking
@@ -34,35 +34,35 @@ SYSCALL int SysGetPPID (void) {
   return current->parent->pid;
 }
 
-SYSCALL int SysGetUID (void) {
+SYSCALL int sys_getuid (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();
   return current->uid;    
 }
 
-SYSCALL int SysGetGID (void) {
+SYSCALL int sys_getgid (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();
   return current->gid;    
 }
 
-SYSCALL int SysGetEUID (void) {
+SYSCALL int sys_geteuid (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();  
   return current->euid;    
 }
 
-SYSCALL int SysGetEGID (void) {
+SYSCALL int sys_getegid (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();
   return current->egid;    
 }
 
-SYSCALL int SysSetUID (int uid) {
+SYSCALL int sys_setuid (int uid) {
   struct Process *current;  
 
   current = GetCurrentProcess();  
@@ -74,7 +74,7 @@ SYSCALL int SysSetUID (int uid) {
   return 0;    
 }
    
-SYSCALL int SysSetGID (int gid) {
+SYSCALL int sys_setgid (int gid) {
   struct Process *current;  
  
   current = GetCurrentProcess();
@@ -87,7 +87,7 @@ SYSCALL int SysSetGID (int gid) {
   return 0;    
 }
 
-SYSCALL int SysSetPGRP (void) {
+SYSCALL int sys_setpgrp (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();
@@ -95,7 +95,7 @@ SYSCALL int SysSetPGRP (void) {
   return 0;
 }
 
-SYSCALL int SysGetPGRP (void) {
+SYSCALL int sys_getpgrp (void) {
   struct Process *current;  
 
   current = GetCurrentProcess();

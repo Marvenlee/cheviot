@@ -29,7 +29,7 @@
 /*
  * TODO: Access
  */
-SYSCALL int SysAccess(char *pathname, mode_t permissions) {
+SYSCALL int sys_access(char *pathname, mode_t permissions) {
   // Open vnode,  call IsAllowed.
   // Is this with effective uid/gid ?
   Info ("Access mode:%d (dec)", permissions);
@@ -40,7 +40,7 @@ SYSCALL int SysAccess(char *pathname, mode_t permissions) {
 /*
  *
  */
-SYSCALL mode_t SysUmask (mode_t mode) {
+SYSCALL mode_t sys_umask (mode_t mode) {
   mode_t old_mode;
   struct Process *current;
   
@@ -58,7 +58,7 @@ SYSCALL mode_t SysUmask (mode_t mode) {
 /*
  *
  */
-SYSCALL int SysChmod(char *_path, mode_t mode) {
+SYSCALL int sys_chmod(char *_path, mode_t mode) {
   struct Process *current;
   struct Lookup lookup;
   struct VNode *vnode;
@@ -94,7 +94,7 @@ SYSCALL int SysChmod(char *_path, mode_t mode) {
 /*
  *
  */
-SYSCALL int SysChown(char *_path, uid_t uid, gid_t gid) {
+SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid) {
   struct Process *current;
   struct Lookup lookup;
   struct VNode *vnode;

@@ -29,7 +29,7 @@
 /*
  *
  */
-SYSCALL ssize_t SysRead(int fd, void *dst, size_t sz) {
+SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;
@@ -82,7 +82,7 @@ SYSCALL ssize_t SysRead(int fd, void *dst, size_t sz) {
 /*
  *
  */
-ssize_t KRead(int fd, void *dst, size_t sz) {
+ssize_t kread(int fd, void *dst, size_t sz) {
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;

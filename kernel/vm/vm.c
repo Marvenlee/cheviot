@@ -33,7 +33,7 @@
 
 
 
-SYSCALL vm_addr SysVirtualToPhysAddr(vm_addr addr) {
+SYSCALL vm_addr sys_virtualtophysaddr(vm_addr addr) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr va;
@@ -59,7 +59,7 @@ SYSCALL vm_addr SysVirtualToPhysAddr(vm_addr addr) {
 /*
  * Map an area of memory
  */
-SYSCALL void *SysVirtualAlloc(void *_addr, size_t len, bits32_t flags) {
+SYSCALL void *sys_virtualalloc(void *_addr, size_t len, bits32_t flags) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -77,7 +77,7 @@ SYSCALL void *SysVirtualAlloc(void *_addr, size_t len, bits32_t flags) {
 
   Info("VirtualAlloc (a:%08x, s:%08x, f:%08x", addr, len, flags);
 
-  addr = SegmentCreate(as, addr, len, SEG_TYPE_ALLOC, flags);
+  addr = segment_create(as, addr, len, SEG_TYPE_ALLOC, flags);
 
   if (addr == (vm_addr)NULL) {
     return NULL;
@@ -109,7 +109,7 @@ cleanup:
   }
 
   PmapFlushTLBs();
-  SegmentFree(as, addr, len);
+  segment_free(as, addr, len);
   return NULL;
 }
 
@@ -118,7 +118,7 @@ cleanup:
  * address space of the calling process.
  */
 
-SYSCALL void *SysVirtualAllocPhys(void *_addr, size_t len, bits32_t flags,
+SYSCALL void *sys_virtualallocphys(void *_addr, size_t len, bits32_t flags,
                          void *_paddr) {
   struct Process *current;
   struct AddressSpace *as;
@@ -146,7 +146,7 @@ SYSCALL void *SysVirtualAllocPhys(void *_addr, size_t len, bits32_t flags,
         return 0;
     }
 */
-  addr = SegmentCreate(as, addr, len, SEG_TYPE_PHYS, flags);
+  addr = segment_create(as, addr, len, SEG_TYPE_PHYS, flags);
 
   if (addr == (vm_addr)NULL) {
     Warn("VirtualAllocPhys failed, no segment");
@@ -172,14 +172,14 @@ cleanup:
   }
   
   PmapFlushTLBs();
-  SegmentFree(as, addr, len);
+  segment_free(as, addr, len);
   return NULL;
 }
 
 /*
  *
  */
-SYSCALL int SysVirtualFree(void *_addr, size_t len) {
+SYSCALL int sys_virtualfree(void *_addr, size_t len) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -199,7 +199,7 @@ SYSCALL int SysVirtualFree(void *_addr, size_t len) {
   }
 
   PmapFlushTLBs();  
-  SegmentFree(as, addr, len);
+  segment_free(as, addr, len);
   return 0;
 }
 
@@ -207,7 +207,7 @@ SYSCALL int SysVirtualFree(void *_addr, size_t len) {
  * Change the read/write/execute protection attributes of a range of pages in
  * the current address space
  */
-SYSCALL int SysVirtualProtect(void *_addr, size_t len, bits32_t flags) {
+SYSCALL int sys_virtualprotect(void *_addr, size_t len, bits32_t flags) {
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;

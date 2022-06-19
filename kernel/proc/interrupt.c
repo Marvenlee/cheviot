@@ -33,7 +33,7 @@
  * be raised when an interrupt occurs.
  */
 
-int SysCreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api)) {
+SYSCALL int sys_createinterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api)) {
   struct Process *current;
   struct Filp *filp;
   struct SuperBlock *sb;
@@ -93,7 +93,7 @@ int SysCreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *a
 
   // Convert to list empty test
 //  if (irq_handler_cnt[irq] == 0) {
-    SysUnmaskInterrupt(irq);
+    sys_unmaskinterrupt(irq);
 //  }
 
   irq_handler_cnt[irq]++;
@@ -150,7 +150,7 @@ int DoCloseInterrupt(int fd) {
 
   if (irq_handler_cnt[irq] == 0)
   {
-    SysMaskInterrupt(irq);
+    sys_maskinterrupt(irq);
   }
 
   EnableInterrupts();

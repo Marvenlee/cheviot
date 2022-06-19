@@ -88,7 +88,7 @@ void FreePipe(struct Pipe *pipe)
 /*
  *
  */
-SYSCALL int SysPipe(int _fd[2])
+SYSCALL int sys_pipe(int _fd[2])
 {
   int fd[2] = {-1, -1};
   struct Filp *filp0 = NULL;

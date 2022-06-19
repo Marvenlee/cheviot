@@ -415,15 +415,16 @@ LIST_TYPE(Pipe) pipe_list_t;
 // Prototypes
 
 // TODO: Move these somewhere
-SYSCALL int SysIsatty(int fd);
-SYSCALL int SysPipe(int *fd);
-SYSCALL int SysFcntl(int fd, int cmd, int arg);
+SYSCALL int sys_isatty(int fd);
+SYSCALL int sys_oipe(int *fd);
+SYSCALL int sys_fcntl(int fd, int cmd, int arg);
 
 // fs/access.c
-SYSCALL int SysAccess(char *path, mode_t permisssions);
-SYSCALL mode_t SysUmask (mode_t mode);
-SYSCALL int SysChmod(char *_path, mode_t mode);
-SYSCALL int SysChown(char *_path, uid_t uid, gid_t gid);
+SYSCALL int sys_access(char *path, mode_t permisssions);
+SYSCALL mode_t sys_umask (mode_t mode);
+SYSCALL int sys_chmod(char *_path, mode_t mode);
+SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid);
+
 int IsAllowed(struct VNode *node, mode_t mode);
 
 /* fs/cache.c */
@@ -444,18 +445,18 @@ int BSync (struct VNode *vnode);
 
 void Strategy(struct Buf *buf);
 void StrategyTask(void);
-SYSCALL int SYSCALL SysSyncMount(char *path);
-SYSCALL int SysFsync(int fd);
+SYSCALL int sys_sync(void);
+SYSCALL int sys_fsync(int fd);
 
 /* fs/dir.c */
-SYSCALL int SysChdir(char *path);
-SYSCALL int SysFChdir(int fd);
-SYSCALL int SysMkdir(char *pathname, mode_t mode);
-SYSCALL int SysRmdir(char *pathname);
-SYSCALL int SysOpendir(char *name);
-SYSCALL int SysClosedir(int fd);
-SYSCALL int SysReaddir(int fd, struct dirent *dirent);
-SYSCALL int SysRewinddir(int fd);
+SYSCALL int sys_chdir(char *path);
+SYSCALL int sys_fchdir(int fd);
+SYSCALL int sys_mkdir(char *pathname, mode_t mode);
+SYSCALL int sys_rmdir(char *pathname);
+SYSCALL int sys_opendir(char *name);
+SYSCALL int sys_closedir(int fd);
+SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz);
+SYSCALL int sys_rewinddir(int fd);
 
 /* fs/dnlc.c */
 int DNameLookup(struct VNode *dir, char *name, struct VNode **vnp);
@@ -472,18 +473,16 @@ char *AllocArgPool(void);
 void FreeArgPool(char *mem);
 
 
-/* fs/file.c */
-SYSCALL int SysOpen(char *_path, int oflags, mode_t mode);
-SYSCALL int Kopen(char *_path, int oflags, mode_t mode);
-SYSCALL int SysTruncate(int fd, size_t sz);
-SYSCALL int SysRemove(char *_path);
-SYSCALL int SysRename(char *oldpath, char *newpath);
-SYSCALL int SysDup(int h);
-SYSCALL int SysDup2(int h, int new_h);
-SYSCALL int SysClose(int h);
-SYSCALL int SysUnlink(char *pathname);
-
-/* fs/fs.c */
+SYSCALL int sys_exec(char *filename, struct execargs *args);
+SYSCALL int sys_open(char *_path, int oflags, mode_t mode);
+SYSCALL int kopen(char *_path, int oflags, mode_t mode);
+SYSCALL int sys_truncate(int fd, size_t sz);
+SYSCALL int sys_remove(char *_path);
+SYSCALL int sys_rename(char *oldpath, char *newpath);
+SYSCALL int sys_dup(int h);
+SYSCALL int sys_dup2(int h, int new_h);
+SYSCALL int sys_close(int h);
+SYSCALL int sys_unlink(char *pathname);
 
 /* fs/handle.c */
 
@@ -504,19 +503,19 @@ int InitVFS(void);
 int Lookup(char *_path, int flags, struct Lookup *lookup);
 
 /* fs/mount.c */
-SYSCALL int SysChRoot(char *_new_root);
-SYSCALL int SysPivotRoot(char *_new_root, char *_old_root);
-SYSCALL int SysMoveMount(char *_new_mount, char *old_mount);
-SYSCALL int SysMkNod(char *_handlerpath, uint32_t flags, struct stat *stat);
-SYSCALL int SysMount(char *_handlerpath, uint32_t flags, struct stat *stat);
-SYSCALL int SysUnmount(int fd, bool force);
+SYSCALL int sys_chroot(char *_new_root);
+SYSCALL int sys_pivotroot(char *_new_root, char *_old_root);
+SYSCALL int sys_movemount(char *_new_mount, char *old_mount);
+SYSCALL int sys_mknod(char *_handlerpath, uint32_t flags, struct stat *stat);
+SYSCALL int sys_mount(char *_handlerpath, uint32_t flags, struct stat *stat);
+SYSCALL int sys_unmount(int fd, bool force);
 
 /* fs/pipe.c */
 
 void InitPipes(void);
 struct Pipe *AllocPipe(void);
 void FreePipe(struct Pipe *pipe);
-SYSCALL int SysPipe(int _fd[2]);
+SYSCALL int sys_pipe(int _fd[2]);
 ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz);
 ssize_t WriteToPipe(struct VNode *vnode, void *_src, size_t sz);
 
@@ -535,11 +534,11 @@ ssize_t ReadQueue(struct Queue *q, void *_dst, size_t sz, int vmin, int vtime);
 ssize_t WriteQueue(struct Queue *q, void *_src, size_t sz, int vmin, int vtime);
 
 /* fs/read.c */
-SYSCALL ssize_t SysRead(int fd, void *buf, size_t count);
-ssize_t KRead(int fd, void *dst, size_t sz);
+SYSCALL ssize_t sys_read(int fd, void *buf, size_t count);
+ssize_t kread(int fd, void *dst, size_t sz);
 
 /* fs/write.c */
-SYSCALL ssize_t SysWrite(int fd, void *buf, size_t count);
+SYSCALL ssize_t sys_write(int fd, void *buf, size_t count);
 
 
 ssize_t ReadFromChar (struct VNode *vnode, void *src,
@@ -557,8 +556,8 @@ ssize_t WriteToFifo (struct VNode *vnode, void *src,
                                size_t nbytes);
 
 /* fs/seek.c */
-SYSCALL off_t SysSeek(int fd, off_t pos, int whence);
-SYSCALL int SysSeek64(int fd, off64_t *pos, int whence);
+SYSCALL off_t sys_lseek(int fd, off_t pos, int whence);
+SYSCALL int sys_lseek64(int fd, off64_t *pos, int whence);
 
 /* fs/superblock.c */
 struct SuperBlock *AllocSuperBlock(void);
@@ -567,7 +566,7 @@ void LockSuperBlock(struct SuperBlock *sb);
 void UnlockSuperBlock(struct SuperBlock *sb);
 
 /* fs/socket.c */
-SYSCALL int SysSocketPair(int fd[2]);
+SYSCALL int sys_socketpair(int fd[2]);
 struct Socket *AllocSocket(void);
 void FreeSocket(struct Socket *socket);
 

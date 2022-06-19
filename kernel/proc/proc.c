@@ -30,7 +30,7 @@
 /* @brief System call to fork the calling process
  *
  */
-SYSCALL int SysFork(void) {
+SYSCALL int sys_fork(void) {
   struct Process *current;
   struct Process *proc;
 
@@ -65,7 +65,7 @@ SYSCALL int SysFork(void) {
 
 /* @brief System call to exit the calling process.
  */
-SYSCALL void SysExit(int status) {
+SYSCALL void sys_exit(int status) {
   struct Process *current;
   struct Process *parent;
   struct Process *child;
@@ -137,7 +137,7 @@ SYSCALL void SysExit(int status) {
 
 /* @brief System call to wait for child processes to exit
  */
-SYSCALL int SysWaitPid(int pid, int *status, int options) {
+SYSCALL int sys_waitpid(int pid, int *status, int options) {
   struct Process *current;
   struct Process *child;
   bool found = false;

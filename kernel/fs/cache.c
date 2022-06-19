@@ -482,7 +482,7 @@ void BDFlush(void) {
   while (1) {
     
     // TODO:  why sleep?  Any other trigger for a flush?
-    SysSleep(2);
+    sys_sleep(2);
 
     // Move into DoFSync().
     

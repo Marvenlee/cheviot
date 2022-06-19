@@ -167,8 +167,6 @@ int PmapCacheEnter(vm_addr addr, vm_addr paddr);
 int PmapCacheRemove(vm_addr va);
 int PmapCacheExtract(vm_addr va, vm_addr *pa);
 
-// uint32_t *PmapAllocPageDirectory (void);
-
 // vm/pagefault.c
 
 int PageFault(vm_addr addr, bits32_t access);
@@ -176,20 +174,20 @@ void SysDoPageFault(struct Process *proc);
 
 // vm/vm.c
 
-SYSCALL void *SysVirtualAlloc(void *addr, size_t len, bits32_t flags);
-SYSCALL void *SysVirtualAllocPhys(void *addr, size_t len, bits32_t flags, void *paddr);
-SYSCALL int SysVirtualFree(void *addr, size_t size);
-SYSCALL int SysVirtualProtect(void *addr, size_t size, bits32_t flags);
+SYSCALL void *sys_virtualalloc(void *addr, size_t len, bits32_t flags);
+SYSCALL void *sys_virtualallocphys(void *addr, size_t len, bits32_t flags, void *paddr);
+SYSCALL int sys_virtualfree(void *addr, size_t size);
+SYSCALL int sys_virtualprotect(void *addr, size_t size, bits32_t flags);
 
-vm_addr SegmentCreate(struct AddressSpace *as, vm_offset addr, vm_size size,
+vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
                       int type, bits32_t flags);
-void SegmentFree(struct AddressSpace *as, vm_addr base, vm_size size);
-void SegmentInsert(struct AddressSpace *as, int index, int cnt);
-vm_addr *SegmentFind(struct AddressSpace *as, vm_addr addr);
-void SegmentCoalesce(struct AddressSpace *as);
-vm_addr *SegmentAlloc(struct AddressSpace *as, vm_size size, uint32_t flags,
+void segment_free(struct AddressSpace *as, vm_addr base, vm_size size);
+void segment_insert(struct AddressSpace *as, int index, int cnt);
+vm_addr *segment_find(struct AddressSpace *as, vm_addr addr);
+void segment_coalesce(struct AddressSpace *as);
+vm_addr *segment_alloc(struct AddressSpace *as, vm_size size, uint32_t flags,
                       vm_addr *ret_addr);
-int SegmentSplice(struct AddressSpace *as, vm_addr addr);
+int segment_splice(struct AddressSpace *as, vm_addr addr);
 
 // arch/memcpy.s
 

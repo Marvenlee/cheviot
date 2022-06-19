@@ -182,7 +182,7 @@ void ProcessesInitialized(void) {
 /*
  * ystem call allowing applications to print to serial without opening serial port.
  */
-SYSCALL void SysDebug(char *s) {
+SYSCALL void sys_debug(char *s) {
 #ifdef KDEBUG
   char buf[128];
 

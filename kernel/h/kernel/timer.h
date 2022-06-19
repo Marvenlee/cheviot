@@ -38,8 +38,8 @@ LIST_TYPE(Timer) timer_list_t;
 
 int SetAlarm();
 
-int Alarm(int seconds);
-int Sleep(int seconds);
+SYSCALL int sys_alarm(int seconds);
+SYSCALL int sys_sleep(int seconds);
 
 // Do away with dynamic timers.  Possibly single timer or small set of
 // additional RT timers.

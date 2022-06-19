@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG 1
+//#define KDEBUG 1
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -24,7 +24,7 @@
 /*
  *
  */
-SYSCALL int SysSymLink(char *_path, char *_link) {
+SYSCALL int sys_symlink(char *_path, char *_link) {
   struct Lookup lookup;
   int status;
 
@@ -46,7 +46,7 @@ SYSCALL int SysSymLink(char *_path, char *_link) {
 /*
  *
  */
-SYSCALL int SysReadLink(char *_path, char *_link, size_t link_size) {
+SYSCALL int sys_readlink(char *_path, char *_link, size_t link_size) {
   struct Lookup lookup;
   int status;
   
@@ -68,3 +68,4 @@ SYSCALL int SysReadLink(char *_path, char *_link, size_t link_size) {
   VNodePut(lookup.vnode);
   return status;
 }
+

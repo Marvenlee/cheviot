@@ -27,7 +27,7 @@
 /*
  *
  */
-SYSCALL int SysUnlink(char *_path) {
+SYSCALL int sys_unlink(char *_path) {
   struct VNode *vnode = NULL;
   struct VNode *dvnode = NULL;
   int err = 0;

@@ -29,7 +29,8 @@
 /*
  *
  */
-SYSCALL int SysChDir(char *_path) {
+SYSCALL int sys_chdir(char *_path)
+{
   struct Process *current;
   struct Lookup lookup;
   int err;
@@ -63,7 +64,8 @@ SYSCALL int SysChDir(char *_path) {
 /*
  *
  */
-SYSCALL int SysFChDir(int fd) {
+SYSCALL int sys_fchdir(int fd)
+{
   struct Process *current;
   struct Filp *filp;
   struct VNode *vnode;
@@ -97,7 +99,8 @@ SYSCALL int SysFChDir(int fd) {
 /*
  *
  */
-SYSCALL int SysOpenDir(char *_path) {
+SYSCALL int sys_opendir(char *_path)
+{
   struct Process *current;
   struct Lookup lookup;
   int fd;
@@ -144,7 +147,8 @@ exit:
 /*
  *
  */
-void InvalidateDir(struct VNode *dvnode) {
+void InvalidateDir(struct VNode *dvnode)
+{
   // Call when creating or deleting entries in dvnode.
   // Or deleting the actual directory itself.
 }
@@ -156,7 +160,8 @@ void InvalidateDir(struct VNode *dvnode) {
  *
  *
  */
-SYSCALL ssize_t SysReadDir(int fd, void *dst, size_t sz) {
+SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz)
+{
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
   ssize_t dirents_sz;
@@ -195,7 +200,8 @@ SYSCALL ssize_t SysReadDir(int fd, void *dst, size_t sz) {
 
 
 
-SYSCALL int SysRewindDir(int fd) {
+SYSCALL int sys_rewinddir(int fd)
+{
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
 
@@ -215,7 +221,8 @@ SYSCALL int SysRewindDir(int fd) {
   return 0;
 }
 
-SYSCALL int SysCreateDir(char *_path, mode_t mode) {
+SYSCALL int sys_createdir(char *_path, mode_t mode)
+{
   struct Process *current;
   struct VNode *dvnode = NULL;
   struct VNode *vnode = NULL;
@@ -263,7 +270,7 @@ exit:
 }
 
 
-SYSCALL int SysRemoveDir(char *_path) {
+SYSCALL int sys_rmdir(char *_path) {
   struct VNode *vnode = NULL;
   struct VNode *dvnode = NULL;
   int err = 0;

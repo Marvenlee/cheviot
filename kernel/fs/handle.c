@@ -67,7 +67,7 @@ void LogFDs(void)
  * Fcntl();
  */
 
-SYSCALL int SysFcntl (int fd, int cmd, int arg)
+SYSCALL int sys_fcntl (int fd, int cmd, int arg)
 {
   struct Process *current;
   struct Filp *filp;
@@ -147,7 +147,7 @@ SYSCALL int SysFcntl (int fd, int cmd, int arg)
 }
 
 
-SYSCALL int SysDup(int fd) {
+SYSCALL int sys_dup(int fd) {
   int new_fd;
   struct Filp *filp;
   struct Process *current;
@@ -184,7 +184,7 @@ SYSCALL int SysDup(int fd) {
 /**
  *
  */
-SYSCALL int SysDup2(int fd, int new_fd) {
+SYSCALL int sys_dup2(int fd, int new_fd) {
   struct Filp *filp;
   struct Process *current;
 
@@ -207,7 +207,7 @@ SYSCALL int SysDup2(int fd, int new_fd) {
 
   if (current->fd_table[new_fd] != NULL) {
 //    Info ("**** Closing existing file %d", new_fd);
-    SysClose(new_fd);
+    sys_close(new_fd);
   }
 
   current->fd_table[new_fd] = current->fd_table[fd];
@@ -219,7 +219,8 @@ SYSCALL int SysDup2(int fd, int new_fd) {
 }
 
 
-SYSCALL int SysClose(int fd) {
+SYSCALL int sys_close(int fd)
+{
   struct Filp *filp;
   struct Pipe *pipe;
   struct VNode *vnode;
@@ -392,7 +393,7 @@ void FreeProcessHandles(struct Process *proc)
   
   for (int fd = 0; fd < NPROC_FD; fd++) {
     if (proc->fd_table[fd] != NULL) {
-      SysClose(fd);
+      sys_close(fd);
     }
   }
 }
@@ -431,7 +432,7 @@ int CloseOnExecProcessHandles(void) {
 
   for (int fd = 0; fd < NPROC_FD; fd++) {
     if (current->close_on_exec[fd/32] & (1<<(fd%32))) {
-      SysClose(fd);
+      sys_close(fd);
     }
   }
 

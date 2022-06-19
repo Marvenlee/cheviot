@@ -91,7 +91,7 @@ void BootstrapRootProcess(void) {
 
   Info ("allocating root stack");
   
-  if ((stack_base = SysVirtualAlloc((void *)0x30000000, USER_STACK_SZ, PROT_READWRITE)) == NULL) {
+  if ((stack_base = sys_virtualalloc((void *)0x30000000, USER_STACK_SZ, PROT_READWRITE)) == NULL) {
     Info("Root stack alloc failed");
     KernelPanic();
   }
@@ -195,7 +195,6 @@ int LoadRootElf(void *file_base, void **entry_point)
     if (phdr.p_type != PT_LOAD) {
       continue;
     }
-    
     sec_addr = (void *)ALIGN_DOWN(phdr.p_vaddr, PAGE_SIZE);
     sec_file_sz = phdr.p_filesz;
     sec_mem_sz = ALIGN_UP(phdr.p_vaddr + phdr.p_memsz, PAGE_SIZE) - (vm_addr)sec_addr;
@@ -218,7 +217,7 @@ int LoadRootElf(void *file_base, void **entry_point)
     sec_mem_sz = segment_ceiling - segment_base;
 
     if (sec_mem_sz != 0) {
-      ret_addr = SysVirtualAlloc(sec_addr, sec_mem_sz, PROT_READWRITE | PROT_EXEC | MAP_FIXED);
+      ret_addr = sys_virtualalloc(sec_addr, sec_mem_sz, PROT_READWRITE | PROT_EXEC | MAP_FIXED);
 
       if (ret_addr == NULL)
         return -ENOMEM;
@@ -232,7 +231,7 @@ int LoadRootElf(void *file_base, void **entry_point)
       }
     }
 
-//    VirtualProtect(sec_addr, sec_mem_sz, sec_prot);
+//    sys_virtualprotect(sec_addr, sec_mem_sz, sec_prot);
   }
 
   return 0;
@@ -255,10 +254,9 @@ static void *MapIFS(void *vaddr, vm_size sz, void *paddr, bits32_t flags)
   sz = ALIGN_UP(sz, PAGE_SIZE);
   flags = (flags & ~VM_SYSTEM_MASK) | MEM_ALLOC;
 
-
   Info("MapIFS (a:%08x, p:%08x s:%08x, f:%08x", vaddr, paddr, sz, flags);
 
-  vaddr = (void *)SegmentCreate(as, (vm_addr)vaddr, sz, SEG_TYPE_ALLOC, flags);
+  vaddr = (void *)segment_create(as, (vm_addr)vaddr, sz, SEG_TYPE_ALLOC, flags);
 
   if (vaddr == NULL) {
     Info ("vaddr == null");

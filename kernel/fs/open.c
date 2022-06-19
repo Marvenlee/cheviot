@@ -25,12 +25,12 @@
 #include <poll.h>
 
 // Static Prototypes
-static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode);
+static int do_open(struct Lookup *lookup, int oflags, mode_t mode);
 
 /*
  *
  */
-SYSCALL int SysOpen(char *_path, int oflags, mode_t mode) {
+SYSCALL int sys_open(char *_path, int oflags, mode_t mode) {
   struct Lookup lookup;
   int sc;
 
@@ -39,13 +39,13 @@ SYSCALL int SysOpen(char *_path, int oflags, mode_t mode) {
     return sc;
   }
 
-  return DoOpen(&lookup, oflags, mode);
+  return do_open(&lookup, oflags, mode);
 }
 
 /*
  *
  */
-int Kopen(char *_path, int oflags, mode_t mode) {
+int kopen(char *_path, int oflags, mode_t mode) {
   struct Lookup lookup;
   int sc;
 
@@ -54,13 +54,13 @@ int Kopen(char *_path, int oflags, mode_t mode) {
     return sc;
   }
 
-  return DoOpen(&lookup, oflags, mode);
+  return do_open(&lookup, oflags, mode);
 }
 
 /*
  *
  */
-static int DoOpen(struct Lookup *lookup, int oflags, mode_t mode) {
+static int do_open(struct Lookup *lookup, int oflags, mode_t mode) {
   struct Process *current;
   struct VNode *dvnode = NULL;
   struct VNode *vnode = NULL;
