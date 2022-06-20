@@ -102,9 +102,9 @@ SYSCALL int sys_pipe(int _fd[2])
  
 //  Info("Pipe");
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
-  vnode = VNodeNew(&pipe_sb, 0);
+  vnode = vnode_new(&pipe_sb, 0);
   
   if (vnode == NULL) {
     error = -ENOMEM;
@@ -162,7 +162,7 @@ exit:
   Info ("Pipe failed error = %d", error);
   
 /*  FreePipe(pipe);
-  VNodeFree(vnode);
+  vnode_Free(vnode);
   FreeFilp(filp1);
   FreeFilp(filp0);
   FreeHandle(fd[1], current);

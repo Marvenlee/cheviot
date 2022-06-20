@@ -74,7 +74,7 @@ void FiqHandler(void) {
 SYSCALL void sys_unknownsyscallhandler(struct UserContext *context) {
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   current->signal.si_code[SIGSYS-1] = 0;
   sys_kill(current->pid, SIGSYS);
 }
@@ -86,7 +86,7 @@ SYSCALL void sys_unknownsyscallhandler(struct UserContext *context) {
 void UndefInstrHandler(struct UserContext *context) {
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if ((context->cpsr & CPSR_MODE_MASK) != USR_MODE &&
       (context->cpsr & CPSR_MODE_MASK) != SYS_MODE) {
@@ -107,7 +107,7 @@ void PrefetchAbortHandler(struct UserContext *context) {
   uint32_t mode;
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   fault_addr = context->pc;
 
@@ -171,7 +171,7 @@ void DataAbortHandler(struct UserContext *context) {
   uint32_t mode;
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   dfsr = GetDFSR();
   fault_addr = GetFAR();

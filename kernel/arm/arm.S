@@ -54,8 +54,8 @@
 .global DataSyncBarrier
 .global EnablePaging
 .global SetPageDirectory
-.global GetCurrentProcess
-.global GetCPU
+.global get_current_process
+.global get_cpu
 .global GetCPSR
 .global GetSPSR
 .global GetFAR
@@ -181,15 +181,15 @@ _start:
 
 
 # ****************************************************************************
-# struct Process *GetCurrentProcess();
+# struct Process *get_current_process();
 # struct CPU *GetCPU();
 
-GetCurrentProcess:
+get_current_process:
     MGetCurrentProcess r0
     bx lr
 
 
-GetCPU:
+get_cpu:
     ldr r0, =cpu_table
     bx lr
 

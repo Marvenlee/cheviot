@@ -63,7 +63,7 @@ int DNameLookup(struct VNode *dir, char *name, struct VNode **vnp) {
 
       // TODO: Replace with inode_nr, do a VNodeGet
       *vnp = dname->vnode;
-      VNodeIncRef(*vnp);
+      vnode_inc_ref(*vnp);
       return 0;
     }
 

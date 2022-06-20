@@ -44,12 +44,12 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
 
   vnode = filp->vnode;
 
-  if (IsAllowed(vnode, R_OK) != 0) {
+  if (is_allowed(vnode, R_OK) != 0) {
     return -EACCES;
   }
 
   // Can VNode lock fail?  Can we do multiple readers/single writer ?
-  VNodeLock(vnode);
+  vnode_lock(vnode);
 
   // Needed for all vnode operations that can block, even briefly
 
@@ -57,14 +57,14 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   // Separate into vnode_ops structure for each device type
 
   if (S_ISCHR(vnode->mode)) {  
-    xfered = ReadFromChar (vnode, dst, sz);
+    xfered = read_from_char (vnode, dst, sz);
     Info("%d = ReadFromChar", xfered);
   } else if (S_ISREG(vnode->mode)) {
-    xfered = ReadFromCache (vnode, dst, sz, &filp->offset, false);
+    xfered = read_from_cache (vnode, dst, sz, &filp->offset, false);
   } else if (S_ISFIFO(vnode->mode)) {
 //    xfered = ReadFromPipe (vnode, dst, sz, &filp->offset);  
   } else if (S_ISBLK(vnode->mode)) {
-    xfered = ReadFromCache (vnode, dst, sz, &filp->offset, false);   // FIXME: Don't cache block devices
+    xfered = read_from_cache (vnode, dst, sz, &filp->offset, false);   // FIXME: Don't cache block devices
   } else if (S_ISDIR(vnode->mode)) {
     xfered = -EINVAL;
   } else {
@@ -74,7 +74,7 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   
   // Update accesss timestamps
   
-  VNodeUnlock(vnode);
+  vnode_unlock(vnode);
   
   return xfered;
 }
@@ -97,20 +97,20 @@ ssize_t kread(int fd, void *dst, size_t sz) {
 
   vnode = filp->vnode;
 
-  if (IsAllowed(vnode, R_OK) != 0) {
+  if (is_allowed(vnode, R_OK) != 0) {
     return -EACCES;
   }
 
-  VNodeLock(vnode);
+  vnode_lock(vnode);
   
   if (S_ISREG(vnode->mode)) {
-    xfered = ReadFromCache (vnode, dst, sz, &filp->offset, true);
+    xfered = read_from_cache (vnode, dst, sz, &filp->offset, true);
   } else {
     Info ("Read from unknown, -EINVAL (oct) %o", vnode->mode);
     xfered = -EINVAL;
   }
   
-  VNodeUnlock(vnode);
+  vnode_unlock(vnode);
   
   return xfered;
 }

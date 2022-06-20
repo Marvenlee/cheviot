@@ -34,11 +34,11 @@ SYSCALL int sys_rename(char *oldpath, char *newpath) {
   struct Lookup newl;
   int err;
   
-  if ((err = Lookup(oldpath, LOOKUP_REMOVE, &oldl)) != 0) {
+  if ((err = lookup(oldpath, LOOKUP_REMOVE, &oldl)) != 0) {
     return err;
   }
 
-  if ((err = Lookup(newpath, LOOKUP_CREATE, &newl)) != 0) {
+  if ((err = lookup(newpath, LOOKUP_CREATE, &newl)) != 0) {
       VNodeRelease(oldl.vnode);
    VNodeRelease(oldl.dvnode);
     return err;

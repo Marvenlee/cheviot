@@ -210,16 +210,9 @@ struct Process {
  */
 
 // interrupt.c
-
-
 SYSCALL int CreateInterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api));
 
-
-// TODO: Move Exec protos into filesystem.c
-
-
 // proc.c
-
 SYSCALL int sys_fork(void);
 SYSCALL void sys_exit(int status);
 SYSCALL int sys_waitpid(int handle, int *status, int options);
@@ -232,15 +225,12 @@ int GetPid(void);
 
 
 // sched.c
-
 void SchedLock(void);
 void SchedUnlock(void);
 
 void Reschedule(void);
 void SchedReady(struct Process *proc);
 void SchedUnready(struct Process *proc);
-SYSCALL int ChangePriority(int priority);
-//void RaiseSignal(struct Process *proc, uint32_t signals);
 
 void InitRendez(struct Rendez *rendez);
 void TaskSleep(struct Rendez *rendez);
@@ -248,23 +238,10 @@ void TaskWakeup(struct Rendez *rendez);
 void TaskWakeupAll(struct Rendez *rendez);
 void TaskWakeupFromISR(struct Rendez *rendez);
 
-// void WakeupProcess (struct Process *proc);
-void InitMutex(struct Mutex *mutex);
-void MutexLock(struct Mutex *mutex);
-void MutexUnlock(struct Mutex *mutex);
-
 void KernelLock(void);
 void KernelUnlock(void);
 bool IsKernelLocked(void);
 
-
-/* proc/signal.c */
-
-SYSCALL int SysKill (int pid, int signal);
-
-
-/* proc/timer.c */
-SYSCALL int SysSleep(int seconds);
 
 // Architecture-specific
 

@@ -58,9 +58,9 @@ void BootstrapRootProcess(void) {
 
   Info ("BootstrapRootProcess ...");
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
-  if ((pool = AllocArgPool()) == NULL) {
+  if ((pool = alloc_arg_pool()) == NULL) {
     Info("Root alloc arg pool failed");
     KernelPanic();
   }
@@ -96,19 +96,12 @@ void BootstrapRootProcess(void) {
     KernelPanic();
   }
 
-  Info ("InitRootArgv");
   
   InitRootArgv(pool, &args, "/sbin/ifs", ifs_base, bootinfo->ifs_image_size);
   
-  Info ("InitRootArgv done");
+  copy_out_argv(stack_base, USER_STACK_SZ, &args);
   
-  CopyOutArgv(stack_base, USER_STACK_SZ, &args);
-
-  Info ("CopyOutArgv done");
-  
-  FreeArgPool(pool);
-   
-  Info ("FreeArgPool done");
+  free_arg_pool(pool);
    
   stack_pointer = stack_base + USER_STACK_SZ - ALIGN_UP(args.total_size, 16) - 16;
   
@@ -248,7 +241,7 @@ static void *MapIFS(void *vaddr, vm_size sz, void *paddr, bits32_t flags)
   vm_addr ceiling;
   struct Pageframe *pf;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   as = &current->as;
   vaddr = (void *)ALIGN_DOWN((vm_addr)vaddr, PAGE_SIZE);
   sz = ALIGN_UP(sz, PAGE_SIZE);

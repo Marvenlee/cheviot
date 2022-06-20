@@ -89,8 +89,8 @@ extern struct CPU cpu_table[MAX_CPU];
 /*
  * Prototypes
  */
-struct CPU *GetCPU();
-struct Process *GetCurrentProcess();
+struct CPU *get_cpu();
+struct Process *get_current_process();
 
 void StartProcess(void);
 

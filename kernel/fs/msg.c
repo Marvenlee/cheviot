@@ -42,7 +42,7 @@
 /*
  *
  */
-int InitMsgPort(struct MsgPort *msgport, struct VNode *vnode) {
+int init_msgport(struct MsgPort *msgport, struct VNode *vnode) {
 
   LIST_INIT(&msgport->pending_msg_list);
   msgport->server_vnode = vnode;
@@ -55,7 +55,7 @@ int InitMsgPort(struct MsgPort *msgport, struct VNode *vnode) {
 /*
  * Queue message but don't wait
  */
-int KPutMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg)
+int kputmsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg)
 {
   return 0;
 }
@@ -64,10 +64,10 @@ int KPutMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg)
  * TODO:  Need timeout and abort mechanisms into IPC in case server doesn't respond or terminates.
  * Also timeout works for when a server tries to create a second mount in its own mount path.
  */
-int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
+int ksendmsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
   struct Process *current;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   
   Info ("KSendMsg...");
   KASSERT (port != NULL);
@@ -92,7 +92,7 @@ int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg) {
 
   Info ("port->server_vnode = %08x", port->server_vnode);
   
-  WakeupPolls(port->server_vnode, POLLIN, POLLIN);
+  wakeup_polls(port->server_vnode, POLLIN, POLLIN);
 
   Info ("Wakeup polls sendmsg ok");
 

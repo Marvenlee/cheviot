@@ -37,10 +37,10 @@ char execargs_buf[MAX_ARGS_SZ];
 // Private prototypes
 
 int do_exec(int fd, struct execargs *_args);
-static int CheckELFHeaders(int fd);
-static int LoadProcess(struct Process *proc, int fd, void **entry_point);
-ssize_t ReadFile (int fd, off_t offset, void *vaddr, size_t sz);
-ssize_t KReadFile (int fd, off_t offset, void *vaddr, size_t sz);
+static int check_elf_headers(int fd);
+static int load_process(struct Process *proc, int fd, void **entry_point);
+ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz);
+ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz);
 
 
 
@@ -95,16 +95,16 @@ int do_exec(int fd, struct execargs *_args)
   struct execargs args;
   int8_t *pool;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   Info("DoExec");
 
-  if (CheckELFHeaders(fd) != 0) {
+  if (check_elf_headers(fd) != 0) {
     Info ("CheckELFHeaders failed");
     return -ENOEXEC;
   }
   
-  if ((pool = AllocArgPool()) == NULL)
+  if ((pool = alloc_arg_pool()) == NULL)
   {
     Info("AllocArgPool failed\n");
     return -EBUSY;
@@ -112,9 +112,9 @@ int do_exec(int fd, struct execargs *_args)
   
   Info ("CopyInArgv");
   
-  if (CopyInArgv(pool, &args, _args) != 0) {
+  if (copy_in_argv(pool, &args, _args) != 0) {
     Info ("CopyInArgv failed");
-    FreeArgPool(pool);
+    free_arg_pool(pool);
     return -EFAULT;
   }
 
@@ -124,9 +124,9 @@ int do_exec(int fd, struct execargs *_args)
 
   Info("LoadProcess");
 
-  if (LoadProcess(current, fd, &entry_point) != 0) {
+  if (load_process(current, fd, &entry_point) != 0) {
     Info("LoadProcess failed");
-    FreeArgPool(pool);
+    free_arg_pool(pool);
     return -ENOMEM;
   }
 
@@ -135,17 +135,17 @@ int do_exec(int fd, struct execargs *_args)
   
   if ((stack_base = sys_virtualalloc((void *)0x30000000, USER_STACK_SZ, PROT_READWRITE)) == NULL) {
     Info("Allocate stack failed");
-    FreeArgPool(pool);
+    free_arg_pool(pool);
     return -ENOMEM;
   }
 
   Info("CopyOutArgv");
 
-  CopyOutArgv(stack_base, USER_STACK_SZ, &args);
+  copy_out_argv(stack_base, USER_STACK_SZ, &args);
   
   Info("FreeArgPool");
   
-  FreeArgPool(pool);
+  free_arg_pool(pool);
   
   stack_pointer = stack_base + USER_STACK_SZ - ALIGN_UP(args.total_size, 16) - 16;
 
@@ -161,7 +161,7 @@ int do_exec(int fd, struct execargs *_args)
 /*
  *
  */ 
-char *AllocArgPool(void)
+char *alloc_arg_pool(void)
 {
   while (execargs_busy == true) {
     TaskSleep(&execargs_rendez);
@@ -175,7 +175,7 @@ char *AllocArgPool(void)
 /*
  *
  */
-void FreeArgPool(char *pool)
+void free_arg_pool(char *pool)
 {
   execargs_busy = false;
   TaskWakeupAll(&execargs_rendez);
@@ -184,7 +184,7 @@ void FreeArgPool(char *pool)
 /*
  *
  */
-int CopyInArgv(char *pool, struct execargs *args, struct execargs *_args) {
+int copy_in_argv(char *pool, struct execargs *args, struct execargs *_args) {
   char **argv;
   char **envv;
   char *string_table;
@@ -276,7 +276,7 @@ cleanup:
 /*
  *
  */
-int CopyOutArgv(void *stack_base, int stack_size, struct execargs *args) {
+int copy_out_argv(void *stack_base, int stack_size, struct execargs *args) {
   void *args_base;
   vm_size difference;
 
@@ -304,13 +304,13 @@ int CopyOutArgv(void *stack_base, int stack_size, struct execargs *args) {
  *
  * Check that it is a genuine ELF executable.
  */
-static int CheckELFHeaders(int fd) {
+static int check_elf_headers(int fd) {
   Elf32_EHdr ehdr;
   int rc;
 
   Info ("CheckELFHeaders");
 
-  rc = KReadFile(fd, 0, &ehdr, sizeof(Elf32_EHdr));
+  rc = kread_file(fd, 0, &ehdr, sizeof(Elf32_EHdr));
 
   if (rc == sizeof(Elf32_EHdr)) {
     if (ehdr.e_ident[EI_MAG0] == ELFMAG0 && ehdr.e_ident[EI_MAG1] == 'E' &&
@@ -358,7 +358,7 @@ static int CheckELFHeaders(int fd) {
 /*
  * LoadProcess();
  */
-static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
+static int load_process(struct Process *proc, int fd, void **entry_point) {
   int t;
   int rc;
   int32_t phdr_cnt;
@@ -376,7 +376,7 @@ static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
   
   Info ("LoadProcess");
 
-  rc = KReadFile(fd, 0, &ehdr, sizeof(Elf32_EHdr));
+  rc = kread_file(fd, 0, &ehdr, sizeof(Elf32_EHdr));
 
   if (rc != sizeof(Elf32_EHdr)) {
     Info ("ELF header could not read");
@@ -393,7 +393,7 @@ static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
     
     Info("LoadProcess phdr = %d", t);
     
-    rc = KReadFile(fd, phdr_offs + t * sizeof(Elf32_PHdr), &phdr, sizeof(Elf32_PHdr));
+    rc = kread_file(fd, phdr_offs + t * sizeof(Elf32_PHdr), &phdr, sizeof(Elf32_PHdr));
 
     if (rc != sizeof(Elf32_PHdr)) {
       Info("Kread phdr failed");
@@ -437,7 +437,7 @@ static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
     }
 
     if (sec_file_sz != 0) {
-      rc = ReadFile(fd, sec_offs, (void *)phdr.p_vaddr, sec_file_sz);
+      rc = read_file(fd, sec_offs, (void *)phdr.p_vaddr, sec_file_sz);
 
       if (rc != sec_file_sz) {
         Info("Failed to read file");
@@ -453,7 +453,7 @@ static int LoadProcess(struct Process *proc, int fd, void **entry_point) {
 
 
 
-ssize_t ReadFile (int fd, off_t offset, void *vaddr, size_t sz)
+ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
@@ -467,7 +467,7 @@ ssize_t ReadFile (int fd, off_t offset, void *vaddr, size_t sz)
 }
 
 
-ssize_t KReadFile (int fd, off_t offset, void *vaddr, size_t sz)
+ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   

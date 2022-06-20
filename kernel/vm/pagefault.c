@@ -44,7 +44,7 @@ int PageFault(vm_addr addr, bits32_t access) {
   struct Pageframe *pf;
   vm_addr real_addr;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
  
   real_addr = addr;
   addr = ALIGN_DOWN(addr, PAGE_SIZE);

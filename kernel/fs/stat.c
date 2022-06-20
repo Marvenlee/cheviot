@@ -24,34 +24,34 @@
 
 SYSCALL int sys_stat(char *_path, struct stat *_stat) {
   struct stat stat;
-  struct Lookup lookup;
+  struct lookupdata ld;
   int sc;
 
   Info ("SysStat");
 
-  if ((sc = Lookup(_path, 0, &lookup)) != 0) {
+  if ((sc = lookup(_path, 0, &ld)) != 0) {
     Info ("SysStat lookup: sc:%d", sc);
     return sc;
   }
 
-  Info ("SysStat vnode:%08x", lookup.vnode);  
-  Info ("SysStat parent:%08x", lookup.parent);
+  Info ("SysStat vnode:%08x", ld.vnode);  
+  Info ("SysStat parent:%08x", ld.parent);
 
-  stat.st_dev = lookup.vnode->superblock->dev;
-  stat.st_ino = lookup.vnode->inode_nr;
-  stat.st_mode = lookup.vnode->mode;
-  stat.st_nlink = lookup.vnode->nlink;
-  stat.st_uid = lookup.vnode->uid;
-  stat.st_gid = lookup.vnode->gid;
-  stat.st_rdev = lookup.vnode->rdev;
-  stat.st_size = lookup.vnode->size;
-  stat.st_atime = lookup.vnode->atime;
-  stat.st_mtime = lookup.vnode->mtime;
-  stat.st_ctime = lookup.vnode->ctime;
-  stat.st_blocks = lookup.vnode->blocks;
-  stat.st_blksize = lookup.vnode->blksize;
+  stat.st_dev = ld.vnode->superblock->dev;
+  stat.st_ino = ld.vnode->inode_nr;
+  stat.st_mode = ld.vnode->mode;
+  stat.st_nlink = ld.vnode->nlink;
+  stat.st_uid = ld.vnode->uid;
+  stat.st_gid = ld.vnode->gid;
+  stat.st_rdev = ld.vnode->rdev;
+  stat.st_size = ld.vnode->size;
+  stat.st_atime = ld.vnode->atime;
+  stat.st_mtime = ld.vnode->mtime;
+  stat.st_ctime = ld.vnode->ctime;
+  stat.st_blocks = ld.vnode->blocks;
+  stat.st_blksize = ld.vnode->blksize;
 
-  VNodePut(lookup.vnode);
+  vnode_put(ld.vnode);
 
   if (_stat == NULL) {
     return -EFAULT;
@@ -82,7 +82,7 @@ SYSCALL int sys_fstat(int fd, struct stat *_stat) {
 
   vnode = filp->vnode;
 
-  VNodeLock(vnode);
+  vnode_lock(vnode);
   
   // FIXME: Should have vnodehold  when we know the vnode
   // But we don't acquire it , so no need for hold/put here.
@@ -103,7 +103,7 @@ SYSCALL int sys_fstat(int fd, struct stat *_stat) {
   stat.st_blocks = vnode->blocks;
   stat.st_blksize = vnode->blksize;
 
-  VNodeUnlock(vnode);
+  vnode_unlock(vnode);
 
   if (_stat == NULL) {
     return -EFAULT;

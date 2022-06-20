@@ -34,7 +34,7 @@ SYSCALL int sys_fork(void) {
   struct Process *current;
   struct Process *proc;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if ((proc = AllocProcess()) == NULL) {
     return -ENOMEM;
@@ -71,7 +71,7 @@ SYSCALL void sys_exit(int status) {
   struct Process *child;
   struct Process *proc;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   parent = current->parent;
 
   KASSERT (parent != NULL);
@@ -144,7 +144,7 @@ SYSCALL int sys_waitpid(int pid, int *status, int options) {
   int found_in_pgrp = 0;
   int err = 0;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (-pid >= max_process || pid >= max_process) {
     return -EINVAL;
@@ -266,7 +266,7 @@ SYSCALL int sys_waitpid(int pid, int *status, int options) {
   pid = GetProcessPid(child);
 
   if (status != NULL) {
-    current = GetCurrentProcess();
+    current = get_current_process();
 
     if (CopyOut(status, &child->exit_status, sizeof *status) != 0) {
         err = -EFAULT;
@@ -293,7 +293,7 @@ struct Process *AllocProcess(void) {
   struct Process *current;
   int pid;
     
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   for (pid=0; pid < max_process; pid++) {
     proc = GetProcess(pid);
@@ -361,7 +361,7 @@ int GetPid(void)
 {
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->pid;
 }
 

@@ -25,21 +25,21 @@
  *
  */
 SYSCALL int sys_symlink(char *_path, char *_link) {
-  struct Lookup lookup;
+  struct lookupdata ld;
   int status;
 
-  if ((status = Lookup(_path, LOOKUP_PARENT, &lookup)) != 0) {
+  if ((status = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
     return status;
   }
 
-  if (lookup.vnode != NULL) {
-    VNodePut(lookup.parent);
-    VNodePut(lookup.vnode);
+  if (ld.vnode != NULL) {
+    vnode_put(ld.parent);
+    vnode_put(ld.vnode);
     return -EEXIST;
   }
 
-  //    status = vfs_mklink(lookup.parent, lookup.last_component, _link);
-  VNodePut(lookup.parent);
+  //    status = vfs_mklink(ld.parent, ld.last_component, _link);
+  vnode_put(ld.parent);
   return status;
 }
 
@@ -47,25 +47,25 @@ SYSCALL int sys_symlink(char *_path, char *_link) {
  *
  */
 SYSCALL int sys_readlink(char *_path, char *_link, size_t link_size) {
-  struct Lookup lookup;
+  struct lookupdata ld;
   int status;
   
-  if ((status = Lookup(_path, 0, &lookup)) != 0) {
+  if ((status = lookup(_path, 0, &ld)) != 0) {
     return status;
   }
 
-  if (lookup.vnode == NULL) {
+  if (ld.vnode == NULL) {
     return -EEXIST;
   }
 
   // TODO, check if vnode is a symlink.
-  if (!S_ISLNK(lookup.vnode->mode)) {
-    VNodePut(lookup.vnode);
+  if (!S_ISLNK(ld.vnode->mode)) {
+    vnode_put(ld.vnode);
     return -ENOLINK;
   }
 
-  //    status = vfs_readlink(lookup.vnode, _link, link_size);
-  VNodePut(lookup.vnode);
+  //    status = vfs_readlink(ld.vnode, _link, link_size);
+  vnode_put(ld.vnode);
   return status;
 }
 

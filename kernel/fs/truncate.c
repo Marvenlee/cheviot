@@ -41,7 +41,7 @@ SYSCALL int sys_truncate(int fd, size_t sz) {
 
   vnode = filp->vnode;
 
-  VNodeLock(vnode);
+  vnode_lock(vnode);
 
   if (!S_ISREG(vnode->mode)) {
     err = -EINVAL;
@@ -52,12 +52,12 @@ SYSCALL int sys_truncate(int fd, size_t sz) {
     goto exit;
   }
 
-  WakeupPolls(vnode, POLLPRI, POLLPRI);
-  VNodeUnlock(vnode);
+  wakeup_polls(vnode, POLLPRI, POLLPRI);
+  vnode_unlock(vnode);
   return 0;
 
 exit:
-  VNodeUnlock(vnode);
+  vnode_unlock(vnode);
   return err;
 }
 

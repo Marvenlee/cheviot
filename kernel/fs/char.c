@@ -33,13 +33,13 @@
 
 // Could server-side readmsg/writemsg access the physical memory map (to avoid double copy).
 
-ssize_t ReadFromChar (struct VNode *vnode, void *dst, size_t sz) {
+ssize_t read_from_char (struct VNode *vnode, void *dst, size_t sz) {
   uint8_t buf[512];
   ssize_t xfered = 0;
   size_t xfer = 0;
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   
   Info ("ReadFromChar(sz:%d)", sz);
   
@@ -72,13 +72,13 @@ ssize_t ReadFromChar (struct VNode *vnode, void *dst, size_t sz) {
 /*
  *
  */
-ssize_t WriteToChar (struct VNode *vnode, void *src, size_t sz) {
+ssize_t write_to_char (struct VNode *vnode, void *src, size_t sz) {
   uint8_t buf[512];
   ssize_t xfered = 0;
   size_t xfer = 0;
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   while (vnode->writer_cnt != 0) {
     TaskSleep(&vnode->rendez);

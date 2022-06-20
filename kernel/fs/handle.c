@@ -76,7 +76,7 @@ SYSCALL int sys_fcntl (int fd, int cmd, int arg)
   Info("SysFcntl(%d, %d)", fd, cmd);
   LogFDs();
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if ((filp = GetFilp(fd)) == NULL) {
     Info ("Fcntl fd %d does not exist", fd);
@@ -113,19 +113,19 @@ SYSCALL int sys_fcntl (int fd, int cmd, int arg)
 		
       case F_GETFD:	/* Get fildes flags */	  
 	    if (current->close_on_exec[fd/32] & (1<<(fd%32))) {
-          Info ("Fcntl F_GETFD FD_CLOEXEC");
+        Info ("Fcntl F_GETFD FD_CLOEXEC");
 	      return 1;
 		} else {			    
-          Info ("Fcntl F_GETFD 0");			  
+        Info ("Fcntl F_GETFD 0");			  
 		    return 0;
 		}
 		  
 		case F_SETFD:	/* Set fildes flags */
 		  if (arg) {
-                current->close_on_exec[fd/32] |= (1<<(fd%32));
+        current->close_on_exec[fd/32] |= (1<<(fd%32));
 		  } else {
-                current->close_on_exec[fd/32] &= ~(1<<(fd%32));
-          }
+        current->close_on_exec[fd/32] &= ~(1<<(fd%32));
+      }
 
 			return arg;
 		
@@ -155,7 +155,7 @@ SYSCALL int sys_dup(int fd) {
   Info("Dup: %d", fd);
   LogFDs();
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   filp = GetFilp(fd);
 
@@ -191,7 +191,7 @@ SYSCALL int sys_dup2(int fd, int new_fd) {
   Info ("SysDup2 (%d, %d)", fd, new_fd);
   LogFDs();
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (new_fd < 0 || new_fd >= NPROC_FD) {
     Info ("Dup2 : new_h out of range");
@@ -239,7 +239,7 @@ SYSCALL int sys_close(int fd)
   
   if (vnode != NULL) {
     
-    VNodeLock(vnode);
+    vnode_lock(vnode);
     
     if (S_ISFIFO(vnode->mode)) {
       Info ("*** Do close pipe, wakeup rendez");
@@ -247,8 +247,8 @@ SYSCALL int sys_close(int fd)
       TaskWakeupAll(&pipe->rendez);
     }
 
-    Info ("SysClose vnodeput = %08x", vnode);
-    VNodePut(vnode);
+    Info ("SysClose vnode_put = %08x", vnode);
+    vnode_put(vnode);
   }
   else
   {
@@ -310,7 +310,7 @@ struct Filp *GetFilp(int fd) {
   struct Process *current;
   uint16_t filp_idx;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (fd < 0 || fd >= NPROC_FD) {
     return NULL;
@@ -328,7 +328,7 @@ int AllocHandle(void) {
   struct Process *current;
   struct Filp *filp;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   
   for (fd = 0; fd < NPROC_FD; fd++) {
     if (current->fd_table[fd] == NULL) {
@@ -356,7 +356,7 @@ int FreeHandle(int fd) {
   
   Info ("FreeHandle(%d)", fd);
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   
   if (fd < 0 || fd >= NPROC_FD) {
     Info("FreeHandle %d EINVAL", fd);
@@ -418,7 +418,7 @@ int ForkProcessHandles(struct Process *newp, struct Process *oldp) {
   newp->current_dir = oldp->current_dir;
   
   if (newp->current_dir != NULL) {
-    VNodeIncRef(newp->current_dir);
+    vnode_inc_ref(newp->current_dir);
   }
 
   return 0;
@@ -428,7 +428,7 @@ int CloseOnExecProcessHandles(void) {
   struct Process *current;
 
   Info("CloseOnExecProcessHandles()");
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   for (int fd = 0; fd < NPROC_FD; fd++) {
     if (current->close_on_exec[fd/32] & (1<<(fd%32))) {
@@ -436,8 +436,8 @@ int CloseOnExecProcessHandles(void) {
     }
   }
 
-  VNodeLock(current->current_dir);
-  VNodePut(current->current_dir);
+  vnode_lock(current->current_dir);
+  vnode_put(current->current_dir);
 
   return 0;
 }

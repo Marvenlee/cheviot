@@ -467,7 +467,7 @@ vm_addr PmapPaToVa(vm_addr paddr) {
 void PmapFlushTLBs(void) {
   //    struct Process *current;
   // NEED an IPI invvalidate for multicore
-  //    current = GetCurrentProcess();
+  //    current = get_current_process();
   //    SetPageDirectory ((void *)(PmapVaToPa
   //    ((vm_addr)current->as.pmap.l1_table)));
   InvalidateTLB();

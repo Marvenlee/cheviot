@@ -32,31 +32,31 @@
 SYSCALL int sys_chdir(char *_path)
 {
   struct Process *current;
-  struct Lookup lookup;
+  struct lookupdata ld;
   int err;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   Info ("ChDir");
 
-  if ((err = Lookup(_path, 0, &lookup)) != 0) {
+  if ((err = lookup(_path, 0, &ld)) != 0) {
     Info ("Chdir lookup err:%d", err);
     return err;
   }
 
-  if (!S_ISDIR(lookup.vnode->mode)) {
+  if (!S_ISDIR(ld.vnode->mode)) {
     Info ("ChDir -ENOTDIR");
-    VNodePut(lookup.vnode);
+    vnode_put(ld.vnode);
     return -ENOTDIR;
   }
 
   if (current->current_dir != NULL) {
     Info ("ChDir - current_Dir != NULL");
-    VNodePut(current->current_dir);
+    vnode_put(current->current_dir);
   }
 
-  current->current_dir = lookup.vnode;
-  VNodeUnlock(current->current_dir);
+  current->current_dir = ld.vnode;
+  vnode_unlock(current->current_dir);
   return 0;
 }
 
@@ -72,7 +72,7 @@ SYSCALL int sys_fchdir(int fd)
 
   Info ("FChDir %d", fd);
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   filp = GetFilp(fd);
 
@@ -88,10 +88,10 @@ SYSCALL int sys_fchdir(int fd)
     return -ENOTDIR;
   }
 
-  Info ("SysFChdir vnodeput");
-  VNodePut(current->current_dir);
+  Info ("SysFChdir vnode_put");
+  vnode_put(current->current_dir);
   current->current_dir = vnode;
-  VNodeIncRef(vnode);
+  vnode_inc_ref(vnode);
   return 0;
 }
 
@@ -102,21 +102,21 @@ SYSCALL int sys_fchdir(int fd)
 SYSCALL int sys_opendir(char *_path)
 {
   struct Process *current;
-  struct Lookup lookup;
+  struct lookupdata ld;
   int fd;
   struct Filp *filp = NULL;
   int err;
 
   Info("SysOpenDir");
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
-  if ((err = Lookup(_path, 0, &lookup)) != 0) {
+  if ((err = lookup(_path, 0, &ld)) != 0) {
     Warn("OpenDir lookup failed");
     return err;
   }
 
-  if (!S_ISDIR(lookup.vnode->mode)) {
+  if (!S_ISDIR(ld.vnode->mode)) {
     err = -EINVAL;
     goto exit;
   }
@@ -129,17 +129,17 @@ SYSCALL int sys_opendir(char *_path)
   }
 
   filp = GetFilp(fd);
-  filp->vnode = lookup.vnode;
+  filp->vnode = ld.vnode;
   filp->offset = 0;
-  VNodeUnlock(filp->vnode);
+  vnode_unlock(filp->vnode);
 
   Info ("OpenDir handle %d", fd);
   return fd;
 
 exit:
     FreeHandle(fd);
-    Info ("SysOpenDir vnodeput");
-    VNodePut(lookup.vnode);
+    Info ("SysOpenDir vnode_put");
+    vnode_put(ld.vnode);
     return -ENOMEM;
 }
 
@@ -147,7 +147,7 @@ exit:
 /*
  *
  */
-void InvalidateDir(struct VNode *dvnode)
+void invalidate_dir(struct VNode *dvnode)
 {
   // Call when creating or deleting entries in dvnode.
   // Or deleting the actual directory itself.
@@ -186,7 +186,7 @@ SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz)
   
   cookie = filp->offset;
 
-  VNodeLock(vnode);
+  vnode_lock(vnode);
   dirents_sz = vfs_readdir(vnode, buffer, sizeof buffer, &cookie);
 
   if (dirents_sz > 0) {  
@@ -194,7 +194,7 @@ SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz)
   }
 
   filp->offset = cookie;
-  VNodeUnlock(vnode);
+  vnode_unlock(vnode);
   return dirents_sz;
 }
 
@@ -228,25 +228,23 @@ SYSCALL int sys_createdir(char *_path, mode_t mode)
   struct VNode *vnode = NULL;
   struct Filp *filp = NULL;
   int err = 0;
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct stat stat;
 
-  Info("CreateDir");
+  current = get_current_process();
 
-  current = GetCurrentProcess();
-
-  if ((err = Lookup(_path, LOOKUP_PARENT, &lookup)) != 0) {
+  if ((err = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
     Warn("Lookup failed");
     goto exit;
   }
 
-  vnode = lookup.vnode;
-  dvnode = lookup.parent; // is this returning "dev" or "dev/" the mount point?
+  vnode = ld.vnode;
+  dvnode = ld.parent; // is this returning "dev" or "dev/" the mount point?
 
   KASSERT(dvnode != NULL);
 
   if (vnode == NULL) {
-    err = vfs_mkdir(dvnode, lookup.last_component, &stat, &vnode);
+    err = vfs_mkdir(dvnode, ld.last_component, &stat, &vnode);
     if (err != 0) {
       goto exit;
     }
@@ -258,14 +256,14 @@ SYSCALL int sys_createdir(char *_path, mode_t mode)
     }
   }
 
-  WakeupPolls(dvnode, POLLPRI, POLLPRI);
-  VNodePut (vnode);
-  VNodePut (dvnode);
+  wakeup_polls(dvnode, POLLPRI, POLLPRI);
+  vnode_put (vnode);
+  vnode_put (dvnode);
   return 0;
 
 exit:
-  VNodePut (vnode);
-  VNodePut (dvnode);
+  vnode_put (vnode);
+  vnode_put (dvnode);
   return err;
 }
 
@@ -274,17 +272,15 @@ SYSCALL int sys_rmdir(char *_path) {
   struct VNode *vnode = NULL;
   struct VNode *dvnode = NULL;
   int err = 0;
-  struct Lookup lookup;
+  struct lookupdata ld;
 
-  Info ("RemoveDir");
-
-  if ((err = Lookup(_path, LOOKUP_REMOVE, &lookup)) != 0) {
+  if ((err = lookup(_path, LOOKUP_REMOVE, &ld)) != 0) {
     Warn("Lookup failed");
     return err;
   }
 
-  vnode = lookup.vnode;
-  dvnode = lookup.parent;
+  vnode = ld.vnode;
+  dvnode = ld.parent;
 
   if (!S_ISDIR(vnode->mode)) {
     err = -ENOTDIR;
@@ -295,17 +291,17 @@ SYSCALL int sys_rmdir(char *_path) {
 
   if (vnode->reference_cnt == 0) // us incremented
   {
-    vfs_rmdir(dvnode, lookup.last_component);
+    vfs_rmdir(dvnode, ld.last_component);
   }
 
-  WakeupPolls(dvnode, POLLPRI, POLLPRI);
-  VNodePut(vnode); // This should delete it
-  VNodePut(dvnode);
+  wakeup_polls(dvnode, POLLPRI, POLLPRI);
+  vnode_put(vnode); // This should delete it
+  vnode_put(dvnode);
   return 0;
 
 exit:  
-  VNodePut(vnode); // This should delete it
-  VNodePut(dvnode);
+  vnode_put(vnode); // This should delete it
+  vnode_put(dvnode);
   return err;
 }
 

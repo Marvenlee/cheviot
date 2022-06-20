@@ -40,7 +40,7 @@ SYSCALL vm_addr sys_virtualtophysaddr(vm_addr addr) {
   vm_addr pa;
   uint32_t flags;
  
-  current = GetCurrentProcess();
+  current = get_current_process();
   as = &current->as;
   va = ALIGN_DOWN(addr, PAGE_SIZE);
  
@@ -68,7 +68,7 @@ SYSCALL void *sys_virtualalloc(void *_addr, size_t len, bits32_t flags) {
   vm_addr ceiling;
   struct Pageframe *pf;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   as = &current->as;
   addr = ALIGN_DOWN((vm_addr)_addr, PAGE_SIZE);
   len = ALIGN_UP(len, PAGE_SIZE);
@@ -128,7 +128,7 @@ SYSCALL void *sys_virtualallocphys(void *_addr, size_t len, bits32_t flags,
   vm_addr pa;
   vm_addr ceiling;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   as = &current->as;
   addr = ALIGN_DOWN((vm_addr)_addr, PAGE_SIZE);
   paddr = ALIGN_DOWN((vm_addr)_paddr, PAGE_SIZE);
@@ -185,7 +185,7 @@ SYSCALL int sys_virtualfree(void *_addr, size_t len) {
   vm_addr addr;
   vm_addr va;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   as = &current->as;
   addr = ALIGN_DOWN((vm_addr)_addr, PAGE_SIZE);
   len = ALIGN_UP(len, PAGE_SIZE);
@@ -214,7 +214,7 @@ SYSCALL int sys_virtualprotect(void *_addr, size_t len, bits32_t flags) {
   vm_addr va;
   vm_addr pa;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   as = &current->as;
   addr = ALIGN_DOWN((vm_addr)_addr, PAGE_SIZE);
   len = ALIGN_UP(len, PAGE_SIZE);

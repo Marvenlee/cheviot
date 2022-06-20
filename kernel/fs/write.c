@@ -29,17 +29,17 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
 
   vnode = filp->vnode;
 
-  if (IsAllowed(vnode, W_OK) != 0) {
+  if (is_allowed(vnode, W_OK) != 0) {
     Info ("Write IsAllowed failed");
     return -EACCES;
   }
   
-  VNodeLock(vnode);
+  vnode_lock(vnode);
   
   if (S_ISCHR(vnode->mode)) {
-    xfered = WriteToChar(vnode, src, sz);  
+    xfered = write_to_char(vnode, src, sz);  
   } else if (S_ISBLK(vnode->mode)) {
-    xfered = WriteToCache(vnode, src, sz, &filp->offset);
+    xfered = write_to_cache(vnode, src, sz, &filp->offset);
   } else if (S_ISFIFO(vnode->mode)) {
 //    xfered = WriteToPipe(vnode, src, sz, &filp->offset);
   } else {
@@ -49,7 +49,7 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
 
   // Update accesss timestamps
 
-  VNodeUnlock(vnode);
+  vnode_unlock(vnode);
   
   return xfered;
 }

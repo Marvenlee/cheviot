@@ -30,14 +30,6 @@
 #include <string.h>
 
 
-int vfs_put(struct VNode *vnode)
-{
-  KASSERT(vnode != NULL);
-  
-  VNodePut(vnode);
-}
-
-
 /*
  *
  */
@@ -88,11 +80,11 @@ int vfs_lookup(struct VNode *dvnode, char *name,
 
   Info ("sb = %08x", sb);
   Info ("sb->msgport = %08x", sb->msgport);
-  Info ("KSendMsg lookup");
+  Info ("ksendmsg lookup");
   
-  KSendMsg(&sb->msgport, dvnode, &msg);
+  ksendmsg(&sb->msgport, dvnode, &msg);
 
-  Info ("KSendMsg reply received");
+  Info ("ksendmsg reply received");
 
   if (reply.args.lookup.status != 0) {
     *result = NULL;
@@ -100,14 +92,14 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   }
   
   if (reply.args.lookup.inode_nr == dvnode->inode_nr) {
-    VNodeIncRef(dvnode);
+    vnode_inc_ref(dvnode);
     vnode = dvnode;
   } else {
-    vnode = VNodeGet(dvnode->superblock, reply.args.lookup.inode_nr);
+    vnode = vnode_get(dvnode->superblock, reply.args.lookup.inode_nr);
   }
 
   if (vnode == NULL) {
-    vnode = VNodeNew(sb, reply.args.lookup.inode_nr);
+    vnode = vnode_new(sb, reply.args.lookup.inode_nr);
 
     if (vnode == NULL) {
       return -ENOMEM;
@@ -149,10 +141,10 @@ ssize_t vfs_delwrite(struct VNode *vnode, void *dst, size_t nbytes, off64_t *off
 /*
  * TODO: To be called by ReplyMsg() to update state of delayed_write Buf.
  */ 
-ssize_t vfs_delwrite_done (struct VNode *vnode, size_t nbytes, off64_t *offset, int status) {
+ssize_t vfs_delwrite_done(struct VNode *vnode, size_t nbytes, off64_t *offset, int status) {
   struct Buf *buf;
   
-  buf = GetBlk(vnode, *offset);
+  buf = getblk(vnode, *offset);
   
   buf->flags &= ~B_BUSY;
   vnode->busy = false;
@@ -199,7 +191,7 @@ ssize_t vfs_read(struct VNode *vnode, void *dst, size_t nbytes, off64_t *offset)
   msg.iov_cnt = 3;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, vnode, &msg);
+  sc = ksendmsg(&sb->msgport, vnode, &msg);
 
   if (sc == 0) {
     if (reply.args.read.nbytes_read >= 0) {
@@ -255,7 +247,7 @@ ssize_t vfs_write(struct VNode *vnode, void *src, size_t nbytes, off64_t *offset
   msg.iov_cnt = 3;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, vnode, &msg);
+  sc = ksendmsg(&sb->msgport, vnode, &msg);
 
   if (sc == 0) {
     if (reply.args.write.nbytes_written >= 0) {
@@ -308,7 +300,7 @@ int vfs_readdir(struct VNode *vnode, void *dst, size_t nbytes,
   msg.iov_cnt = 3;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, vnode, &msg);
+  sc = ksendmsg(&sb->msgport, vnode, &msg);
 
   if (sc < 0) {
     Info ("vfs_readdir sendmsg sc = %d", sc);
@@ -373,13 +365,13 @@ int vfs_mknod(struct VNode *dir, char *name, struct stat *stat,
   msg.iov_cnt = 3;
   msg.iov = iov;
 
-  status = KSendMsg(&sb->msgport, dir, &msg);
+  status = ksendmsg(&sb->msgport, dir, &msg);
 
   if (status < 0) {
     goto exit;
   }
 
-  vnode = VNodeNew(sb, reply.args.lookup.inode_nr);
+  vnode = vnode_new(sb, reply.args.lookup.inode_nr);
 
   if (vnode == NULL) {
     status = -ENOMEM;
@@ -447,7 +439,7 @@ int vfs_rmdir(struct VNode *dvnode, char *name) {
   msg.iov_cnt = 3;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, dvnode, &msg);
+  sc = ksendmsg(&sb->msgport, dvnode, &msg);
 
   if (sc < 0) {
     sc = -1;    
@@ -492,7 +484,7 @@ int vfs_truncate(struct VNode *vnode, size_t size) {
   msg.iov_cnt = 2;
   msg.iov = iov;
   
-  sc = KSendMsg(&sb->msgport, vnode, &msg);
+  sc = ksendmsg(&sb->msgport, vnode, &msg);
 
   if (sc < 0) {
     sz = -1;
@@ -545,7 +537,7 @@ int vfs_chmod(struct VNode *vnode, mode_t mode) {
   msg.iov_cnt = 2;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, vnode, &msg);
+  sc = ksendmsg(&sb->msgport, vnode, &msg);
 
   if (sc < 0) {
     sc = -1;    
@@ -591,7 +583,7 @@ int vfs_chown(struct VNode *vnode, uid_t uid, gid_t gid) {
   msg.iov_cnt = 2;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, vnode, &msg);
+  sc = ksendmsg(&sb->msgport, vnode, &msg);
 
   if (sc < 0) {
     sc = -1;    
@@ -609,7 +601,7 @@ exit:
 }
 
 /*
- * Does this call VNodePut, or is it higher layer 
+ * Does this call vnode_put, or is it higher layer 
  * is the put done after the vfs_unlink ?  We should be the only reference
  * when this is called.
  */
@@ -640,7 +632,7 @@ int vfs_unlink(struct VNode *dvnode, char *name) {
   msg.iov_cnt = 3;
   msg.iov = iov;
 
-  sc = KSendMsg(&sb->msgport, dvnode, &msg);
+  sc = ksendmsg(&sb->msgport, dvnode, &msg);
 
   if (sc < 0) {
     sc = -1;    

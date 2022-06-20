@@ -175,7 +175,7 @@ SYSCALL int sys_sigaction (int signal, const struct sigaction *act_in, struct si
 	struct sigaction act, oact;
 	struct Process *current;
 	
-	current = GetCurrentProcess();	
+	current = get_current_process();	
 
 	if (signal <= 0 || signal >= NSIG) {
 	  return -EINVAL;
@@ -330,7 +330,7 @@ SYSCALL int sys_sigsuspend (const sigset_t *mask_in)
 	uint32_t intstate;
 	struct Process *current;
 	
-	current = GetCurrentProcess();
+	current = get_current_process();
 	
 	if (CopyIn (&mask, mask_in, sizeof (sigset_t)) != 0) {
 	  return -EFAULT;
@@ -360,7 +360,7 @@ SYSCALL int sys_sigprocmask (int how, const sigset_t *set_in, sigset_t *oset_out
 	sigset_t set;
 	struct Process *current;
 	
-	current = GetCurrentProcess();
+	current = get_current_process();
 	
 	if (oset_out != NULL) {
 		if (CopyOut (oset_out, &current->signal.sig_mask, sizeof (sigset_t)) != 0) {
@@ -397,7 +397,7 @@ SYSCALL int sys_sigpending (sigset_t *set_out)
 	sigset_t set;
 	struct Process *current;
 	
-	current = GetCurrentProcess();
+	current = get_current_process();
 	
 	set = current->signal.sig_pending & ~current->signal.sig_mask;	
 	CopyOut (set_out, &set, sizeof (sigset_t));

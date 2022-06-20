@@ -48,7 +48,7 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
 //  LogFDs();
 
     
-  current = GetCurrentProcess();
+  current = get_current_process();
   current->poll_pending = false;
   nfds_matching = 0;
   
@@ -222,15 +222,15 @@ SYSCALL int sys_pollnotify (int fd, int ino, short mask, short events)
   sb = svnode->superblock;
 
 
-  vnode = VNodeGet(sb, ino);
+  vnode = vnode_get(sb, ino);
   
   if (vnode == NULL) {
     return -EINVAL;
   }
   
-  WakeupPolls(vnode, mask, events);
+  wakeup_polls(vnode, mask, events);
 
-  // TODO: VNodePut(vnode)
+  // TODO: vnode_put(vnode)
 
   return 0;
 }
@@ -248,7 +248,7 @@ int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events)
 /*
  * Called with vnode locked
  */
-void WakeupPolls(struct VNode *vnode, short mask, short events)
+void wakeup_polls(struct VNode *vnode, short mask, short events)
 {
   struct Process *proc;
   struct Poll *poll;

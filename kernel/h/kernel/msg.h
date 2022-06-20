@@ -46,12 +46,12 @@ struct MsgPort {
 #define MSG_STATE_REPLIED 3
 
 
-int InitMsgPort(struct MsgPort *msgport, struct VNode *vnode);
-int KSendMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg);
-int KPutMsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg);
-int ReceiveMsg(int server_fd, int *pid, void *buf, size_t buf_sz);
-int ReplyMsg(int server_fd, int pid, int status);
-int ReadMsg(int server_fd, int pid, void *buf, size_t buf_sz);
-int WriteMsg(int server_fd, int pid, void *buf, size_t buf_sz);
+int init_msgport(struct MsgPort *msgport, struct VNode *vnode);
+int ksendmsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg);
+int kputmsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg);
+int sys_receivemsg(int server_fd, int *pid, void *buf, size_t buf_sz);
+int sys_replymsg(int server_fd, int pid, int status);
+int sys_readmsg(int server_fd, int pid, void *buf, size_t buf_sz);
+int sys_writemsg(int server_fd, int pid, void *buf, size_t buf_sz);
 
 #endif

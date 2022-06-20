@@ -38,8 +38,8 @@ void Reschedule(void) {
   struct CPU *cpu;
   int q;
 
-  cpu = GetCPU();
-  current = GetCurrentProcess();
+  cpu = get_cpu();
+  current = get_current_process();
 
   if (current != NULL) {
     if (current->sched_policy == SCHED_RR) {
@@ -121,7 +121,7 @@ void SchedReady(struct Process *proc) {
   struct Process *next;
   struct CPU *cpu;
 
-  cpu = GetCPU();
+  cpu = get_cpu();
 
   if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO) {
     CIRCLEQ_ADD_TAIL(&realtime_queue[proc->rr_priority], proc, sched_entry);
@@ -162,7 +162,7 @@ void SchedReady(struct Process *proc) {
 void SchedUnready(struct Process *proc) {
   struct CPU *cpu;
 
-  cpu = GetCPU();
+  cpu = get_cpu();
 
   if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO) {
     CIRCLEQ_REM_ENTRY(&realtime_queue[proc->rr_priority], proc, sched_entry);
@@ -188,7 +188,7 @@ void SchedUnready(struct Process *proc) {
  */
 SYSCALL int sys_setschedparams(int policy, int priority) {
   struct Process *current;
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (policy == SCHED_RR || policy == SCHED_FIFO) {
     if (!(current->flags & PROCF_ALLOW_IO)) {
@@ -249,7 +249,7 @@ SYSCALL void SysYield(void) {
 void KernelLock(void) {
   struct Process *current;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (bkl_locked == false) {
     bkl_locked = true;
@@ -304,7 +304,7 @@ void TaskSleep(struct Rendez *rendez) {
   struct Process *proc;
   struct Process *current;
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   DisableInterrupts();
 

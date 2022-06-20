@@ -31,16 +31,16 @@ SYSCALL int sys_unlink(char *_path) {
   struct VNode *vnode = NULL;
   struct VNode *dvnode = NULL;
   int err = 0;
-  struct Lookup lookup;
+  struct lookupdata ld;
 
   Info ("Unlink");
 
-  if ((err = Lookup(_path, LOOKUP_REMOVE, &lookup)) != 0) {
+  if ((err = lookup(_path, LOOKUP_REMOVE, &ld)) != 0) {
     return err;
   }
 
-  vnode = lookup.vnode;
-  dvnode = lookup.parent;
+  vnode = ld.vnode;
+  dvnode = ld.parent;
 
 /* TODO: Could be anything other than dir
   need to check if it is a mount too.
@@ -51,19 +51,19 @@ SYSCALL int sys_unlink(char *_path) {
     goto exit;
   }
   
-  vfs_unlink(dvnode, lookup.last_component);
+  vfs_unlink(dvnode, ld.last_component);
   vnode->nlink --;
    
-  WakeupPolls(vnode, POLLPRI, POLLPRI);
+  wakeup_polls(vnode, POLLPRI, POLLPRI);
   
-  // Need to do a cache invalidate in VNodePut 
-  VNodePut(vnode);
-  VNodePut(dvnode);
+  // Need to do a cache invalidate in vnode_put 
+  vnode_put(vnode);
+  vnode_put(dvnode);
   return 0;
   
 exit:
-  VNodePut(vnode);
-  VNodePut(dvnode);
+  vnode_put(vnode);
+  vnode_put(dvnode);
   return err;
 }
 

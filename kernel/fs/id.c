@@ -22,7 +22,7 @@
 SYSCALL int sys_getpid (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->pid;    
 }
 
@@ -30,42 +30,42 @@ SYSCALL int sys_getppid (void) {
   struct Process *current;  
 
 // Will need a proc lock if going to fine grained locking
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->parent->pid;
 }
 
 SYSCALL int sys_getuid (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->uid;    
 }
 
 SYSCALL int sys_getgid (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->gid;    
 }
 
 SYSCALL int sys_geteuid (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();  
+  current = get_current_process();  
   return current->euid;    
 }
 
 SYSCALL int sys_getegid (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->egid;    
 }
 
 SYSCALL int sys_setuid (int uid) {
   struct Process *current;  
 
-  current = GetCurrentProcess();  
+  current = get_current_process();  
   if (current->uid != 0 && current->gid != 0) {
     return -EPERM;
   }
@@ -77,7 +77,7 @@ SYSCALL int sys_setuid (int uid) {
 SYSCALL int sys_setgid (int gid) {
   struct Process *current;  
  
-  current = GetCurrentProcess();
+  current = get_current_process();
   if (current->uid != 0 && current->gid != 0) {
     return -EPERM;
   }
@@ -90,7 +90,7 @@ SYSCALL int sys_setgid (int gid) {
 SYSCALL int sys_setpgrp (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   current->pgrp = current->pid;
   return 0;
 }
@@ -98,7 +98,7 @@ SYSCALL int sys_setpgrp (void) {
 SYSCALL int sys_getpgrp (void) {
   struct Process *current;  
 
-  current = GetCurrentProcess();
+  current = get_current_process();
   return current->pgrp;
 }
 

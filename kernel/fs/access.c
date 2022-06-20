@@ -29,10 +29,8 @@
 /*
  * TODO: Access
  */
-SYSCALL int sys_access(char *pathname, mode_t permissions) {
-  // Open vnode,  call IsAllowed.
-  // Is this with effective uid/gid ?
-  Info ("Access mode:%d (dec)", permissions);
+SYSCALL int sys_access(char *pathname, mode_t permissions)
+{
   return F_OK;
 }
 
@@ -40,17 +38,15 @@ SYSCALL int sys_access(char *pathname, mode_t permissions) {
 /*
  *
  */
-SYSCALL mode_t sys_umask (mode_t mode) {
+SYSCALL mode_t sys_umask (mode_t mode)
+{
   mode_t old_mode;
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
   
   old_mode = current->default_mode;
   current->default_mode = mode;
-  
-  Info ("Umask mode = %d, old_mode = %d", mode, old_mode);
-  
   return old_mode;
 }
 
@@ -58,21 +54,22 @@ SYSCALL mode_t sys_umask (mode_t mode) {
 /*
  *
  */
-SYSCALL int sys_chmod(char *_path, mode_t mode) {
+SYSCALL int sys_chmod(char *_path, mode_t mode)
+{
   struct Process *current;
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct VNode *vnode;
   int err;
 
   Info ("Chmod");
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
-  if ((err = Lookup(_path, 0, &lookup)) != 0) {
+  if ((err = lookup(_path, 0, &ld)) != 0) {
     return err;
   }
 
-  vnode = lookup.vnode;
+  vnode = ld.vnode;
 
   if (vnode->uid == current->uid) {
     err = vfs_chmod(vnode, mode);
@@ -84,9 +81,9 @@ SYSCALL int sys_chmod(char *_path, mode_t mode) {
     err = EPERM;
   }
 
-  WakeupPolls(vnode, POLLPRI,POLLPRI);
+  wakeup_polls(vnode, POLLPRI,POLLPRI);
   
-  VNodePut(vnode);
+  vnode_put(vnode);
   return err;
 }
 
@@ -94,21 +91,22 @@ SYSCALL int sys_chmod(char *_path, mode_t mode) {
 /*
  *
  */
-SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid) {
+SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid)
+{
   struct Process *current;
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct VNode *vnode;
   int err;
 
   Info ("Chown");
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
-  if ((err = Lookup(_path, 0, &lookup)) != 0) {
+  if ((err = lookup(_path, 0, &ld)) != 0) {
     return err;
   }
 
-  vnode = lookup.vnode;
+  vnode = ld.vnode;
 
   if (vnode->uid == current->uid) {
     err = vfs_chown(vnode, uid, gid);
@@ -121,8 +119,8 @@ SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid) {
     err = EPERM;
   }
 
-  WakeupPolls(vnode, POLLPRI, POLLPRI);
-  VNodePut(vnode);
+  wakeup_polls(vnode, POLLPRI, POLLPRI);
+  vnode_put(vnode);
   return 0;
 }
 
@@ -132,7 +130,8 @@ SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid) {
  * TODO:  Add root/administrator check (GID = 0 or 1 for admins)?
  * Admins can't access root files.
  */
-int IsAllowed(struct VNode *vnode, mode_t desired_access) {
+int is_allowed(struct VNode *vnode, mode_t desired_access)
+{
   mode_t perm_bits;
   int shift;
   struct Process *current;
@@ -145,7 +144,7 @@ int IsAllowed(struct VNode *vnode, mode_t desired_access) {
   
   desired_access &= (R_OK | W_OK | X_OK);
 
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (current->uid == vnode->uid)
     shift = 6; /* owner */
@@ -163,7 +162,5 @@ int IsAllowed(struct VNode *vnode, mode_t desired_access) {
 
   return 0;
 }
-
-
 
 

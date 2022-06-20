@@ -109,7 +109,7 @@ SYSCALL int sys_sleep(int seconds) {
   
   Info ("SysSleep(%d)", seconds);
   
-  current = GetCurrentProcess();
+  current = get_current_process();
     
   timer = &current->sleep_timer;
   
@@ -144,7 +144,7 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
   struct Process *current;
   int remaining = 0;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   timer = &current->timeout_timer;
   

@@ -25,16 +25,16 @@
 
 
 // Static prototypes
-static struct VNode *VNodeFind(struct SuperBlock *sb, int inode_nr);
+static struct VNode *vnode_find(struct SuperBlock *sb, int inode_nr);
 
 
 /* @brief Allocate a new vnode
  *
  * Allocate a new vnode object, assign an inode_nr to it and lock it.
- * A call to VNodeFind() should be called prior to this to see if the vnode
+ * A call to vnode_find() should be called prior to this to see if the vnode
  * already exists.
  */
-struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
+struct VNode *vnode_new(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
   Info ("VNodeNew(sb=%08x, ino=%d)", sb, inode_nr);
@@ -89,16 +89,16 @@ struct VNode *VNodeNew(struct SuperBlock *sb, int inode_nr) {
  * is cleared in the flags field.
  */
 
-struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
+struct VNode *vnode_get(struct SuperBlock *sb, int inode_nr) {
   struct VNode *vnode;
 
-  Info ("VNodeGet(sb=%08x, ino=%d",sb, inode_nr);
+  Info ("vnode_get(sb=%08x, ino=%d",sb, inode_nr);
 
   while (1) {
     if (sb->flags & S_ABORT)
       return NULL;
 
-    if ((vnode = VNodeFind(sb, inode_nr)) != NULL) {
+    if ((vnode = vnode_find(sb, inode_nr)) != NULL) {
       vnode->reference_cnt++;
       sb->reference_cnt++;
     
@@ -113,11 +113,9 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
         LIST_REM_ENTRY(&vnode_free_list, vnode, vnode_entry);
       }
 
-      Info ("VNodeGet => vnode = %08x", vnode);
       return vnode;
       
     } else {
-      Info ("VNodeGet => NULL");
       return NULL;
     }
   }
@@ -127,29 +125,10 @@ struct VNode *VNodeGet(struct SuperBlock *sb, int inode_nr) {
  * Used to increment reference count of existing VNode.  Used within FChDir so
  * that proc->current_dir counts as reference.
  */
-void VNodeIncRef(struct VNode *vnode) {
+void vnode_inc_ref(struct VNode *vnode) {
   Info("VNodeIncRef ****");
   vnode->reference_cnt++;
   vnode->superblock->reference_cnt++;
-}
-
-// FIXME:  Needed? Used to destroy anonymous vnodes such as pipes/queues
-// Will be needed if VFS is unmounted to remove all vnodes belonging to VFS
-
-void VNodeFree(struct VNode *vnode) {
-
-  Info("VNodeFree ****");
-  
-  if (vnode == NULL) {
-    return;
-  }
-
-  vnode->flags = V_FREE;
-  LIST_ADD_HEAD(&vnode_free_list, vnode, vnode_entry);
-
-  vnode->busy = false;
-  vnode->reference_cnt = 0;
-  TaskWakeupAll(&vnode->rendez);
 }
 
 /*
@@ -157,7 +136,7 @@ void VNodeFree(struct VNode *vnode) {
  *
  * VNode is returned to the cached pool where it can lazily be freed.
  */
-void VNodePut(struct VNode *vnode) {
+void vnode_put(struct VNode *vnode) {
   KASSERT(vnode != NULL);
   KASSERT(vnode->superblock != NULL);
   // KASSERT(vnode->busy == true);     // Fails if vnode and parent are same path = "/." then most ops do 2 VNodePuts on same vnode.
@@ -190,10 +169,29 @@ void VNodePut(struct VNode *vnode) {
   TaskWakeupAll(&vnode->rendez);
 }
 
+// FIXME:  Needed? Used to destroy anonymous vnodes such as pipes/queues
+// Will be needed if VFS is unmounted to remove all vnodes belonging to VFS
+
+void vnode_free(struct VNode *vnode) {
+
+  Info("VNodeFree ****");
+  
+  if (vnode == NULL) {
+    return;
+  }
+
+  vnode->flags = V_FREE;
+  LIST_ADD_HEAD(&vnode_free_list, vnode, vnode_entry);
+
+  vnode->busy = false;
+  vnode->reference_cnt = 0;
+  TaskWakeupAll(&vnode->rendez);
+}
+
 /* @brief Acquire exclusive access to a vnode
  * 
  */
-void VNodeLock(struct VNode *vnode) {
+void vnode_lock(struct VNode *vnode) {
   KASSERT(vnode != NULL);
   
   Info ("VNodeLock(%08x)", vnode);
@@ -211,7 +209,7 @@ void VNodeLock(struct VNode *vnode) {
 /* @brief Relinquish exclusive access to a vnode
  *
  */
-void VNodeUnlock(struct VNode *vnode) {
+void vnode_unlock(struct VNode *vnode) {
   KASSERT(vnode != NULL);
   KASSERT(vnode->busy == true);
   
@@ -226,7 +224,7 @@ void VNodeUnlock(struct VNode *vnode) {
  * FIXME: TODO : Hash vnode by sb and inode_nr
  */
 
-static struct VNode *VNodeFind(struct SuperBlock *sb, int inode_nr) {
+static struct VNode *vnode_find(struct SuperBlock *sb, int inode_nr) {
   int v;
 
   for (v = 0; v < NR_VNODE; v++) {

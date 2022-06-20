@@ -41,7 +41,7 @@ SYSCALL int sys_createinterrupt(int irq, void (*callback)(int irq, struct Interr
   int fd;
   int error;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
 /*
   if (!(current->flags & PROCF_ALLOW_IO)) {
@@ -62,7 +62,7 @@ SYSCALL int sys_createinterrupt(int irq, void (*callback)(int irq, struct Interr
   }
 
   // Server vnode set to -1.
-  vnode = VNodeNew(sb, -1);
+  vnode = vnode_new(sb, -1);
 
   if (vnode == NULL) {
     error = -ENOMEM;
@@ -102,7 +102,7 @@ SYSCALL int sys_createinterrupt(int irq, void (*callback)(int irq, struct Interr
   
 exit:
   FreeHandle(fd);
-  VNodeFree(vnode);
+  vnode_free(vnode);
   FreeSuperBlock(sb);  
   return error;
 }
@@ -121,7 +121,7 @@ int DoCloseInterrupt(int fd) {
   struct Filp *filp;
   int irq;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
 /*
   if (!(current->flags & PROCF_ALLOW_IO)) {
@@ -156,7 +156,7 @@ int DoCloseInterrupt(int fd) {
   EnableInterrupts();
 
   FreeHandle(fd);
-  VNodeFree(vnode);
+  vnode_free(vnode);
   FreeSuperBlock(sb);
 
   return 0;

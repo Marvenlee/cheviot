@@ -72,7 +72,7 @@ void InterruptTopHalf(void) {
   struct VNode *isr_handler;
   struct Process *current;
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   dmb();  
   pending_interrupts[0] |= interrupt_regs->irq_pending_1;
@@ -165,7 +165,7 @@ void TimerInterruptHandler(void) {
 SYSCALL int sys_maskinterrupt(int irq) {
 //  struct Process *current;
 
-//  current = GetCurrentProcess();
+//  current = get_current_process();
 
 /*
   if (!(current->flags & PROCF_ALLOW_IO)) {
@@ -204,7 +204,7 @@ SYSCALL int sys_maskinterrupt(int irq) {
 SYSCALL int sys_unmaskinterrupt(int irq) {
 //  struct Process *current;
 
-//  current = GetCurrentProcess();
+//  current = get_current_process();
 
 /*  if (!(current->flags & PROCF_ALLOW_IO)) {
     return -EPERM;

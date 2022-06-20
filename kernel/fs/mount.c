@@ -28,7 +28,7 @@
  * Make a node of a given type char, block, etc which can serve as a mount point
  */ 
 SYSCALL int sys_mknod(char *_path, uint32_t flags, struct stat *_stat) {
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct stat stat;
   struct Process *current;
   int fd = -1;
@@ -37,35 +37,35 @@ SYSCALL int sys_mknod(char *_path, uint32_t flags, struct stat *_stat) {
 
   Info ("**** SysMkNod ****");
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (CopyIn(&stat, _stat, sizeof stat) != 0) {
     return -EFAULT;
   }
 
-  if ((status = Lookup(_path, LOOKUP_PARENT, &lookup)) != 0) {
+  if ((status = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
     return status;
   }
 
   Info ("MkNod lookupp complete");
-  Info ("lookup.parent = %08x", lookup.parent);
-  Info ("lookup.vnode = %08x", lookup.vnode);
+  Info ("ld.parent = %08x", ld.parent);
+  Info ("ld.vnode = %08x", ld.vnode);
   
-  if (lookup.vnode != NULL)
+  if (ld.vnode != NULL)
   {    
-    VNodePut(lookup.vnode);
-    VNodePut(lookup.parent);
+    vnode_put(ld.vnode);
+    vnode_put(ld.parent);
     status = -EEXIST;
     goto exit;  
   }
     
-  Info ("SysMkNod parent:08x", lookup.parent);
-  Info ("SysMkNod comp: %s", lookup.last_component);
+  Info ("SysMkNod parent:08x", ld.parent);
+  Info ("SysMkNod comp: %s", ld.last_component);
     
-  status = vfs_mknod(lookup.parent, lookup.last_component, &stat, &vnode);
+  status = vfs_mknod(ld.parent, ld.last_component, &stat, &vnode);
 
-  VNodePut(vnode);
-  VNodePut(lookup.parent);
+  vnode_put(vnode);
+  vnode_put(ld.parent);
   
   Info ("SysMknod");
 
@@ -78,7 +78,7 @@ exit:
  *
  */ 
 SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct stat stat;
   struct Process *current;
   struct VNode *vnode_covered = NULL;
@@ -91,7 +91,7 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
   
   Info ("SysMount");
   
-  current = GetCurrentProcess();
+  current = get_current_process();
 
   if (CopyIn(&stat, _stat, sizeof stat) != 0) {
     return -EFAULT;
@@ -99,13 +99,13 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
 
 
   if (root_vnode != NULL) {
-    if ((error = Lookup(_path, 0, &lookup)) != 0) {
+    if ((error = lookup(_path, 0, &ld)) != 0) {
       Info ("Mount lookup error:%d", error);
       return error;
     }
     
     Info ("Mount lookup ok");
-    vnode_covered = lookup.vnode;
+    vnode_covered = ld.vnode;
 
     if (vnode_covered == NULL) {
       error = -ENOENT;
@@ -137,14 +137,14 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
   }
 
 
-  server_vnode = VNodeNew(sb, -1);
+  server_vnode = vnode_new(sb, -1);
 
   if (server_vnode == NULL) {
     error = -ENOMEM;
     goto exit;
   }
 
-  client_vnode = VNodeNew(sb, 0);
+  client_vnode = vnode_new(sb, 0);
 
   if (client_vnode == NULL) {
     error = -ENOMEM;
@@ -152,7 +152,7 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
   }
 
   InitRendez(&sb->rendez);
-  InitMsgPort(&sb->msgport, server_vnode);
+  init_msgport(&sb->msgport, server_vnode);
   sb->server_vnode = server_vnode; // FIXME: Needed?
   sb->root = client_vnode;         // FIXME: Needed?
   sb->flags = flags;
@@ -192,11 +192,11 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
 
 
   client_vnode->vnode_covered = vnode_covered;
-  WakeupPolls(client_vnode, POLLPRI, POLLPRI);
+  wakeup_polls(client_vnode, POLLPRI, POLLPRI);
   
   if (vnode_covered != NULL) {
     vnode_covered->vnode_mounted_here = client_vnode;   // Or should it be SuperBlock (rename to VFS?) mounted here?
-    WakeupPolls(vnode_covered, POLLPRI, POLLPRI);
+    wakeup_polls(vnode_covered, POLLPRI, POLLPRI);
   }
   
   filp = GetFilp(fd);
@@ -209,15 +209,15 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
   }    
 
   if (vnode_covered != NULL) {
-    VNodeIncRef(vnode_covered);
-    VNodeUnlock(vnode_covered);
+    vnode_inc_ref(vnode_covered);
+    vnode_unlock(vnode_covered);
   }
 
-  VNodeIncRef(client_vnode);
-  VNodeIncRef(server_vnode);
+  vnode_inc_ref(client_vnode);
+  vnode_inc_ref(server_vnode);
 
-  VNodeUnlock(server_vnode);
-  VNodeUnlock(client_vnode);
+  vnode_unlock(server_vnode);
+  vnode_unlock(client_vnode);
 
   Info ("sb = %08x", sb);
   Info ("SysMount fd = %d", fd);
@@ -232,18 +232,18 @@ exit:
   // FIXME: Need to understand/cleanup what vnode get/put/free/ alloc? do
 
   Info ("Mount: Vnodeput server_vnode");
-  VNodePut(server_vnode); // FIXME: Not a PUT?  Removed below?
+  vnode_put(server_vnode); // FIXME: Not a PUT?  Removed below?
   FreeHandle(fd);
 
-  Info ("Mount: Vnodeput lookup.vnode");
-  VNodePut(lookup.vnode);
+  Info ("Mount: Vnodeput ld.vnode");
+  vnode_put(ld.vnode);
   
-  VNodeFree(client_vnode);
-  VNodeFree(server_vnode);
+  vnode_free(client_vnode);
+  vnode_free(server_vnode);
   FreeSuperBlock(sb);
 
   Info ("Mount: Vnodeput vnode_covered");  
-  VNodePut(vnode_covered);
+  vnode_put(vnode_covered);
   return error;
 }
 
@@ -270,31 +270,31 @@ SYSCALL int sys_chroot(char *_new_root) {
  * Alternatively we would have to handle '/dev' in PivotRoot
  */
 SYSCALL int sys_movemount(char *_new_path, char *_old_path) {
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct VNode *new_vnode;
   struct VNode *old_vnode;
   int error;
   
   Info("SysMoveMount");
   
-  if ((error = Lookup(_new_path, 0, &lookup)) != 0) {
+  if ((error = lookup(_new_path, 0, &ld)) != 0) {
     Info("Failed to find new path");
     goto exit;
   }
 
-  new_vnode = lookup.vnode;
+  new_vnode = ld.vnode;
   
   if (new_vnode->vnode_mounted_here != NULL) {
     Info("new vnode already has mount\n");
     goto exit;
   }
 
-  if ((error = Lookup(_old_path, 0, &lookup)) != 0) {
+  if ((error = lookup(_old_path, 0, &ld)) != 0) {
     Info("Failed to find old path");
     goto exit;
   }
 
-  old_vnode = lookup.vnode;
+  old_vnode = ld.vnode;
     
   if (old_vnode->vnode_mounted_here == NULL) {
     Info("old vnode not a mount point\n");
@@ -311,8 +311,8 @@ SYSCALL int sys_movemount(char *_new_path, char *_old_path) {
   
   
   
-  VNodePut (old_vnode);   // release 
-  VNodePut (new_vnode);   // release
+  vnode_put (old_vnode);   // release 
+  vnode_put (new_vnode);   // release
 
   return 0;
   
@@ -324,7 +324,7 @@ exit:
  *
  */
 SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
-  struct Lookup lookup;
+  struct lookupdata ld;
   struct VNode *new_root_vnode;
   struct VNode *old_root_vnode;
   struct VNode *current_root_vnode;
@@ -334,28 +334,28 @@ SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
 
   // TODO: Check these are directories (ROOT ones)
 
-  if ((sc = Lookup(_new_root, 0, &lookup)) != 0) {
+  if ((sc = lookup(_new_root, 0, &ld)) != 0) {
     Info ("PivotRoot lookup _new_root failed");
     return sc;
   }
 
-  new_root_vnode = lookup.vnode;
+  new_root_vnode = ld.vnode;
 
   if (new_root_vnode == NULL) {
     Info ("PivotRoot failed new_root -ENOENT");
     return -ENOENT;
   }
 
-  if ((sc = Lookup(_old_root, 0, &lookup)) != 0) {
+  if ((sc = lookup(_old_root, 0, &ld)) != 0) {
     Info ("PivotRoot lookup _old_root failed");
     return sc;
   }
 
-  old_root_vnode = lookup.vnode;
+  old_root_vnode = ld.vnode;
 
   if (old_root_vnode == NULL) {
     Info ("PivotRoot lookup _old_root -ENOENT");
-    VNodePut(new_root_vnode);
+    vnode_put(new_root_vnode);
     return -ENOENT;
   }
 
@@ -371,8 +371,8 @@ SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
   
   DNamePurgeAll();
   
-  VNodePut (old_root_vnode);
-  VNodePut (new_root_vnode);
+  vnode_put (old_root_vnode);
+  vnode_put (new_root_vnode);
   Info ("*********** PIVOT ROOT SUCCESS **********");
 
   return 0;

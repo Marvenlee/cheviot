@@ -56,7 +56,7 @@ void SigReturn (struct sigframe *u_sigframe)
 	struct Process *current;
 	struct UserContext *uc;
 	
-	current = GetCurrentProcess();
+	current = get_current_process();
 	
 	uc = (struct UserContext *)((vm_addr)current + PROCESS_SZ - sizeof(struct UserContext));
 
@@ -122,7 +122,7 @@ void CheckSignals(struct UserContext *uc)
 	int sig;
 	struct Process *current;
 	
-	current = GetCurrentProcess();
+	current = get_current_process();
 	
 	sync_signals = current->signal.sig_pending & SYNCSIGMASK;
 
