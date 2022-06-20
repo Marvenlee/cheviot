@@ -33,7 +33,7 @@ SYSCALL int sys_truncate(int fd, size_t sz) {
   struct VNode *vnode = NULL;
   int err = 0;
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;

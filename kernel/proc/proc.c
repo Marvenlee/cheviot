@@ -40,16 +40,16 @@ SYSCALL int sys_fork(void) {
     return -ENOMEM;
   }
 
-  ForkProcessHandles(proc, current);
+  fork_process_fds(proc, current);
 
   if (ArchForkProcess(proc, current) != 0) {
-    FreeProcessHandles(proc);
+    close_process_fds(proc);
     FreeProcess(proc);
     return -ENOMEM;
   }
 
   if (ForkAddressSpace(&proc->as, &current->as) != 0) {
-    FreeProcessHandles(proc);
+    close_process_fds(proc);
     FreeProcess(proc);
     return -ENOMEM;
   }
@@ -78,7 +78,7 @@ SYSCALL void sys_exit(int status) {
 
   current->exit_status = status;
 
-  FreeProcessHandles(current);
+  close_process_fds(current);
   CleanupAddressSpace(&current->as);
 
   while ((child = LIST_HEAD(&current->child_list)) != NULL) {
@@ -325,7 +325,7 @@ struct Process *AllocProcess(void) {
 
 // FIXME: SigInit(proc);
 
-  InitProcessHandles(proc);
+  init_process_fds(proc);
   InitRendez(&proc->rendez);
   LIST_INIT(&proc->child_list);
 

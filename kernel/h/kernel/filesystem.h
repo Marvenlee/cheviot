@@ -460,12 +460,12 @@ SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz);
 SYSCALL int sys_rewinddir(int fd);
 
 /* fs/dnlc.c */
-int DNameLookup(struct VNode *dir, char *name, struct VNode **vnp);
-int DNameEnter(struct VNode *dir, struct VNode *vn, char *name);
-int DNameRemove(struct VNode *dir, char *name);
-void DNamePurgeVNode(struct VNode *vnode);
-void DNamePurgeSuperblock(struct SuperBlock *sb);
-void DNamePurgeAll(void);
+int dname_lookup(struct VNode *dir, char *name, struct VNode **vnp);
+int dname_enter(struct VNode *dir, struct VNode *vn, char *name);
+int dname_remove(struct VNode *dir, char *name);
+void dname_purge_vnode(struct VNode *vnode);
+void dname_purge_superblock(struct SuperBlock *sb);
+void dname_purge_all(void);
 
 
 /* fs/exec.h */
@@ -496,16 +496,13 @@ SYSCALL int sys_rename(char *oldpath, char *newpath);
 SYSCALL int sys_unlink(char *pathname);
 
 /* fs/handle.c */
-
-//struct Filp *AllocFilp(void);
-//void FreeFilp(struct Filp *filp);
-struct Filp *GetFilp(int h);
-int AllocHandle(void);
-int FreeHandle(int h);
-void InitProcessHandles(struct Process *proc);
-void FreeProcessHandles(struct Process *proc);
-int ForkProcessHandles(struct Process *newp, struct Process *oldp);
-int CloseOnExecProcessHandles(void);
+struct Filp *get_filp(int fd);
+int alloc_fd(void);
+int free_fd(int fd);
+void init_process_fds(struct Process *proc);
+void close_process_fds(struct Process *proc);
+int fork_process_fds(struct Process *newp, struct Process *oldp);
+int close_on_exec_process_fds(void);
 
 /* fs/init.c */
 int InitVFS(void);

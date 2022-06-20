@@ -113,14 +113,14 @@ static int do_open(struct lookupdata *ld, int oflags, mode_t mode) {
     }
   }
 
-  fd = AllocHandle();
+  fd = alloc_fd();
   
   if (fd < 0) {
     err = -ENOMEM;
     goto exit;
   }
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
   filp->vnode = vnode;
   if (oflags & O_APPEND)
     filp->offset = vnode->size;
@@ -134,7 +134,7 @@ static int do_open(struct lookupdata *ld, int oflags, mode_t mode) {
   
 exit:
   Info ("DoOpen failed: %d", err);
-  FreeHandle(fd);
+  free_fd(fd);
 
   Info("SysOpen vnode_put exit:");
   vnode_put(vnode);

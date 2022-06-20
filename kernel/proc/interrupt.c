@@ -69,14 +69,14 @@ SYSCALL int sys_createinterrupt(int irq, void (*callback)(int irq, struct Interr
     goto exit;
   }
   
-  fd = AllocHandle();
+  fd = alloc_fd();
   
   if (fd < 0) {
     error = -ENOMEM;
     goto exit;
   }
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   vnode->flags = V_VALID;
   vnode->reference_cnt = 1;
@@ -101,7 +101,7 @@ SYSCALL int sys_createinterrupt(int irq, void (*callback)(int irq, struct Interr
   return fd;
   
 exit:
-  FreeHandle(fd);
+  free_fd(fd);
   vnode_free(vnode);
   FreeSuperBlock(sb);  
   return error;
@@ -129,7 +129,7 @@ int DoCloseInterrupt(int fd) {
   }
 */
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
   
   if (filp == NULL) {
     return -EINVAL;
@@ -155,7 +155,7 @@ int DoCloseInterrupt(int fd) {
 
   EnableInterrupts();
 
-  FreeHandle(fd);
+  free_fd(fd);
   vnode_free(vnode);
   FreeSuperBlock(sb);
 

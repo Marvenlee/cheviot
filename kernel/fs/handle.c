@@ -34,7 +34,7 @@ void LogFDs(void)
   
   for (int t=0; t<6; t++)
   {  
-    filp = GetFilp(t);
+    filp = get_filp(t);
     
     if (filp)
     {
@@ -78,7 +78,7 @@ SYSCALL int sys_fcntl (int fd, int cmd, int arg)
   
   current = get_current_process();
 
-  if ((filp = GetFilp(fd)) == NULL) {
+  if ((filp = get_filp(fd)) == NULL) {
     Info ("Fcntl fd %d does not exist", fd);
     return -EINVAL;
   }
@@ -157,7 +157,7 @@ SYSCALL int sys_dup(int fd) {
 
   current = get_current_process();
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     Info ("Dup failed, EINVAL");
@@ -198,7 +198,7 @@ SYSCALL int sys_dup2(int fd, int new_fd) {
     return -EINVAL;
   }
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     Info ("dup2: filp = null");
@@ -228,7 +228,7 @@ SYSCALL int sys_close(int fd)
   Info("SysClose(%d)", fd);
   LogFDs();
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     Info ("CLose failed, filp = NULL");
@@ -255,7 +255,7 @@ SYSCALL int sys_close(int fd)
     Info("Close vnode is NULL");
   }
   
-  FreeHandle(fd);
+  free_fd(fd);
   
   Info("SysClose FDs...");
   LogFDs();
@@ -266,7 +266,7 @@ SYSCALL int sys_close(int fd)
 /**
  *
  */
-static struct Filp *AllocFilp(void) {
+static struct Filp *alloc_filp(void) {
   struct Filp *filp;
 
   filp = LIST_HEAD(&filp_free_list);
@@ -284,7 +284,7 @@ static struct Filp *AllocFilp(void) {
 /**
  *
  */
-static void FreeFilp(struct Filp *filp) {
+static void free_filp(struct Filp *filp) {
 
   if (filp == NULL) {
     return;
@@ -306,7 +306,7 @@ static void FreeFilp(struct Filp *filp) {
  * Returns a pointer to the object referenced by the handle 'fd'.  Ensures
  * it belongs to the specified process and is of the requested type.
  */
-struct Filp *GetFilp(int fd) {
+struct Filp *get_filp(int fd) {
   struct Process *current;
   uint16_t filp_idx;
 
@@ -321,9 +321,9 @@ struct Filp *GetFilp(int fd) {
 
 /*
  * Allocates a handle structure.  Checks to see that free_handle_cnt is
- * non-zero should already have been performed prior to calling AllocHandle().
+ * non-zero should already have been performed prior to calling alloc_fd().
  */
-int AllocHandle(void) {
+int alloc_fd(void) {
   int fd;
   struct Process *current;
   struct Filp *filp;
@@ -332,7 +332,7 @@ int AllocHandle(void) {
   
   for (fd = 0; fd < NPROC_FD; fd++) {
     if (current->fd_table[fd] == NULL) {
-      filp = AllocFilp();
+      filp = alloc_filp();
       
       if (filp == NULL) {
         return -ENOMEM;
@@ -350,7 +350,7 @@ int AllocHandle(void) {
 /*
  * Returns a handle to the free handle list and increments the free_handle_cnt.
  */
-int FreeHandle(int fd) {
+int free_fd(int fd) {
   struct Process *current;
   struct Filp *filp;
   
@@ -363,8 +363,8 @@ int FreeHandle(int fd) {
     return -EINVAL;
   }
 
-  filp = GetFilp(fd);
-  FreeFilp(filp);
+  filp = get_filp(fd);
+  free_filp(filp);
   current->fd_table[fd] = NULL;
   return 0;
 }
@@ -372,7 +372,7 @@ int FreeHandle(int fd) {
 /*
  *
  */
-void InitProcessHandles(struct Process *proc)
+void init_process_fds(struct Process *proc)
 {
   for (int fd = 0; fd < NPROC_FD; fd++) {
     proc->fd_table[fd] = NULL;
@@ -387,7 +387,7 @@ void InitProcessHandles(struct Process *proc)
 /*
  *
  */
-void FreeProcessHandles(struct Process *proc)
+void close_process_fds(struct Process *proc)
 {
   Info ("FreeProcessHandles()");
   
@@ -401,7 +401,7 @@ void FreeProcessHandles(struct Process *proc)
 /*
  *
  */
-int ForkProcessHandles(struct Process *newp, struct Process *oldp) {
+int fork_process_fds(struct Process *newp, struct Process *oldp) {
   int fd;
   uint16_t filp_idx;
   
@@ -424,7 +424,7 @@ int ForkProcessHandles(struct Process *newp, struct Process *oldp) {
   return 0;
 }
 
-int CloseOnExecProcessHandles(void) {
+int close_on_exec_process_fds(void) {
   struct Process *current;
 
   Info("CloseOnExecProcessHandles()");

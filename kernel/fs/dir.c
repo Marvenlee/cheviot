@@ -74,7 +74,7 @@ SYSCALL int sys_fchdir(int fd)
 
   current = get_current_process();
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;
@@ -121,14 +121,14 @@ SYSCALL int sys_opendir(char *_path)
     goto exit;
   }
 
-  fd = AllocHandle();
+  fd = alloc_fd();
 
   if (fd < 0) {
     err = -ENOMEM;
     goto exit;
   }
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
   filp->vnode = ld.vnode;
   filp->offset = 0;
   vnode_unlock(filp->vnode);
@@ -137,7 +137,7 @@ SYSCALL int sys_opendir(char *_path)
   return fd;
 
 exit:
-    FreeHandle(fd);
+    free_fd(fd);
     Info ("SysOpenDir vnode_put");
     vnode_put(ld.vnode);
     return -ENOMEM;
@@ -170,7 +170,7 @@ SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz)
 
   Info("SysReaddir");
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     Info ("Readdir EINVAL");
@@ -205,7 +205,7 @@ SYSCALL int sys_rewinddir(int fd)
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;

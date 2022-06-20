@@ -74,7 +74,7 @@ SYSCALL int sys_fstat(int fd, struct stat *_stat) {
 
   Info ("SysFStat");
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;

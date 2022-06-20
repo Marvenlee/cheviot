@@ -62,11 +62,11 @@ SYSCALL int sys_exec(char *filename, struct execargs *_args)
   Info ("Opened file\n");
   
   /*
-  filp = GetFilp();
+  filp = get_filp();
   vnode = filp->vnode;
-  if (IsAllowed(vnode, R_BIT | X_BIT) != 0)
+  if (is_allowed(vnode, R_BIT | X_BIT) != 0)
   {
-      SysClose(fd);
+      sys_close(fd);
       return -EPERM;
   }
   */

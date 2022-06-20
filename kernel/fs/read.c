@@ -36,7 +36,7 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
 
   Info ("SysRead fd:%d, sz:%d", fd, sz);
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;
@@ -89,7 +89,7 @@ ssize_t kread(int fd, void *dst, size_t sz) {
   
   Info("KRead fd=%d, sz=%d", fd, sz);
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;

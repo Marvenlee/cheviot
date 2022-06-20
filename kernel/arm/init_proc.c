@@ -155,7 +155,7 @@ struct Process *CreateProcess(void (*entry)(void), int policy, int priority, bit
   memset(proc, 0, PROCESS_SZ);
   free_process_cnt--;
 
-  InitProcessHandles(proc);
+  init_process_fds(proc);
   InitRendez(&proc->rendez);
   LIST_INIT(&proc->child_list);
 

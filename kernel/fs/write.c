@@ -21,7 +21,7 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
   struct VNode *vnode;
   ssize_t xfered;
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;

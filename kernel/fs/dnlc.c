@@ -33,7 +33,7 @@
  * TODO:  Add LOOKUP_NOCACHE flag handling  (should be in superblock->flags)
  */
 
-int DNameLookup(struct VNode *dir, char *name, struct VNode **vnp) {
+int dname_lookup(struct VNode *dir, char *name, struct VNode **vnp) {
   int t;
   int sz;
   int key;
@@ -81,7 +81,7 @@ int DNameLookup(struct VNode *dir, char *name, struct VNode **vnp) {
  * TODO: (Perhaps assert we are not replacing existing vnode with another valid
  * vnode).
  */
-int DNameEnter(struct VNode *dir, struct VNode *vn, char *name) {
+int dname_enter(struct VNode *dir, struct VNode *vn, char *name) {
   int t;
   int sz;
   int key;
@@ -135,7 +135,7 @@ int DNameEnter(struct VNode *dir, struct VNode *vn, char *name) {
 /*
  * Remove a single DNLC entry using the parent directory vnode and filename
  */
-int DNameRemove(struct VNode *dir, char *name) {
+int dname_remove(struct VNode *dir, char *name) {
   int t;
   int sz;
   int key;
@@ -178,7 +178,7 @@ int DNameRemove(struct VNode *dir, char *name) {
  * a directory_vnode or the vnode it points to,
  * For example "/dir" "/dir/." "/dir/another/.." all point to same vnode
  */
-void DNamePurgeVNode(struct VNode *vnode) {
+void dname_purge_vnode(struct VNode *vnode) {
   int t;
 
   for (t = 0; t < NR_DNAME; t++) {
@@ -197,7 +197,7 @@ void DNamePurgeVNode(struct VNode *vnode) {
  * Removes all DNLC entries associated with VNodes belonging to the
  * SuperBlock.
  */
-void DNamePurgeSuperblock(struct SuperBlock *sb) {
+void dname_purge_superblock(struct SuperBlock *sb) {
   for (int t = 0; t < NR_DNAME; t++) {
     if (dname_table[t].hash_key != -1 &&
         (dname_table[t].vnode->superblock == sb)) {
@@ -213,7 +213,7 @@ void DNamePurgeSuperblock(struct SuperBlock *sb) {
 /*
  * To be called on Pivot Root.
  */
-void DNamePurgeAll(void) {
+void dname_purge_all(void) {
 
   Info ("DNamePurgeAll()");
   

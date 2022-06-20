@@ -117,7 +117,7 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
     
     // What about permissions, keep covered permissions ?  
 
-    DNamePurgeVNode(vnode_covered);
+    dname_purge_vnode(vnode_covered);
 
     if (vnode_covered->vnode_covered != NULL) {
       error = -EEXIST;
@@ -175,7 +175,7 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
 
   // TODO: initialize rest of fields
 
-  fd = AllocHandle();
+  fd = alloc_fd();
 
   if (fd < 0) {
     error = -ENOMEM;
@@ -199,7 +199,7 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
     wakeup_polls(vnode_covered, POLLPRI, POLLPRI);
   }
   
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   filp->vnode = server_vnode;
   filp->offset = 0;
@@ -233,7 +233,7 @@ exit:
 
   Info ("Mount: Vnodeput server_vnode");
   vnode_put(server_vnode); // FIXME: Not a PUT?  Removed below?
-  FreeHandle(fd);
+  free_fd(fd);
 
   Info ("Mount: Vnodeput ld.vnode");
   vnode_put(ld.vnode);
@@ -369,7 +369,7 @@ SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
 
   // TODO: Do we need to do any reference counting tricks, esp for current_vnode?
   
-  DNamePurgeAll();
+  dname_purge_all();
   
   vnode_put (old_root_vnode);
   vnode_put (new_root_vnode);

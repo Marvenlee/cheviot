@@ -31,7 +31,7 @@ SYSCALL off_t sys_lseek(int fd, off_t pos, int whence) {
   struct Filp *filp;
   struct VNode *vnode;
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;
@@ -65,7 +65,7 @@ SYSCALL int sys_lseek64(int fd, off64_t *_pos, int whence) {
 
   CopyIn(&pos, _pos, sizeof pos);
 
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;

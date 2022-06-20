@@ -119,14 +119,14 @@ SYSCALL int sys_pipe(int _fd[2])
   }
 
 
-  fd[0] = AllocHandle();
+  fd[0] = alloc_fd();
 
   if (fd[0] < 0) {
     error = -ENOMEM;
     goto exit;
   }
   
-  fd[1] = AllocHandle();
+  fd[1] = alloc_fd();
   if (fd[1] < 0) {
     error = -ENOMEM;
     goto exit;
@@ -136,11 +136,11 @@ SYSCALL int sys_pipe(int _fd[2])
   vnode->superblock = &pipe_sb;
   vnode->pipe = pipe;
   
-  filp0 = GetFilp(fd[0]);
+  filp0 = get_filp(fd[0]);
   filp0->vnode = vnode;
   filp0->offset = 0;
 
-  filp1 = GetFilp(fd[1]);
+  filp1 = get_filp(fd[1]);
   filp1->vnode = vnode;
   filp1->offset = 0;
 
@@ -165,8 +165,8 @@ exit:
   vnode_Free(vnode);
   FreeFilp(filp1);
   FreeFilp(filp0);
-  FreeHandle(fd[1], current);
-  FreeHandle(fd[0], current);
+  free_fd(fd[1], current);
+  free_fd(fd[0], current);
 */
   return error;
 }

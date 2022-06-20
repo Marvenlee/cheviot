@@ -28,8 +28,8 @@
 
 void WakeupPollsFromISR(struct VNode *vnode, short mask, short events);
 int VNodePoll(struct VNode *vnode, short mask, short *revents);
-struct Poll *AllocPoll(void);
-void FreePoll(struct Poll *poll);
+struct Poll *alloc_poll(void);
+void free_poll(struct Poll *poll);
 void PollTimeout(struct Timer *timer);
 
 
@@ -71,7 +71,7 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
       goto exit;
     }
     
-    filp = GetFilp(pfd.fd);
+    filp = get_filp(pfd.fd);
     
     if (filp == NULL) {
       sc = -EINVAL;
@@ -80,7 +80,7 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
 
     vnode = filp->vnode;
     
-    poll = AllocPoll();
+    poll = alloc_poll();
     
     if (poll == NULL) {
       sc = -ENOMEM;
@@ -177,7 +177,7 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
     
     CopyOut(&pfds[idx], &pfd, sizeof pfd);
     idx++;
-    FreePoll(poll);
+    free_poll(poll);
   }
   
 //  Info (".. Poll done - matching = %d", nfds_matching);
@@ -193,7 +193,7 @@ exit:
     vnode = poll->vnode;
     LIST_REM_ENTRY(&vnode->poll_list, poll, vnode_link);
     LIST_REM_HEAD(&poll_list, poll_link);
-    FreePoll(poll);    
+    free_poll(poll);    
   }
 
   return sc;
@@ -211,7 +211,7 @@ SYSCALL int sys_pollnotify (int fd, int ino, short mask, short events)
   
   // Get server filp and then vnode
         
-  filp = GetFilp(fd);
+  filp = get_filp(fd);
 
   if (filp == NULL) {
     return -EINVAL;
@@ -378,7 +378,7 @@ int VNodePoll(struct VNode *vnode, short mask, short *revents) {
  * TODO: FIXME:  Allocate Poll struct
  */
  
-struct Poll *AllocPoll(void)
+struct Poll *alloc_poll(void)
 {
   struct Poll *poll;
   
@@ -392,7 +392,7 @@ struct Poll *AllocPoll(void)
   return poll;
 }
 
-void FreePoll(struct Poll *poll)
+void free_poll(struct Poll *poll)
 {
   LIST_ADD_HEAD(&poll_free_list, poll, poll_link);
 }

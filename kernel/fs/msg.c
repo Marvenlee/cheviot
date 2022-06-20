@@ -119,7 +119,7 @@ SYSCALL int sys_receivemsg(int server_fd, int *pid, void *buf, size_t buf_sz) {
   
   Info ("SysReceiveMsg, fd=%d", server_fd);
   
-  filp = GetFilp(server_fd);
+  filp = get_filp(server_fd);
 
   if (filp == NULL) {
     Info("ReceiveMsg filp==NULL");
@@ -189,7 +189,7 @@ SYSCALL int sys_replymsg(int server_fd, int pid, int status) {
     return -EINVAL;
   }
 
-  filp = GetFilp(server_fd);
+  filp = get_filp(server_fd);
 
   if (filp == NULL) {
     Info ("ReplyMsg, invalid server_fd");
@@ -247,7 +247,7 @@ SYSCALL int sys_readmsg(int server_fd, int pid, void *buf, size_t buf_sz) {
   struct Msg *msg;
   struct Process *proc;
   
-  filp = GetFilp(server_fd);
+  filp = get_filp(server_fd);
 
   if (filp == NULL) {
     return -EINVAL;
@@ -332,7 +332,7 @@ SYSCALL int sys_writemsg(int server_fd, int pid, void *buf, size_t buf_sz) {
   struct Process *proc;
         int sc;
   
-  filp = GetFilp(server_fd);
+  filp = get_filp(server_fd);
 
   if (filp == NULL) {
     return -EINVAL;
@@ -412,7 +412,7 @@ SYSCALL int sys_seekmsg(int server_fd, int pid, off_t offset) {
   struct Process *proc;
   struct Msg *msg;
   
-  filp = GetFilp(server_fd);
+  filp = get_filp(server_fd);
 
   if (filp == NULL) {
     return -EINVAL;
