@@ -57,7 +57,7 @@ struct ExceptionState {
 #define EI_UNDEFINSTR 2
 
 #define MAX_CPU 1
-#define USER_STACK_SZ 65536
+#define USER_STACK_SZ     0x20000
 #define PROCESS_SZ 8192
 #define NPROCESS 256
 /* task_state.flags */

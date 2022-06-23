@@ -4,7 +4,7 @@ include(ExternalProject)
 
 ExternalProject_Add (
 	binutils-native
-	URL               https://ftp.gnu.org/gnu/binutils/binutils-2.25.tar.bz2
+#	URL               https://ftp.gnu.org/gnu/binutils/binutils-2.25.tar.bz2
 	PREFIX            ${CMAKE_CURRENT_BINARY_DIR}/output
 	SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/binutils-2.25	
 	CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/third_party/binutils-2.25/configure --target=arm-none-eabi

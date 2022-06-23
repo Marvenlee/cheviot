@@ -10,7 +10,9 @@ ExternalProject_Add (
 	SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/gcc-4.9.2
 	CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/third_party/gcc-4.9.2/configure --target=arm-none-eabi
 	                    --prefix=${CMAKE_CURRENT_BINARY_DIR}/build/native 
-	                    --without-headers --with-newlib --with-gnu-as --with-gnu-ld
+	                    --without-headers
+	                    --with-newlib --with-gnu-as --with-gnu-ld
+	                    --enable-interwork --enable-multilib
 	                    --enable-languages=c,c++
 	BUILD_ALWAYS      OFF
 	TEST_AFTER_INSTALL 1
