@@ -37,11 +37,11 @@
 void init (int argc, char *argv[]) {
   KLog ("devfs.exe init()");
 
-  if (initDevfs() != 0) {
+  if (init_devfs() != 0) {
     exit(-1);
   }
   
-  if (mountDevice() != 0) {
+  if (mount_device() != 0) {
     exit(-1);
   }
 }
@@ -49,7 +49,7 @@ void init (int argc, char *argv[]) {
 /*
  *
  */
-int processArgs(int argc, char *argv[]) {
+int process_args(int argc, char *argv[]) {
   if (argc < 3) {
     return -1;
   }
@@ -62,7 +62,7 @@ int processArgs(int argc, char *argv[]) {
 /**
  *
  */
-int initDevfs(void) {
+int init_devfs(void) {
   devfs_inode_table[0].inode_nr = 0;
   devfs_inode_table[0].parent_inode_nr = 0;    
   devfs_inode_table[0].name[0] = '\0';
@@ -79,7 +79,7 @@ int initDevfs(void) {
 /*
  *
  */
-int mountDevice(void) {
+int mount_device(void) {
   struct stat stat;
 
   stat.st_dev = 0; // Get from config, or returned by Mount() (sb index?)
@@ -91,7 +91,7 @@ int mountDevice(void) {
   stat.st_size = 0;
   stat.st_blocks = 0;
   
-  fd = Mount("/dev", 0, &stat);
+  fd = mount("/dev", 0, &stat);
   
   if (fd == -1) {
     exit(-1);

@@ -31,9 +31,6 @@
 #include <unistd.h>
 
 
-
-
-
 /*
  *
  */
@@ -67,7 +64,7 @@ int mount_device(void) {
   stat.st_size = 0;
   stat.st_blocks = stat.st_size / stat.st_blksize;
 
-  fd = Mount("/", 0, &stat);
+  fd = mount("/", 0, &stat);
   return 0;
 }
 

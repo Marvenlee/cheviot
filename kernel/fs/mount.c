@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -248,7 +248,8 @@ exit:
 }
 
 /*
- * Do we need this as a syscall?
+ * FIXME: unmount: Do we need this as a syscall?
+ * Should it not be a path instead of fd?
  */
 SYSCALL int sys_unmount(int fd, bool force)
 {

@@ -149,8 +149,10 @@ syscall_table:
     .long sys_mknod                     // 79
     .long sys_movemount                 // 80
     
+    .long sys_chroot                    // 81
+    
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 80
+#define MAX_SYSCALL                 81
 
 
 # ****************************************************************************

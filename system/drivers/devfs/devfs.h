@@ -50,8 +50,9 @@ extern int fd;
 
 // prototypes
 void init (int argc, char *argv[]);
-int processArgs(int argc, char *argv[]);
-int mountDevice(void);
+int process_args(int argc, char *argv[]);
+int init_devfs(void);
+int mount_device(void);
 
 
 

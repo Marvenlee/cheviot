@@ -14,22 +14,19 @@
 #include <poll.h>
 #include <unistd.h>
 
-/*
- *
- */
-
-int processArgs(int argc, char *argv[]);
-int mapIORegisters(void);
-int mountDevice(void);
-void SDRead(int ino, struct fsreq *req);
-void SDWrite(int ino, struct fsreq *req);
-
-
 
 /*
  *
  */
+int process_args(int argc, char *argv[]);
+int map_io_registers(void);
+int mount_device(void);
+void sdread(int ino, struct fsreq *req);
+void sdwrite(int ino, struct fsreq *req);
 
+/*
+ *
+ */
 int main(int argc, char *argv[]) {
   struct fsreq req;
   int sc;
@@ -38,13 +35,13 @@ int main(int argc, char *argv[]) {
   
   KLog(">>>>>>>>>>>> Hello from SDCard driver <<<<<<<<<<<<<<");
 
-  sc = processArgs(argc, argv);
+  sc = process_args(argc, argv);
   if (sc != 0) {
     KLog("processArgs FAILED, sc = %d", sc);
     exit(-1);
   }
 
-  sc = mapIORegisters();
+  sc = map_io_registers();
   if (sc != 0) {
     KLog("mapIORegisters FAILED, sc = %d", sc);
     exit(-1);
@@ -56,16 +53,14 @@ int main(int argc, char *argv[]) {
     KLog("sd_card_init FAILED, sc = %d", sc);
     exit(-1);
   }
-
-  KLog (" Calling mountDevice");
   
-  fd = mountDevice();
+  fd = mount_device();
   if (fd < 0) {
     KLog("**** failed to makenode /dev/sd1, exiting sdcard.exe");
     exit(-1);
   }
 
-  buf = VirtualAlloc(NULL, 4096, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE);
+  buf = virtualalloc(NULL, 4096, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE);
 
   
   KLog("SD: Main Event loop...");
@@ -81,14 +76,14 @@ int main(int argc, char *argv[]) {
     
     if (pfd.revents & POLLIN) {
 //      KLog ("SD:  Received POLLIN");
-      while ((sc = ReceiveMsg(fd, &pid, &req, sizeof req)) == sizeof req) {
+      while ((sc = receivemsg(fd, &pid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_READ:
-            SDRead(pid, &req);
+            sdread(pid, &req);
             break;
 
           case CMD_WRITE:
-            SDWrite(pid, &req);
+            sdwrite(pid, &req);
             break;
 
           default:
@@ -97,7 +92,7 @@ int main(int argc, char *argv[]) {
       }
       
       if (sc != 0) {
-        KLog("sd: ReceiveMsg err = %d", sc, strerror(-sc));
+        KLog("sd: receivemsg err = %d", sc, strerror(-sc));
         exit(-1);
       }
     }
@@ -109,7 +104,7 @@ int main(int argc, char *argv[]) {
 /*
  *
  */
-int processArgs(int argc, char *argv[]) {
+int process_args(int argc, char *argv[]) {
   int c;
 
   // -u default user-id
@@ -157,17 +152,17 @@ int processArgs(int argc, char *argv[]) {
 /*
  *
  */
-int mapIORegisters(void) {
+int map_io_registers(void) {
   KLog ("mapIORegisters");
   
-  emmc_base = (uint32_t)VirtualAllocPhys(0, 8092, PROT_READ | PROT_WRITE  | CACHE_UNCACHEABLE,
+  emmc_base = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE  | CACHE_UNCACHEABLE,
                                          (void *)EMMC_BASE_PA);
-  mb_addr = (uint32_t)VirtualAllocPhys(0, 8092, PROT_READ | PROT_WRITE  | CACHE_UNCACHEABLE,
+  mb_addr = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE  | CACHE_UNCACHEABLE,
                                        (void *)MB_ADDR_PA);
-  timer_clo = (uint32_t)VirtualAllocPhys(0, 8092, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE,
+  timer_clo = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE,
                                          (void *)TIMER_BASE_PA);
   timer_clo += TIMER_CLO_OFFSET;
-  mbox_base = (uint32_t)VirtualAllocPhys(0, 8092, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE,
+  mbox_base = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE,
                                          (void *)MBOX_BASE_PA);
   mbox_base += MBOX_BASE_OFFSET;
 
@@ -177,7 +172,7 @@ int mapIORegisters(void) {
 /*
  *
  */
-int mountDevice(void) {
+int mount_device(void) {
   int fd;
   struct stat stat;
 
@@ -192,14 +187,14 @@ int mountDevice(void) {
   stat.st_size = 0x0000ffffffff0000;
   stat.st_blocks = stat.st_size / stat.st_blksize;
 
-  fd = Mount("/dev/sd1", 0, &stat);
+  fd = mount("/dev/sd1", 0, &stat);
   return fd;
 }
 
 /*
  *
  */
-void SDRead(int pid, struct fsreq *req) {
+void sdread(int pid, struct fsreq *req) {
   struct fsreply reply;
   off64_t offset;
   size_t count;
@@ -221,7 +216,7 @@ void SDRead(int pid, struct fsreq *req) {
 
   KLog("SDCard SDRead pid = %d, offs = %d sz = %d", pid, (int)offset, count);
 
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
   
   xfered = 0;
   
@@ -232,23 +227,23 @@ void SDRead(int pid, struct fsreq *req) {
       xfered += nbytes_read;
       offset += nbytes_read;
 
-      WriteMsg(fd, pid, buf, nbytes_read);
+      writemsg(fd, pid, buf, nbytes_read);
       
       if (nbytes_read != 512) {
         break;
       }
   }
   
-  SeekMsg(fd, pid, sizeof *req);
+  seekmsg(fd, pid, sizeof *req);
   reply.args.read.nbytes_read = xfered;  
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 /*
  *
  */
-void SDWrite(int pid, struct fsreq *req) {
+void sdwrite(int pid, struct fsreq *req) {
   struct fsreply reply;
   off64_t offset;
   size_t count;
@@ -265,15 +260,15 @@ void SDWrite(int pid, struct fsreq *req) {
   count = req->args.write.sz;
   //	else
   //		count = (bdev->block_size * bdev->num_blocks) - offset;
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  ReadMsg(fd, pid, buf, 512);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
+  readmsg(fd, pid, buf, 512);
   KLog ("**** NOT WRITING TO SD CARD, NOT ENABLED *****");
   
 //  sc = sd_write(bdev, buf, 512, (off_t)(offset / 512));
   reply.args.write.nbytes_written = 512;
   
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 

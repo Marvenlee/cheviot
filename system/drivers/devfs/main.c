@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     KLog ("******** ----- devfs poll returned sc = %d", sc);
       
     if (pfd.revents & POLLIN) {
-      while ((sc = ReceiveMsg(fd, &pid, &req, sizeof req)) == sizeof req) {
+      while ((sc = receivemsg(fd, &pid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_LOOKUP:
             devfsLookup(pid, &req);
@@ -91,12 +91,12 @@ int main(int argc, char *argv[]) {
             break;
 
           default:
-            ReplyMsg(fd, pid, -ENOSYS);
+            replymsg(fd, pid, -ENOSYS);
         }
       }
       
       if (sc != 0) {
-        KLog("devfs: ReceiveMsg err = %d, %s", sc, strerror(-sc));
+        KLog("devfs: receivemsg err = %d, %s", sc, strerror(-sc));
         // TODO: Close FD, remount a start again.
         exit(-1);
       }
@@ -115,7 +115,7 @@ static void devfsLookup(int pid, struct fsreq *req) {
   struct fsreply reply;
   char name[256];
 
-  ReadMsg(fd, pid, name, req->args.lookup.name_sz);
+  readmsg(fd, pid, name, req->args.lookup.name_sz);
 
   name[60] = '\0';
 
@@ -151,8 +151,8 @@ static void devfsLookup(int pid, struct fsreq *req) {
       KLog ("dewfs lookup mode = %o, reply: %o", devfs_inode_table[inode_nr].mode, reply.args.lookup.mode);
 
 
-      WriteMsg(fd, pid, &reply, sizeof reply);
-      ReplyMsg(fd, pid, 0);
+      writemsg(fd, pid, &reply, sizeof reply);
+      replymsg(fd, pid, 0);
 //      KLog ("devfsLookup done ok !!!!!!!!!!!!!");
       return;
     }
@@ -161,8 +161,8 @@ static void devfsLookup(int pid, struct fsreq *req) {
 exit:
   
   reply.args.lookup.status = -1;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, -1);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, -1);
   KLog ("devfsLookup done err !!!!!!!!!!!");
 }
 
@@ -175,8 +175,8 @@ static void devfsClose(int pid, struct fsreq *req) {
 
   reply.cmd = CMD_CLOSE;
   reply.args.close.status = 0;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 
 }
 
@@ -227,26 +227,26 @@ static void devfsReaddir(int pid, struct fsreq *req) {
   reply.args.readdir.offset = cookie;
   reply.args.readdir.nbytes_read = dirent_buf_sz;
 
-  sc = SeekMsg(fd, pid, sizeof *req + sizeof reply);
+  sc = seekmsg(fd, pid, sizeof *req + sizeof reply);
   
   if (sc != 0)
   {
-    KLog ("********* devfsReaddir SeekMsg != 0, sc = %d", sc);
+    KLog ("********* devfsReaddir seekmsg != 0, sc = %d", sc);
     // TODO: Panic
   }
 
-  sc = WriteMsg(fd, pid, &dirents_buf[0], dirent_buf_sz);
+  sc = writemsg(fd, pid, &dirents_buf[0], dirent_buf_sz);
 
   if (sc != dirent_buf_sz)
   {
         // TODO: Panic
-    KLog("****** devfsReaddir WriteMsg actual = %d", sc);
+    KLog("****** devfsReaddir writemsg actual = %d", sc);
   } 
   
 
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 
@@ -261,7 +261,7 @@ static void devfsMknod(int pid, struct fsreq *req) {
   bool exists = false;
 
   
-  ReadMsg(fd, pid, name, req->args.mknod.name_sz);
+  readmsg(fd, pid, name, req->args.mknod.name_sz);
   
   KLog ("***** devfs - Mknod name = %s", name);
   
@@ -277,8 +277,8 @@ static void devfsMknod(int pid, struct fsreq *req) {
   if (exists == true) {  
     KLog ("devfs - mknod - exists");
     reply.args.mknod.status = -EEXIST;
-    WriteMsg(fd, pid, &reply, sizeof reply);
-    ReplyMsg(fd, pid, -EEXIST);
+    writemsg(fd, pid, &reply, sizeof reply);
+    replymsg(fd, pid, -EEXIST);
     return;
   }
   
@@ -294,8 +294,8 @@ static void devfsMknod(int pid, struct fsreq *req) {
   if (node == NULL) {
     KLog ("devfs - mknod - enomem");
     reply.args.mknod.status = -ENOMEM;
-    WriteMsg(fd, pid, &reply, sizeof reply);
-    ReplyMsg(fd, pid, -EEXIST);
+    writemsg(fd, pid, &reply, sizeof reply);
+    replymsg(fd, pid, -EEXIST);
     return;
   }
    
@@ -311,8 +311,8 @@ static void devfsMknod(int pid, struct fsreq *req) {
   reply.args.mknod.gid = node->gid;
   reply.args.mknod.size = 0;
   
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 
   KLog ("devfs - Mknod success, mode = %o", node->mode);
 }

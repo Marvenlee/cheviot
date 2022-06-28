@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     sc = poll (&pfd, 1, -1);
   
     if (pfd.revents & POLLIN) {
-      while ((sc = ReceiveMsg(fd, &pid, &req, sizeof req)) == sizeof req) {
+      while ((sc = receivemsg(fd, &pid, &req, sizeof req)) == sizeof req) {
 
         switch (req.cmd) {
           case CMD_LOOKUP:
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (sc != 0) {
-        KLog("fat: ReceiveMsg err = %d, %s", sc, strerror(-sc));
+        KLog("fat: receivemsg err = %d, %s", sc, strerror(-sc));
         exit(-1);
       }
     }
@@ -130,7 +130,7 @@ void fatLookup(int pid, struct fsreq *req) {
   struct FatNode *node;
   int sz;
   
-  ReadMsg(fd, pid, name, req->args.lookup.name_sz);
+  readmsg(fd, pid, name, req->args.lookup.name_sz);
 
   KLog ("fatLookup, pid %d, name = %s", pid, name);
 
@@ -139,8 +139,8 @@ void fatLookup(int pid, struct fsreq *req) {
   if (dirnode == NULL) {
     KLog ("fatLookup : failed to find dirnode");
     reply.args.lookup.status = -1;
-    WriteMsg(fd, pid, &reply, sizeof reply);
-    ReplyMsg(fd, pid, -1);
+    writemsg(fd, pid, &reply, sizeof reply);
+    replymsg(fd, pid, -1);
     return;
   }
 
@@ -160,11 +160,11 @@ void fatLookup(int pid, struct fsreq *req) {
 //    KLog ("fat lookup success, ino = %d, name=%s", node->inode_nr, name);
     reply.args.lookup.status = 0;
     
-    if ((sz = WriteMsg(fd, pid, &reply, sizeof reply)) <= 0) {
+    if ((sz = writemsg(fd, pid, &reply, sizeof reply)) <= 0) {
       KLog ("fatLookup: Failed to write msg, sz = %d", sz);
     }
     
-    ReplyMsg(fd, pid, 0);
+    replymsg(fd, pid, 0);
     KLog ("fatLookup: ok - inode_nr = %d, sz = %d", node->inode_nr, node->dirent.size);
     return;
   }
@@ -172,9 +172,9 @@ void fatLookup(int pid, struct fsreq *req) {
   KLog ("fatLookup : lookup failed");
 
   reply.args.lookup.status = -1;
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, -1);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, -1);
 }
 
 /*
@@ -188,8 +188,8 @@ void fatClose(int pid, struct fsreq *req) {
 
   reply.cmd = CMD_CLOSE;
   reply.args.close.status = 0;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 
@@ -228,16 +228,16 @@ void fatRead(int pid, struct fsreq *req) {
   nbytes_read = readFile(node, read_buf, count, offset);
 
   if (nbytes_read > 1) {
-    SeekMsg(fd, pid, sizeof *req + sizeof reply);
-    nbytes_read = WriteMsg(fd, pid, read_buf, nbytes_read);
+    seekmsg(fd, pid, sizeof *req + sizeof reply);
+    nbytes_read = writemsg(fd, pid, read_buf, nbytes_read);
   }
   
-  SeekMsg(fd, pid, sizeof *req);
+  seekmsg(fd, pid, sizeof *req);
   
 exit:
   reply.args.read.nbytes_read = nbytes_read;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
   KLog("FatRead DONE");
 }
 
@@ -259,16 +259,16 @@ void fatWrite(int pid, struct fsreq *req)
   offset = req->args.write.offset;
   count = req->args.write.sz;
   
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  ReadMsg(fd, pid, write_buf, count);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
+  readmsg(fd, pid, write_buf, count);
   
   nbytes_written = writeFile(node, write_buf, count, offset);
 
 exit:
   reply.args.write.nbytes_written = nbytes_written;
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 
@@ -293,8 +293,8 @@ void fatReadDir(int pid, struct fsreq *req) {
 /* Should not do a readdir on non dir
   if (!(node->dirent.attributes & ATTR_DIRECTORY)) {
     reply.args.readdir.nbytes_read = -ENOTDIR;
-    WriteMsg(fd, pid, &reply, sizeof reply);
-    ReplyMsg(fd, pid, -ENOTDIR);
+    writemsg(fd, pid, &reply, sizeof reply);
+    replymsg(fd, pid, -ENOTDIR);
   }
 */
 
@@ -329,14 +329,14 @@ void fatReadDir(int pid, struct fsreq *req) {
     }
   }
 
-  SeekMsg (fd, pid, sizeof *req + sizeof reply);
-  WriteMsg(fd, pid, dirents_buf, reply.args.readdir.nbytes_read);
+  seekmsg (fd, pid, sizeof *req + sizeof reply);
+  writemsg(fd, pid, dirents_buf, reply.args.readdir.nbytes_read);
 
   reply.args.readdir.offset = cookie;
   reply.args.readdir.nbytes_read = dirent_buf_sz;
-  SeekMsg (fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg (fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 
   KLog("FatReaddir DONE");
 }
@@ -345,16 +345,16 @@ void fatMkNod(int pid, struct fsreq *req) {
   struct fsreply reply;
 
   reply.args.mknod.status = -ENOTSUP;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 void fatRename(int pid, struct fsreq *req) {
   struct fsreply reply;
 
   reply.args.rename.status = -ENOTSUP;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 void fatTruncate(int pid, struct fsreq *req) {
@@ -377,9 +377,9 @@ void fatTruncate(int pid, struct fsreq *req) {
   }
 
   reply.args.truncate.status = status;
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 /*
@@ -400,8 +400,8 @@ void fatMkDir(int pid, struct fsreq *req) {
 
   KLog("FatCreateDir()");
 
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  ReadMsg(fd, pid, name, req->args.mkdir.name_sz);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
+  readmsg(fd, pid, name, req->args.mkdir.name_sz);
 
   parent = FindNode(req->args.mkdir.dir_inode_nr);
 
@@ -460,8 +460,8 @@ void fatMkDir(int pid, struct fsreq *req) {
         FlushDirent(parent);
 
         reply.args.mkdir.status = status;
-        WriteMsg(fd, pid, &reply, sizeof reply);
-        ReplyMsg(fd, pid, 0);
+        writemsg(fd, pid, &reply, sizeof reply);
+        replymsg(fd, pid, 0);
         return;
       }
 
@@ -474,9 +474,9 @@ void fatMkDir(int pid, struct fsreq *req) {
 
 exit:
   reply.args.mkdir.status = status;
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 /*
@@ -498,8 +498,8 @@ void fatUnlink(int pid, struct fsreq *req) {
     goto exit;   
   }
   
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  ReadMsg(fd, pid, name, req->args.unlink.name_sz);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
+  readmsg(fd, pid, name, req->args.unlink.name_sz);
 
   rc = lookup(parent, name, &node);  
 
@@ -520,9 +520,9 @@ void fatUnlink(int pid, struct fsreq *req) {
       FreeNode(node);
 
       reply.args.unlink.status = 0;
-      SeekMsg(fd, pid, sizeof *req);
-      WriteMsg(fd, pid, &reply, sizeof reply);
-      ReplyMsg(fd, pid, 0);
+      seekmsg(fd, pid, sizeof *req);
+      writemsg(fd, pid, &reply, sizeof reply);
+      replymsg(fd, pid, 0);
       return;
     } else
       status = -EBUSY;
@@ -533,9 +533,9 @@ void fatUnlink(int pid, struct fsreq *req) {
 
 exit:
   reply.args.unlink.status = status;
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 /*
@@ -557,8 +557,8 @@ void fatRmDir(int pid, struct fsreq *req) {
     goto exit;   
   }
 
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
-  ReadMsg(fd, pid, name, req->args.rmdir.name_sz);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
+  readmsg(fd, pid, name, req->args.rmdir.name_sz);
 
   rc = lookup(parent, name, &node);  
 
@@ -581,9 +581,9 @@ void fatRmDir(int pid, struct fsreq *req) {
           FreeNode(node);
 
           reply.args.rmdir.status = status;
-          SeekMsg(fd, pid, sizeof *req);
-          WriteMsg(fd, pid, &reply, sizeof reply);
-          ReplyMsg(fd, pid, 0);
+          seekmsg(fd, pid, sizeof *req);
+          writemsg(fd, pid, &reply, sizeof reply);
+          replymsg(fd, pid, 0);
           return;
         } else
           status = -EEXIST;
@@ -598,8 +598,8 @@ void fatRmDir(int pid, struct fsreq *req) {
 
 exit:
   reply.args.rmdir.status = status;
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 

@@ -6,13 +6,15 @@
 #include <sys/debug.h>
 #include <sys/dirent.h>
 #include <sys/signal.h>
+#include <sys/stat.h>
 #include <sys/syscalls.h>
 #include <unistd.h>
 #include <libgen.h>
 #include <sys/syslimits.h>
 #include <sys/wait.h>
+#include <sys/mount.h>
 
-//#define NDEBUG
+//#define NKLog
 
 // Constants
 #define ARG_SZ 256
@@ -54,14 +56,14 @@ int main(int argc, char **argv) {
   rc = DoInit();
 
   while (1) {
-    Sleep(10);
+    sleep(10);
   }
 }
 
 
 int DoInit(void) {
   int status;
-  struct stat stat;
+  struct stat st;
   char *line;
   char *cmd;
   char *buf;
@@ -79,7 +81,7 @@ int DoInit(void) {
   
   KLog("!!! fstat startup.cfg !!!");
 
-  if ((sc = fstat(startup_cfg_fd, &stat)) != 0) {
+  if ((sc = fstat(startup_cfg_fd, &st)) != 0) {
     KLog ("fstat failed %d", sc);
     close(startup_cfg_fd);
     return -1;
@@ -88,7 +90,7 @@ int DoInit(void) {
   KLog("!!! Stat OK startup.cfg !!!");
 
   
-  buf = malloc (stat.st_size + 1);
+  buf = malloc (st.st_size + 1);
   
   if (buf == NULL) {
     KLog ("malloc failed");
@@ -96,10 +98,10 @@ int DoInit(void) {
     return -1;
   }
 
-  read(startup_cfg_fd, buf, stat.st_size);
+  read(startup_cfg_fd, buf, st.st_size);
   close(startup_cfg_fd);
   
-  buf[stat.st_size] = '\0';
+  buf[st.st_size] = '\0';
   src = buf;
   
   KLog ("Init event loop");
@@ -144,7 +146,7 @@ int DoInit(void) {
   
   // Shutdown system/reboot
   while (1) {
-    Sleep(10);
+    sleep(10);
   }
   
   return 0;
@@ -193,7 +195,7 @@ int cmdStart (void) {
 
 int cmdMknod (void) {
   char *fullpath;
-  struct stat stat;
+  struct stat st;
   uint32_t mode;
   char *typestr;
   char *modestr;
@@ -233,14 +235,14 @@ int cmdMknod (void) {
     return -1;
   }
   
-  stat.st_size = 0;
-  stat.st_uid = 0;
-  stat.st_gid = 0;
-  stat.st_mode = mode;
+  st.st_size = 0;
+  st.st_uid = 0;
+  st.st_gid = 0;
+  st.st_mode = mode;
   
   KLog ("**** mknod path:%s", fullpath);    
     
-  status = MkNod(fullpath, 0, &stat);
+  status = mknod2(fullpath, 0, &st);
 
   return status;
 }
@@ -265,7 +267,7 @@ int cmdChdir (void) {
 
 int cmdWaitfor (void) {
   char *fullpath;
-  struct stat stat;
+  struct stat st;
   struct stat parent_stat;
   char path[PATH_MAX]; 
   char *parent_path;
@@ -286,7 +288,7 @@ int cmdWaitfor (void) {
      
   parent_path = dirname(path);
   
-  if (Stat(parent_path, &parent_stat) != 0) {
+  if (stat(parent_path, &parent_stat) != 0) {
     KLog ("waitfor failed to fstat parent dir");
     exit(-1);
   }
@@ -303,18 +305,18 @@ int cmdWaitfor (void) {
     pfd.events = POLLPRI;
     pfd.revents = 0;
     
-    sc = Poll (&pfd, 1, -1);
+    sc = poll(&pfd, 1, -1);
   
     if (sc != 0) {
       goto exit;
     }
   
-    if (Stat(fullpath, &stat) != 0) {
+    if (stat(fullpath, &st) != 0) {
       KLog ("waitfor failed to stat file");
       continue;
     }
     
-    if (stat.st_dev != parent_stat.st_dev) {
+    if (st.st_dev != parent_stat.st_dev) {
       KLog ("Found matching device");
       break;
     }
@@ -344,7 +346,7 @@ int cmdSleep (void) {
 
     KLog ("cmdSleep %d", seconds);
     
-    Sleep(seconds);    
+    sleep(seconds);    
     return 0;
 }
 
@@ -366,12 +368,12 @@ int cmdPivot (void) {
     return -1;
   }
   
-  sc = PivotRoot (new_root, old_root);
+  sc = pivotroot (new_root, old_root);
 
   if (sc == 0) {
-    Debug ("!!!!!!!! pivotted !!!!!!!!!!!!!!");  
+    KLog ("!!!!!!!! pivotted !!!!!!!!!!!!!!");  
   } else {
-    Debug ("!!!!!!!! PIVOT FAILED !!!!!!!!!!!");  
+    KLog ("!!!!!!!! PIVOT FAILED !!!!!!!!!!!");  
   }
 
   return sc;
@@ -393,7 +395,7 @@ int cmdRemount (void) {
     return -1;
   }
   
-//  sc = Remount (new_path, old_path);
+//  sc = movemount (new_path, old_path);
 
   if (sc == 0) {
     KLog ("!!!!!!!! remounted !!!!!!!!!!!!!!");  
@@ -404,13 +406,15 @@ int cmdRemount (void) {
   return sc;
 }
 
-
+/*
+ *
+ */
 int cmdSettty (void) {
   int fd;
   int old_fd;
   char *tty;
   
-  Debug("***** cmdSetty ******");
+  KLog("***** cmdSetty ******");
 
   tty = tokenize(NULL);
   
@@ -441,6 +445,9 @@ int cmdSettty (void) {
   return 0;
 }
 
+/*
+ *
+ */
 int cmdSetEnv(void)
 {
   char *name;
@@ -459,7 +466,7 @@ int cmdSetEnv(void)
   setenv (name, value, 1);
 }
 
-/*!
+/*
  *
  */
 char *tokenize(char *line)
@@ -504,9 +511,7 @@ char *tokenize(char *line)
     return start;    
 }
 
-
-
-/*!
+/*
  *
  */
 char *readLine(void)
@@ -531,7 +536,9 @@ char *readLine(void)
     return linebuf;
 }
 
-
+/*
+ *
+ */
 void PrintGreeting(void)
 {
 	printf("\033[0;0H\033[0J");	

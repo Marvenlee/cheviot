@@ -1,6 +1,6 @@
-diff -urN third_party/libtask/386-ucontext.h third_party_new/libtask/386-ucontext.h
---- third_party/libtask/386-ucontext.h
-+++ third_party_new/libtask/386-ucontext.h
+diff -aurN third_party_original/libtask/386-ucontext.h third_party/libtask/386-ucontext.h
+--- third_party_original/libtask/386-ucontext.h	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/386-ucontext.h	2022-06-22 19:38:26.091088259 +0100
 @@ -1,12 +1,12 @@
 -#define	setcontext(u)	setmcontext(&(u)->uc_mcontext)
 -#define	getcontext(u)	getmcontext(&(u)->uc_mcontext)
@@ -137,9 +137,9 @@ diff -urN third_party/libtask/386-ucontext.h third_party_new/libtask/386-ucontex
 +  stack_t uc_stack;
 +  int __spare__[8];
 +};
-diff -urN third_party/libtask/aclocal.m4 third_party_new/libtask/aclocal.m4
---- third_party/libtask/aclocal.m4
-+++ third_party_new/libtask/aclocal.m4
+diff -aurN third_party_original/libtask/aclocal.m4 third_party/libtask/aclocal.m4
+--- third_party_original/libtask/aclocal.m4	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/aclocal.m4	2022-06-22 19:38:29.587177124 +0100
 @@ -0,0 +1,1008 @@
 +# generated automatically by aclocal 1.12 -*- Autoconf -*-
 +
@@ -1149,9 +1149,9 @@ diff -urN third_party/libtask/aclocal.m4 third_party_new/libtask/aclocal.m4
 +AC_SUBST([am__untar])
 +]) # _AM_PROG_TAR
 +
-diff -urN third_party/libtask/aclocal.m4.orig third_party_new/libtask/aclocal.m4.orig
---- third_party/libtask/aclocal.m4.orig
-+++ third_party_new/libtask/aclocal.m4.orig
+diff -aurN third_party_original/libtask/aclocal.m4.orig third_party/libtask/aclocal.m4.orig
+--- third_party_original/libtask/aclocal.m4.orig	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/aclocal.m4.orig	2022-06-22 19:38:26.099088459 +0100
 @@ -0,0 +1,1008 @@
 +# generated automatically by aclocal 1.12 -*- Autoconf -*-
 +
@@ -2161,9 +2161,9 @@ diff -urN third_party/libtask/aclocal.m4.orig third_party_new/libtask/aclocal.m4
 +AC_SUBST([am__untar])
 +]) # _AM_PROG_TAR
 +
-diff -urN third_party/libtask/aclocal.m4.rej third_party_new/libtask/aclocal.m4.rej
---- third_party/libtask/aclocal.m4.rej
-+++ third_party_new/libtask/aclocal.m4.rej
+diff -aurN third_party_original/libtask/aclocal.m4.rej third_party/libtask/aclocal.m4.rej
+--- third_party_original/libtask/aclocal.m4.rej	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/aclocal.m4.rej	2022-06-22 19:38:26.103088566 +0100
 @@ -0,0 +1,1011 @@
 +--- third_party/libtask/aclocal.m4	1970-01-01 01:00:00.000000000 +0100
 ++++ third_party_new/libtask/aclocal.m4	2020-10-31 11:42:21.294803000 +0000
@@ -3176,9 +3176,9 @@ diff -urN third_party/libtask/aclocal.m4.rej third_party_new/libtask/aclocal.m4.
 ++AC_SUBST([am__untar])
 ++]) # _AM_PROG_TAR
 ++
-diff -urN third_party/libtask/amd64-ucontext.h third_party_new/libtask/amd64-ucontext.h
---- third_party/libtask/amd64-ucontext.h
-+++ third_party_new/libtask/amd64-ucontext.h
+diff -aurN third_party_original/libtask/amd64-ucontext.h third_party/libtask/amd64-ucontext.h
+--- third_party_original/libtask/amd64-ucontext.h	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/amd64-ucontext.h	2022-06-22 19:38:26.103088566 +0100
 @@ -1,12 +1,12 @@
 -#define	setcontext(u)	setmcontext(&(u)->uc_mcontext)
 -#define	getcontext(u)	getmcontext(&(u)->uc_mcontext)
@@ -3348,9 +3348,9 @@ diff -urN third_party/libtask/amd64-ucontext.h third_party_new/libtask/amd64-uco
 +  stack_t uc_stack;
 +  int __spare__[8];
 +};
-diff -urN third_party/libtask/arm-ucontext.h third_party_new/libtask/arm-ucontext.h
---- third_party/libtask/arm-ucontext.h
-+++ third_party_new/libtask/arm-ucontext.h
+diff -aurN third_party_original/libtask/arm-ucontext.h third_party/libtask/arm-ucontext.h
+--- third_party_original/libtask/arm-ucontext.h	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/arm-ucontext.h	2022-06-22 19:38:26.107088665 +0100
 @@ -0,0 +1,62 @@
 +typedef struct mcontext mcontext_t;
 +typedef struct ucontext ucontext_t;
@@ -3414,9 +3414,9 @@ diff -urN third_party/libtask/arm-ucontext.h third_party_new/libtask/arm-ucontex
 +  stack_t uc_stack;
 +  int __spare__[8];
 +};
-diff -urN third_party/libtask/asm.S third_party_new/libtask/asm.S
---- third_party/libtask/asm.S
-+++ third_party_new/libtask/asm.S
+diff -aurN third_party_original/libtask/asm.S third_party/libtask/asm.S
+--- third_party_original/libtask/asm.S	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/asm.S	2022-06-22 19:38:26.107088665 +0100
 @@ -1,5 +1,11 @@
  /* Copyright (c) 2005-2006 Russ Cox, MIT; see COPYRIGHT */
  
@@ -3438,9 +3438,9 @@ diff -urN third_party/libtask/asm.S third_party_new/libtask/asm.S
  #define NEEDARMCONTEXT 1
  #define SET setmcontext
  #define GET getmcontext
-diff -urN third_party/libtask/channel.c third_party_new/libtask/channel.c
---- third_party/libtask/channel.c
-+++ third_party_new/libtask/channel.c
+diff -aurN third_party_original/libtask/channel.c third_party/libtask/channel.c
+--- third_party_original/libtask/channel.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/channel.c	2022-06-22 19:38:26.107088665 +0100
 @@ -2,145 +2,125 @@
  
  #include "taskimpl.h"
@@ -4125,9 +4125,9 @@ diff -urN third_party/libtask/channel.c third_party_new/libtask/channel.c
 +  _chanop(c, CHANRCV, &val, 0);
 +  return val;
 +}
-diff -urN third_party/libtask/config.guess third_party_new/libtask/config.guess
---- third_party/libtask/config.guess
-+++ third_party_new/libtask/config.guess
+diff -aurN third_party_original/libtask/config.guess third_party/libtask/config.guess
+--- third_party_original/libtask/config.guess	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/config.guess	2022-06-22 19:38:26.111088773 +0100
 @@ -0,0 +1,1530 @@
 +#! /bin/sh
 +# Attempt to guess a canonical system name.
@@ -5659,9 +5659,9 @@ diff -urN third_party/libtask/config.guess third_party_new/libtask/config.guess
 +# time-stamp-format: "%:y-%02m-%02d"
 +# time-stamp-end: "'"
 +# End:
-diff -urN third_party/libtask/config.log third_party_new/libtask/config.log
---- third_party/libtask/config.log
-+++ third_party_new/libtask/config.log
+diff -aurN third_party_original/libtask/config.log third_party/libtask/config.log
+--- third_party_original/libtask/config.log	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/config.log	2022-06-22 19:38:26.115088865 +0100
 @@ -0,0 +1,314 @@
 +This file contains any messages produced by compilers while
 +running configure, to aid debugging if configure makes a mistake.
@@ -5977,9 +5977,9 @@ diff -urN third_party/libtask/config.log third_party_new/libtask/config.log
 +#define VERSION "1.0"
 +
 +configure: exit 0
-diff -urN third_party/libtask/config.sub third_party_new/libtask/config.sub
---- third_party/libtask/config.sub
-+++ third_party_new/libtask/config.sub
+diff -aurN third_party_original/libtask/config.sub third_party/libtask/config.sub
+--- third_party_original/libtask/config.sub	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/config.sub	2022-06-22 19:38:26.119088972 +0100
 @@ -0,0 +1,1773 @@
 +#! /bin/sh
 +# Configuration validation subroutine script.
@@ -7754,9 +7754,9 @@ diff -urN third_party/libtask/config.sub third_party_new/libtask/config.sub
 +# time-stamp-format: "%:y-%02m-%02d"
 +# time-stamp-end: "'"
 +# End:
-diff -urN third_party/libtask/configure third_party_new/libtask/configure
---- third_party/libtask/configure
-+++ third_party_new/libtask/configure
+diff -aurN third_party_original/libtask/configure third_party/libtask/configure
+--- third_party_original/libtask/configure	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/configure	2022-06-22 19:38:32.867260480 +0100
 @@ -0,0 +1,4832 @@
 +#! /bin/sh
 +# Guess values for system-dependent variables and create Makefiles.
@@ -12590,9 +12590,9 @@ diff -urN third_party/libtask/configure third_party_new/libtask/configure
 +fi
 +
 +
-diff -urN third_party/libtask/configure.ac third_party_new/libtask/configure.ac
---- third_party/libtask/configure.ac
-+++ third_party_new/libtask/configure.ac
+diff -aurN third_party_original/libtask/configure.ac third_party/libtask/configure.ac
+--- third_party_original/libtask/configure.ac	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/configure.ac	2022-06-22 19:38:26.131089279 +0100
 @@ -0,0 +1,20 @@
 +AC_INIT([system],[1.0])
 +AM_INIT_AUTOMAKE([-Werror subdir-objects foreign])
@@ -12614,9 +12614,9 @@ diff -urN third_party/libtask/configure.ac third_party_new/libtask/configure.ac
 +  
 +AC_OUTPUT
 +
-diff -urN third_party/libtask/context.c third_party_new/libtask/context.c
---- third_party/libtask/context.c
-+++ third_party_new/libtask/context.c
+diff -aurN third_party_original/libtask/context.c third_party/libtask/context.c
+--- third_party_original/libtask/context.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/context.c	2022-06-22 19:38:26.135089379 +0100
 @@ -2,6 +2,11 @@
  
  #include "taskimpl.h"
@@ -12805,9 +12805,9 @@ diff -urN third_party/libtask/context.c third_party_new/libtask/context.c
  }
  #endif
 -
-diff -urN third_party/libtask/depcomp third_party_new/libtask/depcomp
---- third_party/libtask/depcomp
-+++ third_party_new/libtask/depcomp
+diff -aurN third_party_original/libtask/depcomp third_party/libtask/depcomp
+--- third_party_original/libtask/depcomp	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/depcomp	2022-06-22 19:38:26.135089379 +0100
 @@ -0,0 +1,707 @@
 +#! /bin/sh
 +# depcomp - compile a program generating dependencies as side-effects
@@ -13516,9 +13516,9 @@ diff -urN third_party/libtask/depcomp third_party_new/libtask/depcomp
 +# time-stamp-time-zone: "UTC"
 +# time-stamp-end: "; # UTC"
 +# End:
-diff -urN third_party/libtask/fd.c third_party_new/libtask/fd.c
---- third_party/libtask/fd.c
-+++ third_party_new/libtask/fd.c
+diff -aurN third_party_original/libtask/fd.c third_party/libtask/fd.c
+--- third_party_original/libtask/fd.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/fd.c	2022-06-22 19:38:26.135089379 +0100
 @@ -1,202 +0,0 @@
 -#include "taskimpl.h"
 -#include <sys/poll.h>
@@ -13722,9 +13722,9 @@ diff -urN third_party/libtask/fd.c third_party_new/libtask/fd.c
 -	return (uvlong)tv.tv_sec*1000*1000*1000 + tv.tv_usec*1000;
 -}
 -
-diff -urN third_party/libtask/fd.c.bak third_party_new/libtask/fd.c.bak
---- third_party/libtask/fd.c.bak
-+++ third_party_new/libtask/fd.c.bak
+diff -aurN third_party_original/libtask/fd.c.bak third_party/libtask/fd.c.bak
+--- third_party_original/libtask/fd.c.bak	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/fd.c.bak	2022-06-22 19:38:26.139089482 +0100
 @@ -0,0 +1,202 @@
 +#include "taskimpl.h"
 +#include <sys/poll.h>
@@ -13928,9 +13928,9 @@ diff -urN third_party/libtask/fd.c.bak third_party_new/libtask/fd.c.bak
 +	return (uvlong)tv.tv_sec*1000*1000*1000 + tv.tv_usec*1000;
 +}
 +
-diff -urN third_party/libtask/httpload.c third_party_new/libtask/httpload.c
---- third_party/libtask/httpload.c
-+++ third_party_new/libtask/httpload.c
+diff -aurN third_party_original/libtask/httpload.c third_party/libtask/httpload.c
+--- third_party_original/libtask/httpload.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/httpload.c	2022-06-22 19:38:26.139089482 +0100
 @@ -1,58 +1,53 @@
 +#include <errno.h>
  #include <stdio.h>
@@ -14031,9 +14031,9 @@ diff -urN third_party/libtask/httpload.c third_party_new/libtask/httpload.c
 +    write(1, ".", 1);
 +  }
  }
-diff -urN third_party/libtask/install-sh third_party_new/libtask/install-sh
---- third_party/libtask/install-sh
-+++ third_party_new/libtask/install-sh
+diff -aurN third_party_original/libtask/install-sh third_party/libtask/install-sh
+--- third_party_original/libtask/install-sh	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/install-sh	2022-06-22 19:38:26.139089482 +0100
 @@ -0,0 +1,527 @@
 +#!/bin/sh
 +# install - install a program, script, or datafile
@@ -14562,9 +14562,9 @@ diff -urN third_party/libtask/install-sh third_party_new/libtask/install-sh
 +# time-stamp-time-zone: "UTC"
 +# time-stamp-end: "; # UTC"
 +# End:
-diff -urN third_party/libtask/Makefile third_party_new/libtask/Makefile
---- third_party/libtask/Makefile
-+++ third_party_new/libtask/Makefile
+diff -aurN third_party_original/libtask/Makefile third_party/libtask/Makefile
+--- third_party_original/libtask/Makefile	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/Makefile	2022-06-22 19:38:26.143089587 +0100
 @@ -1,54 +1,757 @@
 -LIB=libtask.a
 -TCPLIBS=
@@ -15376,9 +15376,9 @@ diff -urN third_party/libtask/Makefile third_party_new/libtask/Makefile
 +# Tell versions [3.59,3.63) of GNU make to not export all variables.
 +# Otherwise a system limit (for SysV at least) may be exceeded.
 +.NOEXPORT:
-diff -urN third_party/libtask/Makefile.am third_party_new/libtask/Makefile.am
---- third_party/libtask/Makefile.am
-+++ third_party_new/libtask/Makefile.am
+diff -aurN third_party_original/libtask/Makefile.am third_party/libtask/Makefile.am
+--- third_party_original/libtask/Makefile.am	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/Makefile.am	2022-06-22 19:38:26.143089587 +0100
 @@ -0,0 +1,18 @@
 +lib_LIBRARIES = libtask.a
 +
@@ -15398,9 +15398,9 @@ diff -urN third_party/libtask/Makefile.am third_party_new/libtask/Makefile.am
 +
 +
 +
-diff -urN third_party/libtask/Makefile.in third_party_new/libtask/Makefile.in
---- third_party/libtask/Makefile.in
-+++ third_party_new/libtask/Makefile.in
+diff -aurN third_party_original/libtask/Makefile.in third_party/libtask/Makefile.in
+--- third_party_original/libtask/Makefile.in	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/Makefile.in	2022-06-22 19:38:31.815233752 +0100
 @@ -0,0 +1,757 @@
 +# Makefile.in generated by automake 1.12 from Makefile.am.
 +# @configure_input@
@@ -16159,9 +16159,9 @@ diff -urN third_party/libtask/Makefile.in third_party_new/libtask/Makefile.in
 +# Tell versions [3.59,3.63) of GNU make to not export all variables.
 +# Otherwise a system limit (for SysV at least) may be exceeded.
 +.NOEXPORT:
-diff -urN third_party/libtask/Makefile.orig third_party_new/libtask/Makefile.orig
---- third_party/libtask/Makefile.orig
-+++ third_party_new/libtask/Makefile.orig
+diff -aurN third_party_original/libtask/Makefile.orig third_party/libtask/Makefile.orig
+--- third_party_original/libtask/Makefile.orig	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/Makefile.orig	2022-06-22 19:38:26.147089684 +0100
 @@ -0,0 +1,54 @@
 +LIB=libtask.a
 +TCPLIBS=
@@ -16217,9 +16217,9 @@ diff -urN third_party/libtask/Makefile.orig third_party_new/libtask/Makefile.ori
 +	cp $(LIB) /usr/local/lib
 +	cp task.h /usr/local/include
 +
-diff -urN third_party/libtask/Makefile.rej third_party_new/libtask/Makefile.rej
---- third_party/libtask/Makefile.rej
-+++ third_party_new/libtask/Makefile.rej
+diff -aurN third_party_original/libtask/Makefile.rej third_party/libtask/Makefile.rej
+--- third_party_original/libtask/Makefile.rej	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/Makefile.rej	2022-06-22 19:38:26.147089684 +0100
 @@ -0,0 +1,25 @@
 +--- libtask_old/Makefile	2009-10-10 05:55:25.000000000 +0100
 ++++ libtask/Makefile	2014-04-02 13:44:14.250000000 +0100
@@ -16246,9 +16246,9 @@ diff -urN third_party/libtask/Makefile.rej third_party_new/libtask/Makefile.rej
 + CFLAGS=-Wall -c -I. -ggdb
 + 
 + %.o: %.S
-diff -urN third_party/libtask/Makefile.sun third_party_new/libtask/Makefile.sun
---- third_party/libtask/Makefile.sun
-+++ third_party_new/libtask/Makefile.sun
+diff -aurN third_party_original/libtask/Makefile.sun third_party/libtask/Makefile.sun
+--- third_party_original/libtask/Makefile.sun	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/Makefile.sun	2022-06-22 19:38:26.147089684 +0100
 @@ -1,57 +0,0 @@
 -LIB=libtask.a
 -
@@ -16307,9 +16307,9 @@ diff -urN third_party/libtask/Makefile.sun third_party_new/libtask/Makefile.sun
 -	cp $(LIB) /usr/local/lib
 -	cp task.h /usr/local/include
 -
-diff -urN third_party/libtask/mips-ucontext.h third_party_new/libtask/mips-ucontext.h
---- third_party/libtask/mips-ucontext.h
-+++ third_party_new/libtask/mips-ucontext.h
+diff -aurN third_party_original/libtask/mips-ucontext.h third_party/libtask/mips-ucontext.h
+--- third_party_original/libtask/mips-ucontext.h	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/mips-ucontext.h	2022-06-22 19:38:26.147089684 +0100
 @@ -1,8 +1,8 @@
  typedef struct mcontext mcontext_t;
  typedef struct ucontext ucontext_t;
@@ -16390,9 +16390,9 @@ diff -urN third_party/libtask/mips-ucontext.h third_party_new/libtask/mips-ucont
 +  int uc_flags;
 +  int __spare__[4];
  };
-diff -urN third_party/libtask/missing third_party_new/libtask/missing
---- third_party/libtask/missing
-+++ third_party_new/libtask/missing
+diff -aurN third_party_original/libtask/missing third_party/libtask/missing
+--- third_party_original/libtask/missing	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/missing	2022-06-22 19:38:26.151089789 +0100
 @@ -0,0 +1,330 @@
 +#! /bin/sh
 +# Common stub for a few missing GNU programs while installing.
@@ -16724,9 +16724,9 @@ diff -urN third_party/libtask/missing third_party_new/libtask/missing
 +# time-stamp-time-zone: "UTC"
 +# time-stamp-end: "; # UTC"
 +# End:
-diff -urN third_party/libtask/net.c third_party_new/libtask/net.c
---- third_party/libtask/net.c
-+++ third_party_new/libtask/net.c
+diff -aurN third_party_original/libtask/net.c third_party/libtask/net.c
+--- third_party_original/libtask/net.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/net.c	2022-06-22 19:38:26.151089789 +0100
 @@ -1,203 +1,193 @@
  #include "taskimpl.h"
 -#include <sys/types.h>
@@ -17109,9 +17109,9 @@ diff -urN third_party/libtask/net.c third_party_new/libtask/net.c
 +  errno = n;
 +  return -1;
 +}
-diff -urN third_party/libtask/power-ucontext.h third_party_new/libtask/power-ucontext.h
---- third_party/libtask/power-ucontext.h
-+++ third_party_new/libtask/power-ucontext.h
+diff -aurN third_party_original/libtask/power-ucontext.h third_party/libtask/power-ucontext.h
+--- third_party_original/libtask/power-ucontext.h	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/power-ucontext.h	2022-06-22 19:38:26.151089789 +0100
 @@ -1,18 +1,17 @@
 -#define	setcontext(u)	_setmcontext(&(u)->mc)
 -#define	getcontext(u)	_getmcontext(&(u)->mc)
@@ -17173,9 +17173,9 @@ diff -urN third_party/libtask/power-ucontext.h third_party_new/libtask/power-uco
 +int swapcontext(ucontext_t *, const ucontext_t *);
 +int _getmcontext(mcontext_t *);
 +void _setmcontext(const mcontext_t *);
-diff -urN third_party/libtask/primes.c third_party_new/libtask/primes.c
---- third_party/libtask/primes.c
-+++ third_party_new/libtask/primes.c
+diff -aurN third_party_original/libtask/primes.c third_party/libtask/primes.c
+--- third_party_original/libtask/primes.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/primes.c	2022-06-22 19:38:26.151089789 +0100
 @@ -2,60 +2,48 @@
  
  #include <stdio.h>
@@ -17271,9 +17271,9 @@ diff -urN third_party/libtask/primes.c third_party_new/libtask/primes.c
 -	return rand();
 -}
 +long lrand(void) { return rand(); }
-diff -urN third_party/libtask/print.c third_party_new/libtask/print.c
---- third_party/libtask/print.c
-+++ third_party_new/libtask/print.c
+diff -aurN third_party_original/libtask/print.c third_party/libtask/print.c
+--- third_party_original/libtask/print.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/print.c	2022-06-22 19:38:26.151089789 +0100
 @@ -1,252 +1,225 @@
  /* Copyright (c) 2004 Russ Cox.  See COPYRIGHT. */
  
@@ -17741,9 +17741,9 @@ diff -urN third_party/libtask/print.c third_party_new/libtask/print.c
 +  *printstr(dst, edst, src, 0) = 0;
 +  return dst;
 +}
-diff -urN third_party/libtask/qlock.c third_party_new/libtask/qlock.c
---- third_party/libtask/qlock.c
-+++ third_party_new/libtask/qlock.c
+diff -aurN third_party_original/libtask/qlock.c third_party/libtask/qlock.c
+--- third_party_original/libtask/qlock.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/qlock.c	2022-06-22 19:38:26.155089886 +0100
 @@ -3,140 +3,104 @@
  /*
   * locking
@@ -17985,9 +17985,9 @@ diff -urN third_party/libtask/qlock.c third_party_new/libtask/qlock.c
 +    taskready(t);
 +  }
  }
-diff -urN third_party/libtask/rendez.c third_party_new/libtask/rendez.c
---- third_party/libtask/rendez.c
-+++ third_party_new/libtask/rendez.c
+diff -aurN third_party_original/libtask/rendez.c third_party/libtask/rendez.c
+--- third_party_original/libtask/rendez.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/rendez.c	2022-06-22 19:38:26.155089886 +0100
 @@ -3,44 +3,31 @@
  /*
   * sleep and wakeup
@@ -18055,9 +18055,9 @@ diff -urN third_party/libtask/rendez.c third_party_new/libtask/rendez.c
 +int taskwakeup(Rendez *r) { return _taskwakeup(r, 0); }
  
 +int taskwakeupall(Rendez *r) { return _taskwakeup(r, 1); }
-diff -urN third_party/libtask/task.c third_party_new/libtask/task.c
---- third_party/libtask/task.c
-+++ third_party_new/libtask/task.c
+diff -aurN third_party_original/libtask/task.c third_party/libtask/task.c
+--- third_party_original/libtask/task.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/task.c	2022-06-22 19:38:26.155089886 +0100
 @@ -4,334 +4,281 @@
  #include <fcntl.h>
  #include <stdio.h>
@@ -18762,9 +18762,9 @@ diff -urN third_party/libtask/task.c third_party_new/libtask/task.c
  }
  
 +unsigned int taskid(void) { return taskrunning->id; }
-diff -urN third_party/libtask/task.h third_party_new/libtask/task.h
---- third_party/libtask/task.h
-+++ third_party_new/libtask/task.h
+diff -aurN third_party_original/libtask/task.h third_party/libtask/task.h
+--- third_party_original/libtask/task.h	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/task.h	2022-06-22 19:38:26.159089990 +0100
 @@ -7,8 +7,8 @@
  extern "C" {
  #endif
@@ -19046,9 +19046,9 @@ diff -urN third_party/libtask/task.h third_party_new/libtask/task.h
  #endif
  #endif
 -
-diff -urN third_party/libtask/taskimpl.h third_party_new/libtask/taskimpl.h
---- third_party/libtask/taskimpl.h
-+++ third_party_new/libtask/taskimpl.h
+diff -aurN third_party_original/libtask/taskimpl.h third_party/libtask/taskimpl.h
+--- third_party_original/libtask/taskimpl.h	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/taskimpl.h	2022-06-22 19:38:26.159089990 +0100
 @@ -1,16 +1,21 @@
  /* Copyright (c) 2005-2006 Russ Cox, MIT; see COPYRIGHT */
  
@@ -19313,9 +19313,9 @@ diff -urN third_party/libtask/taskimpl.h third_party_new/libtask/taskimpl.h
 -extern int	taskcount;
 +extern Task *taskrunning;
 +extern int taskcount;
-diff -urN third_party/libtask/taskimpl.h.orig third_party_new/libtask/taskimpl.h.orig
---- third_party/libtask/taskimpl.h.orig
-+++ third_party_new/libtask/taskimpl.h.orig
+diff -aurN third_party_original/libtask/taskimpl.h.orig third_party/libtask/taskimpl.h.orig
+--- third_party_original/libtask/taskimpl.h.orig	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/taskimpl.h.orig	2022-06-22 19:38:26.159089990 +0100
 @@ -0,0 +1,188 @@
 +/* Copyright (c) 2005-2006 Russ Cox, MIT; see COPYRIGHT */
 +
@@ -19505,9 +19505,9 @@ diff -urN third_party/libtask/taskimpl.h.orig third_party_new/libtask/taskimpl.h
 +
 +extern Task	*taskrunning;
 +extern int	taskcount;
-diff -urN third_party/libtask/taskimpl.h.rej third_party_new/libtask/taskimpl.h.rej
---- third_party/libtask/taskimpl.h.rej
-+++ third_party_new/libtask/taskimpl.h.rej
+diff -aurN third_party_original/libtask/taskimpl.h.rej third_party/libtask/taskimpl.h.rej
+--- third_party_original/libtask/taskimpl.h.rej	1970-01-01 01:00:00.000000000 +0100
++++ third_party/libtask/taskimpl.h.rej	2022-06-22 19:38:26.159089990 +0100
 @@ -0,0 +1,22 @@
 +--- libtask_old/taskimpl.h	2011-01-02 23:43:14.000000000 +0000
 ++++ libtask/taskimpl.h	2014-04-02 12:34:44.531250000 +0100
@@ -19531,9 +19531,9 @@ diff -urN third_party/libtask/taskimpl.h.rej third_party_new/libtask/taskimpl.h.
 + int getmcontext(mcontext_t*);
 + void setmcontext(const mcontext_t*);
 + #define	setcontext(u)	setmcontext(&(u)->uc_mcontext)
-diff -urN third_party/libtask/tcpproxy.c third_party_new/libtask/tcpproxy.c
---- third_party/libtask/tcpproxy.c
-+++ third_party_new/libtask/tcpproxy.c
+diff -aurN third_party_original/libtask/tcpproxy.c third_party/libtask/tcpproxy.c
+--- third_party_original/libtask/tcpproxy.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/tcpproxy.c	2022-06-22 19:38:26.159089990 +0100
 @@ -1,92 +1,81 @@
 -#include <stdio.h>
 -#include <string.h>
@@ -19692,9 +19692,9 @@ diff -urN third_party/libtask/tcpproxy.c third_party_new/libtask/tcpproxy.c
 +  shutdown(wfd, SHUT_WR);
 +  close(rfd);
 +}
-diff -urN third_party/libtask/testdelay1.c third_party_new/libtask/testdelay1.c
---- third_party/libtask/testdelay1.c
-+++ third_party_new/libtask/testdelay1.c
+diff -aurN third_party_original/libtask/testdelay1.c third_party/libtask/testdelay1.c
+--- third_party_original/libtask/testdelay1.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/testdelay1.c	2022-06-22 19:38:26.159089990 +0100
 @@ -1,7 +1,3 @@
  #include <task.h>
  
@@ -19704,9 +19704,9 @@ diff -urN third_party/libtask/testdelay1.c third_party_new/libtask/testdelay1.c
 -	taskdelay(1000);
 -}
 +void taskmain(int argc, char *argv[]) { taskdelay(1000); }
-diff -urN third_party/libtask/testdelay.c third_party_new/libtask/testdelay.c
---- third_party/libtask/testdelay.c
-+++ third_party_new/libtask/testdelay.c
+diff -aurN third_party_original/libtask/testdelay.c third_party/libtask/testdelay.c
+--- third_party_original/libtask/testdelay.c	2012-10-21 14:24:36.000000000 +0100
++++ third_party/libtask/testdelay.c	2022-06-22 19:38:26.163090095 +0100
 @@ -1,40 +1,36 @@
 -#include <stdio.h>
 -#include <string.h>

@@ -455,7 +455,7 @@ static int BufReadSector (struct Cache *cache, struct Blk *blk, uint32_t sector)
   off64_t offset;
 
   offset = (off64_t)sector * 512;
-  Seek64(block_fd, &offset, SEEK_SET);
+  lseek64(block_fd, &offset, SEEK_SET);
 
   nbytes_read = read(block_fd, blk->mem, 512);
 
@@ -477,7 +477,7 @@ static int BufWriteSector (struct Cache *cache, struct Blk *blk, int mode)
   off64_t offset;
 
   offset = (off64_t)blk->sector * 512;
-  Seek64(block_fd, &offset, SEEK_SET);
+  lseek64(block_fd, &offset, SEEK_SET);
 
   nbytes_written = write(block_fd, blk->mem, 512);
 

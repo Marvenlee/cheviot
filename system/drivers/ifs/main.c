@@ -70,7 +70,7 @@ static void ifs_readdir(int ino, struct fsreq *req);
 int main(int argc, char *argv[]) {
   int rc;
 
-  Debug("ifs.exe main hello\n");
+  KLog("ifs.exe main hello\n");
   KLog ("ifs.exe main, argc = %d", argc);
 
   if (argc < 3) {
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
   KLog ("ifs image = %08x", (uint32_t)ifs_image);
   KLog ("ifs image size = %u", ifs_image_size);
 
-  Debug("calling init_ifs\n");
+  KLog ("calling init_ifs\n");
   
   if (init_ifs() != 0) {
     return EXIT_FAILURE;
@@ -93,21 +93,21 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
   
-  Debug ("forking...");
+  KLog ("forking...");
   
   rc = fork();
 
   if (rc > 0) {
-    Debug ("parent of fork");
-    // VirtualFree(ifs_image, ifs_image_size);
+    KLog ("parent of fork");
+    // virtualfree(ifs_image, ifs_image_size);
     close(fd);
     fd = -1;
     exec_init();    
   } else if (rc == 0) {
-    Debug ("child of fork");
+    KLog ("child of fork");
     ifs_message_loop();
   } else {
-    Debug ("fork failed");
+    KLog ("fork failed");
     return EXIT_FAILURE;
   }
   
@@ -120,14 +120,14 @@ int main(int argc, char *argv[]) {
 static void exec_init(void) {
   int rc;
   
-  Debug ("exec_init, forking again");
+  KLog ("exec_init, forking again");
   
   rc = fork();
   if (rc > 0) {
-    Debug ("parent of fork 2, root reaper");
+    KLog ("parent of fork 2, root reaper");
     reap_processes();
   } else if (rc == 0) {  
-    Debug ("child of fork 2, exec sbin/init");
+    KLog ("child of fork 2, exec sbin/init");
     sleep(5);   // Wait for root to be mounted, ideally wait on '/' to change, get a notification    
     rc = execl("/sbin/init", NULL);
         
@@ -148,9 +148,9 @@ static void reap_processes(void)
 {
   KLog ("reap processes");
   
-  while(WaitPid(-1, NULL, 0) != 0)
+  while(waitpid(-1, NULL, 0) != 0)
   {
-    Sleep(1);
+    sleep(1);
   }
 }
 
@@ -164,7 +164,7 @@ static void ifs_message_loop(void)
   int pid;
   int rc;
   
-  Debug ("ifs_message loop");
+  KLog ("ifs_message loop");
   
   while (1) {  
     pfd.fd = fd;
@@ -174,7 +174,7 @@ static void ifs_message_loop(void)
     rc = poll (&pfd, 1, -1);
       
     if (pfd.revents & POLLIN) {
-      while ((rc = ReceiveMsg(fd, &pid, &req, sizeof req)) == sizeof req) {
+      while ((rc = receivemsg(fd, &pid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_LOOKUP:
             ifs_lookup(pid, &req);
@@ -193,7 +193,7 @@ static void ifs_message_loop(void)
             break;
 
           default:
-            ReplyMsg(fd, pid, -ENOSYS);
+            replymsg(fd, pid, -ENOSYS);
         }
       }
       
@@ -216,7 +216,7 @@ static void ifs_lookup(int pid, struct fsreq *req) {
   struct fsreply reply;
   char name[256];
 
-  ReadMsg(fd, pid, name, req->args.lookup.name_sz);
+  readmsg(fd, pid, name, req->args.lookup.name_sz);
 
   name[255] = '\0';
   
@@ -237,15 +237,15 @@ static void ifs_lookup(int pid, struct fsreq *req) {
       reply.args.lookup.gid = 0;
       reply.args.lookup.mode = S_IRWXU | S_IRWXG | S_IRWXO | (ifs_inode_table[inode_nr].permissions & _IFMT);
 
-      WriteMsg(fd, pid, &reply, sizeof reply);
-      ReplyMsg(fd, pid, 0);
+      writemsg(fd, pid, &reply, sizeof reply);
+      replymsg(fd, pid, 0);
       return;
     }
   }
   
   reply.args.lookup.status = -1;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, -1);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, -1);
 }
 
 /*
@@ -256,8 +256,8 @@ static void ifs_close(int pid, struct fsreq *req) {
 
   reply.cmd = CMD_CLOSE;
   reply.args.close.status = 0;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 /*
@@ -276,20 +276,20 @@ static void ifs_read(int pid, struct fsreq *req) {
   count = req->args.read.sz;
   rnode = &ifs_inode_table[req->args.read.inode_nr];
 
-  SeekMsg(fd, pid, sizeof *req + sizeof reply);
+  seekmsg(fd, pid, sizeof *req + sizeof reply);
 
   src = (uint8_t *)ifs_header + rnode->file_offset + offset;  
   remaining = rnode->file_size - offset;
   nbytes_read = (count < remaining) ? count : remaining;
   
   if (nbytes_read > 1) {
-    nbytes_read = WriteMsg(fd, pid, src, nbytes_read);    
+    nbytes_read = writemsg(fd, pid, src, nbytes_read);    
   }
   
-  SeekMsg(fd, pid, sizeof *req);
+  seekmsg(fd, pid, sizeof *req);
   reply.args.read.nbytes_read = nbytes_read;
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 /*
@@ -335,17 +335,17 @@ static void ifs_readdir(int pid, struct fsreq *req) {
   reply.args.readdir.offset = cookie;
   reply.args.readdir.nbytes_read = dirent_buf_sz;
 
-  if (SeekMsg(fd, pid, sizeof *req + sizeof reply) != 0) {
+  if (seekmsg(fd, pid, sizeof *req + sizeof reply) != 0) {
     exit(-1);
   }
 
-  if (WriteMsg(fd, pid, &dirents_buf[0], dirent_buf_sz) != dirent_buf_sz) {
+  if (writemsg(fd, pid, &dirents_buf[0], dirent_buf_sz) != dirent_buf_sz) {
     exit(-1);
   } 
   
-  SeekMsg(fd, pid, sizeof *req);
-  WriteMsg(fd, pid, &reply, sizeof reply);
-  ReplyMsg(fd, pid, 0);
+  seekmsg(fd, pid, sizeof *req);
+  writemsg(fd, pid, &reply, sizeof reply);
+  replymsg(fd, pid, 0);
 }
 
 

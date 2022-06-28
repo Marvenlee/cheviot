@@ -46,7 +46,7 @@ void taskmain(int argc, char *argv[]) {
   struct pollfd pfd[2];
   uint32_t mis;
 
-  Debug ("**** serial.exe ****");
+  KLog ("**** serial.exe ****");
 
   init(argc, argv);
 
@@ -63,7 +63,7 @@ void taskmain(int argc, char *argv[]) {
     sc = poll(pfd, 2, POLL_TIMEOUT);
     
     if (pfd[0].revents & POLLIN) {        
-      while ((sc = ReceiveMsg(fd, &msgid, &req, sizeof req)) == sizeof req) {
+      while ((sc = receivemsg(fd, &msgid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_READ:
             cmd_read(msgid, &req);
@@ -127,9 +127,9 @@ void cmd_isatty (int msgid, struct fsreq *fsreq)
   struct fsreply reply;
   
   reply.args.isatty.status = 0;
-	SeekMsg(fd, msgid, sizeof *fsreq);
-	WriteMsg(fd, msgid, &reply, sizeof reply);
-	ReplyMsg (fd, msgid, 0);
+	seekmsg(fd, msgid, sizeof *fsreq);
+	writemsg(fd, msgid, &reply, sizeof reply);
+	replymsg (fd, msgid, 0);
 }
 
 /*
@@ -139,13 +139,13 @@ void cmd_tcgetattr (int msgid, struct fsreq *fsreq)
 {	
   struct fsreply reply;
   
-  SeekMsg(fd, msgid, sizeof *fsreq + sizeof reply);		
-  WriteMsg(fd, msgid, &termios, sizeof termios);
+  seekmsg(fd, msgid, sizeof *fsreq + sizeof reply);		
+  writemsg(fd, msgid, &termios, sizeof termios);
 
   reply.args.tcgetattr.status = 0;
-	SeekMsg(fd, msgid, sizeof *fsreq);
-	WriteMsg(fd, msgid, &reply, sizeof reply);
-	ReplyMsg (fd, msgid, 0);
+	seekmsg(fd, msgid, sizeof *fsreq);
+	writemsg(fd, msgid, &reply, sizeof reply);
+	replymsg (fd, msgid, 0);
 }
 
 /*
@@ -155,17 +155,17 @@ void cmd_tcsetattr (int msgid, struct fsreq *fsreq)
 {
   struct fsreply reply;
   
-  SeekMsg(fd, msgid, sizeof *fsreq + sizeof reply);		
-  ReadMsg(fd, msgid, &termios, sizeof termios);
+  seekmsg(fd, msgid, sizeof *fsreq + sizeof reply);		
+  readmsg(fd, msgid, &termios, sizeof termios);
 
   // Perhaps make sure whole termios is written.
 
   // TODO: Flush any buffers, change stream mode to canonical etc
   
   reply.args.tcsetattr.status = 0;
-	SeekMsg(fd, msgid, sizeof *fsreq);
-	WriteMsg(fd, msgid, &reply, sizeof reply);
-	ReplyMsg (fd, msgid, 0);
+	seekmsg(fd, msgid, sizeof *fsreq);
+	writemsg(fd, msgid, &reply, sizeof reply);
+	replymsg (fd, msgid, 0);
 }
 
 /*
@@ -227,7 +227,7 @@ void reader_task (void *arg)
       remaining = (line_length < read_fsreq.args.read.sz) ? line_length : read_fsreq.args.read.sz;
     }
 
-    SeekMsg(fd, read_msgid, sizeof (struct fsreq) + sizeof reply);
+    seekmsg(fd, read_msgid, sizeof (struct fsreq) + sizeof reply);
          
     nbytes_read = 0;
     
@@ -235,7 +235,7 @@ void reader_task (void *arg)
       sz = sizeof rx_buf - rx_head;
       buf = &rx_buf[rx_head]; 
       
-      WriteMsg(fd, read_msgid, buf, sz);
+      writemsg(fd, read_msgid, buf, sz);
       nbytes_read += sz;
     
       sz = remaining -= sz;
@@ -245,7 +245,7 @@ void reader_task (void *arg)
       buf = &rx_buf[rx_head];
     }
     
-    WriteMsg(fd, read_msgid, buf, sz);
+    writemsg(fd, read_msgid, buf, sz);
     nbytes_read += sz;
 
     rx_head = (rx_head + nbytes_read) % sizeof rx_buf;
@@ -265,10 +265,10 @@ void reader_task (void *arg)
     
     reply.cmd = CMD_READ;
     reply.args.read.nbytes_read = nbytes_read;          
-    SeekMsg(fd, read_msgid, sizeof (struct fsreq));
-    WriteMsg(fd, read_msgid, &reply, sizeof reply);
+    seekmsg(fd, read_msgid, sizeof (struct fsreq));
+    writemsg(fd, read_msgid, &reply, sizeof reply);
 
-    ReplyMsg(fd, read_msgid, 0);  
+    replymsg(fd, read_msgid, 0);  
     read_pending = false;
   }
 }
@@ -301,7 +301,7 @@ void writer_task (void *arg)
       tasksleep(&tx_free_rendez);
     }
 
-    SeekMsg(fd, write_msgid, sizeof (struct fsreq) + sizeof reply);
+    seekmsg(fd, write_msgid, sizeof (struct fsreq) + sizeof reply);
     
     remaining = (tx_free_sz < write_fsreq.args.write.sz) ? tx_free_sz : write_fsreq.args.write.sz;
     nbytes_written = 0;
@@ -310,7 +310,7 @@ void writer_task (void *arg)
       sz = sizeof tx_buf - tx_free_head;
       buf = &tx_buf[tx_free_head]; 
       
-      ReadMsg(fd, write_msgid, buf, sz);
+      readmsg(fd, write_msgid, buf, sz);
 
       nbytes_written += sz;      
       sz = remaining -= sz;
@@ -321,13 +321,13 @@ void writer_task (void *arg)
     }
 
 
-//    KLog ("Writer ReadMsg2: sz:%d", sz);
+//    KLog ("Writer readmsg2: sz:%d", sz);
     
     if (sz > sizeof tx_buf) {
       exit (8);
     }
     
-    ReadMsg(fd, write_msgid, buf, sz);
+    readmsg(fd, write_msgid, buf, sz);
     nbytes_written += sz;
 
     tx_free_head = (tx_free_head + nbytes_written) % sizeof tx_buf;
@@ -336,9 +336,9 @@ void writer_task (void *arg)
         
     reply.cmd = CMD_WRITE;
     reply.args.write.nbytes_written = nbytes_written;          
-    SeekMsg(fd, write_msgid, sizeof (struct fsreq));
-    WriteMsg(fd, write_msgid, &reply, sizeof reply);
-    ReplyMsg(fd, write_msgid, 0);  
+    seekmsg(fd, write_msgid, sizeof (struct fsreq));
+    writemsg(fd, write_msgid, &reply, sizeof reply);
+    replymsg(fd, write_msgid, 0);  
     write_pending = false;
 
     taskwakeupall(&tx_rendez);
@@ -529,7 +529,7 @@ void interrupt_clear(void)
 {
   uart->rsrecr = 0;
   uart->icr = 0xffffffff;
-  UnmaskInterrupt(SERIAL_IRQ);
+  unmaskinterrupt(SERIAL_IRQ);
 }
 
 

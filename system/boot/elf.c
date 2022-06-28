@@ -193,7 +193,7 @@ int elf_load(void *ifs_image, size_t ifs_size, char *filename, Elf32_EHdr *ehdr,
 
   if (elf_read(phdr_table, sizeof(Elf32_PHdr) * phdr_cnt) !=
       sizeof(Elf32_PHdr) * phdr_cnt) {
-    Debug("Failed to read");
+    KLog("Failed to read");
     return -1;
   }
 

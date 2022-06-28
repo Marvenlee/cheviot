@@ -89,7 +89,7 @@ void init(int argc, char *argv[]) {
   
   
   KLog("Mounting %s", config.mount_path);
-  fd = Mount(config.mount_path, 0, &stat);
+  fd = mount(config.mount_path, 0, &stat);
 
   if (fd < 0) {
     KLog("***** exiting fat, mounting (%s) failed", config.mount_path);

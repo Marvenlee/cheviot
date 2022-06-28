@@ -30,6 +30,7 @@
 #include "sys/debug.h"
 #include <sys/syscalls.h>
 
+
 /*
  *
  */
@@ -67,15 +68,13 @@ void init (int argc, char *argv[]) {
     exit(-1);
   }
   
-  // Align UART_BASE_PA down to 4k
-  uart = (struct bcm2835_uart_registers *) VirtualAllocPhys((void *)0x50000000, 4096, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE, (void *)(BCM2708_PERI_BASE + UART_BASE_PA));
+  uart = (struct bcm2835_uart_registers *) virtualallocphys((void *)0x50000000, 4096, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE, (void *)(BCM2708_PERI_BASE + UART_BASE_PA));
   
   if (uart == NULL) {
     exit(-1);
   }  
   
-  // Align UART_BASE_PA down to 4k
-  gpio = (struct bcm2835_gpio_registers *) VirtualAllocPhys((void *)0x50010000, 4096, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE, (void *)(BCM2708_PERI_BASE + GPIO_BASE_PA));
+  gpio = (struct bcm2835_gpio_registers *) virtualallocphys((void *)0x50010000, 4096, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE, (void *)(BCM2708_PERI_BASE + GPIO_BASE_PA));
   
   if (gpio == NULL) {
     exit(-1);
@@ -179,7 +178,7 @@ int mount_device(void) {
 
   stat.st_blocks = 0;
 
-  fd = Mount(config.pathname, 0, &stat);
+  fd = mount(config.pathname, 0, &stat);
   
   if (fd < 0) {
     exit (-1);
@@ -296,7 +295,7 @@ void configure_uart(void)
 
     dmb();
 
-    interrupt_fd = CreateInterrupt(SERIAL_IRQ, &interrupt_handler);
+    interrupt_fd = createinterrupt(SERIAL_IRQ, &interrupt_handler);
   
     if (interrupt_fd < 0) {
       exit(-1);
