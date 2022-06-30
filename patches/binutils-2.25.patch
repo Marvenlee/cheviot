@@ -1,6 +1,6 @@
 diff -aurN third_party_original/binutils-2.25/ld/emulparams/armelf.sh third_party/binutils-2.25/ld/emulparams/armelf.sh
 --- third_party_original/binutils-2.25/ld/emulparams/armelf.sh	2013-11-04 15:33:39.000000000 +0000
-+++ third_party/binutils-2.25/ld/emulparams/armelf.sh	2022-06-22 09:31:53.148569335 +0100
++++ third_party/binutils-2.25/ld/emulparams/armelf.sh	2022-06-29 13:59:26.278713037 +0100
 @@ -3,7 +3,8 @@
  OUTPUT_FORMAT="elf32-littlearm"
  BIG_OUTPUT_FORMAT="elf32-bigarm"

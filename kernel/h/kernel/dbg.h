@@ -7,9 +7,6 @@
 #include <kernel/vm.h>
 #include <stdarg.h>
 
-//#define NDEBUG
-
-extern struct Process *root_process;
 
 /*
  * At end of most debug statements semi-colons aren't needed or will
@@ -27,14 +24,17 @@ extern struct Process *root_process;
  * Or define DEBUG_LEVEL at top of source file.
  */
 
-//#define NDEBUG
+#define NDEBUG
+
+#ifdef NDEBUG
+#undef KDEBUG
+#endif
 
 #ifdef KDEBUG
 
 #ifndef DEBUG_LEVEL
 #define DEBUG_LEVEL 2
 #endif
-
 
 #define Error(fmt, args...) DoLog(fmt, ##args)
 
@@ -89,9 +89,8 @@ extern struct Process *root_process;
 
 
 /*
- * TODO: 
+ * TODO: Alow selective control of modules that enable debug
  */
-
 #define DEBUG_INIT
 #define DEBUG_ARCH
 

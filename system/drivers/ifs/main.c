@@ -128,7 +128,7 @@ static void exec_init(void) {
     reap_processes();
   } else if (rc == 0) {  
     KLog ("child of fork 2, exec sbin/init");
-    sleep(5);   // Wait for root to be mounted, ideally wait on '/' to change, get a notification    
+    sleep(1);   // Wait for root to be mounted, ideally wait on '/' to change, get a notification    
     rc = execl("/sbin/init", NULL);
         
     KLog ("exec failed, %d", rc);

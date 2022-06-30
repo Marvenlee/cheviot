@@ -1,5 +1,5 @@
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -21,9 +21,12 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
   struct VNode *vnode;
   ssize_t xfered;
   
+  Info("sys_write fd:%d, src:%08x, sz:%d", fd, src, sz);
+  
   filp = get_filp(fd);
 
   if (filp == NULL) {
+    Info ("write - filp is null");
     return -EINVAL;
   }
 
@@ -41,7 +44,7 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
   } else if (S_ISBLK(vnode->mode)) {
     xfered = write_to_cache(vnode, src, sz, &filp->offset);
   } else if (S_ISFIFO(vnode->mode)) {
-//    xfered = WriteToPipe(vnode, src, sz, &filp->offset);
+    xfered = WriteToPipe(vnode, src, sz);
   } else {
     Info ("Write to unknown file type");
     xfered = -EINVAL;

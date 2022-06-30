@@ -1,6 +1,6 @@
 diff -aurN third_party_original/coreutils-5.2.1/lib/dirfd.c third_party/coreutils-5.2.1/lib/dirfd.c
 --- third_party_original/coreutils-5.2.1/lib/dirfd.c	2001-11-03 18:50:53.000000000 +0000
-+++ third_party/coreutils-5.2.1/lib/dirfd.c	2022-06-22 19:38:44.663560349 +0100
++++ third_party/coreutils-5.2.1/lib/dirfd.c	2022-06-29 15:26:39.469510691 +0100
 @@ -28,3 +28,4 @@
  {
    return DIR_TO_FD (dir_p);
@@ -8,7 +8,7 @@ diff -aurN third_party_original/coreutils-5.2.1/lib/dirfd.c third_party/coreutil
 +
 diff -aurN third_party_original/coreutils-5.2.1/lib/getopt.c third_party/coreutils-5.2.1/lib/getopt.c
 --- third_party_original/coreutils-5.2.1/lib/getopt.c	2003-09-10 07:29:35.000000000 +0100
-+++ third_party/coreutils-5.2.1/lib/getopt.c	2022-06-22 19:38:44.667560448 +0100
++++ third_party/coreutils-5.2.1/lib/getopt.c	2022-06-29 15:26:39.469510691 +0100
 @@ -51,6 +51,8 @@
  # endif
  #endif
@@ -20,7 +20,7 @@ diff -aurN third_party_original/coreutils-5.2.1/lib/getopt.c third_party/coreuti
  
 diff -aurN third_party_original/coreutils-5.2.1/lib/Makefile.am third_party/coreutils-5.2.1/lib/Makefile.am
 --- third_party_original/coreutils-5.2.1/lib/Makefile.am	2004-03-03 22:06:10.000000000 +0000
-+++ third_party/coreutils-5.2.1/lib/Makefile.am	2022-06-22 19:38:44.667560448 +0100
++++ third_party/coreutils-5.2.1/lib/Makefile.am	2022-06-29 15:26:39.469510691 +0100
 @@ -33,7 +33,6 @@
    posixtm.c posixtm.h \
    posixver.c posixver.h \
@@ -31,7 +31,7 @@ diff -aurN third_party_original/coreutils-5.2.1/lib/Makefile.am third_party/core
    __fpending.h \
 diff -aurN third_party_original/coreutils-5.2.1/lib/Makefile.in third_party/coreutils-5.2.1/lib/Makefile.in
 --- third_party_original/coreutils-5.2.1/lib/Makefile.in	2004-03-11 08:57:59.000000000 +0000
-+++ third_party/coreutils-5.2.1/lib/Makefile.in	2022-06-22 19:38:44.667560448 +0100
++++ third_party/coreutils-5.2.1/lib/Makefile.in	2022-06-29 15:26:39.469510691 +0100
 @@ -42,7 +42,7 @@
  subdir = lib
  DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -118,7 +118,7 @@ diff -aurN third_party_original/coreutils-5.2.1/lib/Makefile.in third_party/core
  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hard-locale.Po@am__quote@
 diff -aurN third_party_original/coreutils-5.2.1/lib/mktime.c third_party/coreutils-5.2.1/lib/mktime.c
 --- third_party_original/coreutils-5.2.1/lib/mktime.c	2004-01-21 22:10:14.000000000 +0000
-+++ third_party/coreutils-5.2.1/lib/mktime.c	2022-06-22 19:38:44.667560448 +0100
++++ third_party/coreutils-5.2.1/lib/mktime.c	2022-06-29 15:26:39.469510691 +0100
 @@ -127,8 +127,8 @@
  	    int year0, int yday0, int hour0, int min0, int sec0)
  {

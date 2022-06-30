@@ -26,16 +26,16 @@
 #include <kernel/dbg.h>
 #include <poll.h>
 
+// Prototypes
 void WakeupPollsFromISR(struct VNode *vnode, short mask, short events);
 int VNodePoll(struct VNode *vnode, short mask, short *revents);
 struct Poll *alloc_poll(void);
 void free_poll(struct Poll *poll);
 void PollTimeout(struct Timer *timer);
 
-
-
-
-
+/*
+ *
+ */
 SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
 {
   struct Process *current;
@@ -44,10 +44,6 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
   struct Poll *poll;
   int sc;
 
-//  Info("Poll nfds = %d", nfds);
-//  LogFDs();
-
-    
   current = get_current_process();
   current->poll_pending = false;
   nfds_matching = 0;
@@ -63,8 +59,7 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
       sc = -EFAULT;
       goto exit;
     }
-    
-    
+        
     // FIXME: Can we use -1 here to indicate skip this one?
     if (pfd.fd < 0) {
       sc = -EINVAL;
@@ -87,8 +82,6 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
       goto exit;
     }
     
-//    Info ("pfd[%d].fd: %d, addr: %08x, vnode: %08x events: %08x", t, pfd.fd, (vm_addr)poll, (vm_addr)vnode, pfd.events);
-      
     LIST_ADD_TAIL (&poll_list, poll, poll_link);    
     poll->process = current;
     poll->vnode = vnode;
@@ -102,15 +95,10 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
 
     EnableInterrupts();
     
-//    Info("Poll - 1st  - revent = %08x", poll->revents);
-
     if (poll->revents) {
       nfds_matching++;
     }
   }
-  
-
-//  Info ("Poll - first sweep matched %d  <<<<<<<<<<<<", nfds_matching);
   
   if (nfds_matching == 0) {
       // Non-matching (so add Poll to each vnode)
@@ -118,36 +106,28 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
       
     if (timeout != 0) {
       if (timeout != -1) {
-//        Info("timout set");
         SetTimeout(timeout, PollTimeout, NULL);
       }
 
-//      Info ("check if need to sleep");
-      
       while(current->poll_pending == false && current->timeout_expired == false) {
         TaskSleep(&current->rendez);
       }
 
       if (current->eintr)
       {
-//        KLog ("Wakened from EINTR");        
         current->eintr = false;
       }
 
       if (timeout != -1) { 
-//              Info("timout clr");     
         SetTimeout(0, NULL, NULL);
         current->timeout_expired = false;
       }      
     }
   }
   
-// Info ("Poll - Go through poll list");
-  
   int idx = 0;
   nfds_matching = 0;
-  
-  
+    
   // All polls should be valid.
   while ((poll = LIST_HEAD(&poll_list)) != NULL) {
     struct pollfd pfd;
@@ -160,11 +140,6 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
     pfd.events = poll->events;
     pfd.revents = poll->revents;
 
- //   Info ("pfd[%d].fd: %d, addr: %08x, vnode: %08x events: %08x", idx, pfd.fd, (vm_addr)poll, (vm_addr)vnode, pfd.events);
- //   Info("Poll - 2nd  - revent = %08x", poll->revents);
-
-    
-    
     if (pfd.revents != 0) {
       nfds_matching++;
     }
@@ -180,12 +155,9 @@ SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout)
     free_poll(poll);
   }
   
-//  Info (".. Poll done - matching = %d", nfds_matching);
   return nfds_matching;
   
 exit:
-  Info (".. Poll error exit = %d", sc);
-
   while ((poll = LIST_HEAD(&poll_list)) != NULL)
   {
     struct VNode *vnode;
@@ -230,15 +202,19 @@ SYSCALL int sys_pollnotify (int fd, int ino, short mask, short events)
   
   wakeup_polls(vnode, mask, events);
 
-  // TODO: vnode_put(vnode)
+  vnode_put(vnode);
 
   return 0;
 }
 
-
+/*
+ *
+ */
 int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events)
 {
   struct VNode *vnode;
+
+  // We don't need to lock it in an interrupt
   
   vnode = api->interrupt_vnode;
   WakeupPollsFromISR(vnode, mask, events);  
@@ -246,30 +222,21 @@ int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events)
 }
 
 /*
- * Called with vnode locked
+ * FIXME: Call with vnode locked?
  */
 void wakeup_polls(struct VNode *vnode, short mask, short events)
 {
   struct Process *proc;
   struct Poll *poll;
 
-  // KASSERT(vnode->busy == true);
-
-
-// TODO: Rewrite WakeupPolls (no longer have vnode->proces_interested bitmap);
-//  Info ("WakeupPolls(vnode = %08x)", (vm_addr)vnode);
-//  Info ("vnode covered = %08x, mntedhere = %08x", (vm_addr)vnode->vnode_covered, (vm_addr)vnode->vnode_mounted_here);
   vnode->poll_events = (vnode->poll_events & ~mask) | (mask & events);
   
   poll = LIST_HEAD(&vnode->poll_list);
 
   while (poll != NULL)
   {
-//      Info ("poll = %08x", poll);
-      
       if (poll->events & vnode->poll_events)
       {    
-//          Info ("WakeupAll proc=%08x", proc);  
           proc = poll->process;
           proc->poll_pending = true;
           TaskWakeupAll(&proc->rendez);
@@ -277,11 +244,7 @@ void wakeup_polls(struct VNode *vnode, short mask, short events)
 
       poll = LIST_NEXT(poll, vnode_link);
   }
-  
-//  Info("WakeupPolls done");
 }
-
-
 
 /*
  *
@@ -291,15 +254,12 @@ void WakeupPollsFromISR(struct VNode *vnode, short mask, short events)
   struct Process *proc;
   struct Poll *poll;
 
-  // KASSERT(vnode->busy == true);
-
   vnode->poll_events |= POLLPRI;
   
   poll = LIST_HEAD(&vnode->poll_list);
 
   while (poll != NULL)
   {
-
 //      if (poll->events & vnode->poll_events)
 //      {      
           proc = poll->process;
@@ -310,10 +270,6 @@ void WakeupPollsFromISR(struct VNode *vnode, short mask, short events)
     poll = LIST_NEXT(poll, vnode_link);
   }  
 }
-
-
-
-
 
 /*
  * TODO:  Need to plug this into generic poll code ?????????
@@ -327,14 +283,6 @@ int VNodePoll(struct VNode *vnode, short mask, short *revents) {
   struct Msg *msg;
   
   sb = vnode->superblock;
-
-
-
-// FIXME: S_ISPORT no longer exists, need to check filp->flags for F_SERVER
-// Should also check if it is the root vnode.
-
-// Hmmm, wonder if we should still go with second vnode for server.
-
 
   if (S_ISPORT(vnode->mode)) {
     msg = LIST_HEAD(&sb->msgport.pending_msg_list);
@@ -356,28 +304,20 @@ int VNodePoll(struct VNode *vnode, short mask, short *revents) {
     // Shouldn't these always be readable/writable ?
     
   } else if (S_ISCHR(vnode->mode)) {
-  
-
     // TODO - poll() side, what do we check ?
     *revents = mask & vnode->poll_events;    
     
   } else if (S_ISIRQ(vnode->mode)) {
-//    Info("Poll - INTERRUPT");
-    
     *revents = *revents | (mask & vnode->poll_events);
-
     vnode->poll_events = 0;
   }
   
   return 0;
 }
 
-
-
 /*
- * TODO: FIXME:  Allocate Poll struct
+ *
  */
- 
 struct Poll *alloc_poll(void)
 {
   struct Poll *poll;
@@ -392,15 +332,20 @@ struct Poll *alloc_poll(void)
   return poll;
 }
 
+/*
+ *
+ */
 void free_poll(struct Poll *poll)
 {
   LIST_ADD_HEAD(&poll_free_list, poll, poll_link);
 }
 
+/*
+ *
+ */
 void PollTimeout(struct Timer *timer)
 {
   timer->process->timeout_expired = true;
   TaskWakeup (&timer->process->rendez);
 }
-
 

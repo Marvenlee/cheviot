@@ -100,7 +100,7 @@ SYSCALL int sys_pipe(int _fd[2])
   struct Pipe *pipe;  
   
  
-//  Info("Pipe");
+  Info("sys_pipe: _fd=%08x", _fd);
   
   current = get_current_process();
 
@@ -132,6 +132,8 @@ SYSCALL int sys_pipe(int _fd[2])
     goto exit;
   }
   
+  Info ("sys_pipe alloced fds: %d, %d", fd[0], fd[1]);
+  
   vnode->mode = _IFIFO | 0777;
   vnode->superblock = &pipe_sb;
   vnode->pipe = pipe;
@@ -146,13 +148,15 @@ SYSCALL int sys_pipe(int _fd[2])
 
   vnode->reference_cnt = 2;
 
+  vnode_unlock(vnode);
+
   if (CopyOut(_fd, fd, sizeof fd) != 0) {
     Info("Pipe, failed, EFAULT");
     error = -EFAULT;
     goto exit;
   }
 
-  Info ("Pipe success, fd[0] = %d, fd[1] = %d", fd[0], fd[1]);
+  Info ("sys_pipe success, fd[0] = %d, fd[1] = %d", fd[0], fd[1]);
   
   return 0;
   
@@ -188,21 +192,22 @@ ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz)
   int status = 0;
   struct Pipe *pipe;
   
-//  Info("**** ReadFromPipe, sz = %d", sz);
+  Info("ReadFromPipe, sz = %d", sz);
 
   pipe = vnode->pipe;
   
   while (nbytes_read == 0 && status == 0) {         
     remaining = sz - nbytes_read;
 
-    Info ("Pipe read remaining = %d, data_sz = %d, ref = %d", remaining, pipe->data_sz, vnode->reference_cnt);
+    Info ("..Pipe read remaining = %d, data_sz = %d, ref = %d", remaining, pipe->data_sz, vnode->reference_cnt);
       
     while (pipe->data_sz == 0 && vnode->reference_cnt > 1) {
+      Info ("..Pipe read sleeping");
       TaskSleep (&pipe->rendez);
     }
-   
+
     if ( vnode->reference_cnt <= 1 && pipe->data_sz == 0) {
-      Info ("Pipe Read, ref_cnt = %d", vnode->reference_cnt);
+      Info ("..Pipe read, ref_cnt = %d, data_sz=%d", vnode->reference_cnt, pipe->data_sz);
       break;
     }  
 
@@ -238,7 +243,8 @@ ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz)
    
     TaskWakeupAll (&pipe->rendez);
   }
-    
+
+  Info ("..Pipe read, read:%d, st:%d", nbytes_read, status);    
   return (status == 0) ? nbytes_read : status;
 }
 
@@ -259,21 +265,23 @@ ssize_t WriteToPipe(struct VNode *vnode, void *_src, size_t sz)
   int status = 0;
   struct Pipe *pipe;
   
-//  Info("WriteToPipe, sz = %d", sz);
+  Info("WriteToPipe, sz = %d", sz);
 
   pipe = vnode->pipe;
 
   while (nbytes_written == 0 && status == 0) {
     remaining = sz - nbytes_written;
 
-    Info ("Pipe write remaining=%d, free_sz=%d, ref=%d", remaining, pipe->free_sz, vnode->reference_cnt);
+    Info ("..Pipe write remaining=%d, free_sz=%d, ref=%d", remaining, pipe->free_sz, vnode->reference_cnt);
 
     while (pipe->free_sz < PIPE_BUF && vnode->reference_cnt > 1) {
+      Info ("..Pipe write sleeping");
       TaskSleep (&pipe->rendez);
     }
 
     if ( vnode->reference_cnt <= 1) {
-      Info ("Pipe Write, ref_cnt = %d", vnode->reference_cnt);
+      Info ("Pipe write, ref_cnt = %d, ending xfer", vnode->reference_cnt);
+      // FIXME: pipe reference count ends up being -5
       break;
     }  
 
@@ -310,7 +318,7 @@ ssize_t WriteToPipe(struct VNode *vnode, void *_src, size_t sz)
     TaskWakeupAll (&pipe->rendez);    
   }
 
-
+  Info ("..pipe write, wrote:%d, st:%d", nbytes_written, status);
   return (status == 0) ? nbytes_written : status; 
 }
 

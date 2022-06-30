@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -101,6 +101,7 @@ SYSCALL int sys_fcntl (int fd, int cmd, int arg)
 	        if (current->fd_table[new_fd] == NULL) {
               current->fd_table[new_fd] = current->fd_table[fd];            
               filp->reference_cnt++;          
+              vnode_inc_ref(filp->vnode);
               
               Info ("fcntl dup, new_fd: %d", new_fd);
               return new_fd;  
@@ -169,6 +170,7 @@ SYSCALL int sys_dup(int fd) {
     if (current->fd_table[new_fd] == NULL) {
       current->fd_table[new_fd] = current->fd_table[fd];  
       filp->reference_cnt++;
+      vnode_inc_ref(filp->vnode);
 
       Info ("%d = SysDup (%d)", new_fd, fd);
       LogFDs();
@@ -212,6 +214,8 @@ SYSCALL int sys_dup2(int fd, int new_fd) {
 
   current->fd_table[new_fd] = current->fd_table[fd];
   filp->reference_cnt++;
+  vnode_inc_ref(filp->vnode);
+  
   Info ("Dup2 done, fd:%d, new_fd:%d", fd, new_fd);
   LogFDs();
 
@@ -247,7 +251,7 @@ SYSCALL int sys_close(int fd)
       TaskWakeupAll(&pipe->rendez);
     }
 
-    Info ("SysClose vnode_put = %08x", vnode);
+    Info ("** SysClose vnode_put = %08x, ref_cnt=%d", vnode, vnode->reference_cnt);
     vnode_put(vnode);
   }
   else
@@ -293,10 +297,6 @@ static void free_filp(struct Filp *filp) {
   filp->reference_cnt--;
   
   if (filp->reference_cnt == 0) {
-    if (filp->vnode != NULL) {
-      filp->vnode->reference_cnt--;    
-    }
-
     filp->vnode = NULL;
     LIST_ADD_HEAD(&filp_free_list, filp, filp_entry);
   }
@@ -404,6 +404,7 @@ void close_process_fds(struct Process *proc)
 int fork_process_fds(struct Process *newp, struct Process *oldp) {
   int fd;
   uint16_t filp_idx;
+  struct VNode *vnode;
   
   Info ("ForkProcessHandles()");
   
@@ -412,6 +413,8 @@ int fork_process_fds(struct Process *newp, struct Process *oldp) {
 
     if (newp->fd_table[fd] != NULL) {
         newp->fd_table[fd]->reference_cnt++;
+        vnode = newp->fd_table[fd]->vnode;
+        vnode_inc_ref(vnode);
     }
   }
   
