@@ -43,7 +43,7 @@
  *    Efficient Implementation of a Timer Facility" by G Varghese & T,Lauck
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/arm/raspberry.h>
 #include <kernel/dbg.h>

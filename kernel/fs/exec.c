@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/arm/elf.h>
 #include <kernel/dbg.h>
@@ -52,14 +52,12 @@ SYSCALL int sys_exec(char *filename, struct execargs *_args)
   int sc;
   int fd;
     
-  Info("Exec(%s. execargs:%08x)", filename, (vm_addr)_args);
+  Info("Exec");
 
   if ((fd = kopen(filename, O_RDONLY, 0)) < 0) {
     Info ("*** Exec failed to open file, fd = %d", fd);
     return -ENOENT;
   }
-
-  Info ("Opened file\n");
   
   /*
   filp = get_filp();

@@ -18,7 +18,7 @@
  * System calls for virtual memory management.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/arch.h>
 #include <kernel/dbg.h>

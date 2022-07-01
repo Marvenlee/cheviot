@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -34,7 +34,7 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   struct VNode *vnode;
   ssize_t xfered;
 
-  Info("sys_write fd:%d, dst:%08x, sz:%d", fd, dst, sz);
+  Info("sys_read fd:%d, dst:%08x, sz:%d", fd, dst, sz);
   
   filp = get_filp(fd);
 
@@ -58,13 +58,12 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
 
   if (S_ISCHR(vnode->mode)) {  
     xfered = read_from_char (vnode, dst, sz);
-    Info("%d = ReadFromChar", xfered);
   } else if (S_ISREG(vnode->mode)) {
     xfered = read_from_cache (vnode, dst, sz, &filp->offset, false);
   } else if (S_ISFIFO(vnode->mode)) {
     xfered = ReadFromPipe (vnode, dst, sz);  
   } else if (S_ISBLK(vnode->mode)) {
-    xfered = read_from_cache (vnode, dst, sz, &filp->offset, false);   // FIXME: Don't cache block devices
+    xfered = read_from_block (vnode, dst, sz, &filp->offset);   // FIXME: Don't cache block devices
   } else if (S_ISDIR(vnode->mode)) {
     xfered = -EINVAL;
   } else {
@@ -75,6 +74,8 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   // Update accesss timestamps
   
   vnode_unlock(vnode);
+  
+  Info ("sys_read xfered = %d",xfered);
   
   return xfered;
 }

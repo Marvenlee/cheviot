@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
       while ((sc = receivemsg(fd, &pid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_READ:
+            KLog ("sdcard CMD_READ");
             sdread(pid, &req);
             break;
 
@@ -181,11 +182,17 @@ int mount_device(void) {
   stat.st_mode = 0777 | _IFBLK; // default to read/write of device-driver uid/gid.
   stat.st_uid = 0;   // default device driver uid
   stat.st_gid = 0;   // default gid
-  stat.st_blksize = bdev->block_size;
 
   // TODO :Calculate device size
-  stat.st_size = 0x0000ffffffff0000;
-  stat.st_blocks = stat.st_size / stat.st_blksize;
+
+//  stat.st_blksize = bdev->block_size;
+  stat.st_size = 0;
+  
+  // For now set it to 16GB with 512 byte blocks
+  stat.st_blocks = 33554432;
+  stat.st_blksize = 512;
+  
+//  stat.st_blocks = stat.st_size / stat.st_blksize;
 
   fd = mount("/dev/sd1", 0, &stat);
   return fd;

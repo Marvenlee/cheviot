@@ -13,7 +13,7 @@ ExternalProject_Add (
 	                    --prefix=${CMAKE_CURRENT_BINARY_DIR}/build/native/
 	                    --target=arm-none-eabi --disable-newlib-supplied-syscalls
 	                    --enable-interwork --enable-multilib	                    
-  BUILD_ALWAYS      ON
+  BUILD_ALWAYS      OFF
   DEPENDS           gcc-native-install binutils-native
   INSTALL_DIR       ${CMAKE_CURRENT_BINARY_DIR}/build/native/
   BUILD_COMMAND     make

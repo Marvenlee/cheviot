@@ -50,6 +50,8 @@ int writeSector(void *mem, int sector, int sector_offset, size_t nbytes) {
 }
 
 int blockRead(void *mem, size_t sz, int block_no) {
+  KLog("blockRead (mem: %08x, sz:%d, blk: %d", mem, sz, block_no);
+  
   BufReadBlocks (block_cache, mem, block_no, 0, sz);    
   return 512;
 }
@@ -204,8 +206,8 @@ int BufReadBlocks (struct Cache *cache, void *addr,	uint32_t block, uint32_t off
 		}
 		
 		cache_buf = blk->mem;
-//	  KLog ("fat: buf_read_blocks dst = %08x, src = %08x, sz = %d offs = %d", (uint32)addr, (uint32_t)((uint8_t *)cache_buf + offset),
-//	                nbytes_to_read, offset);
+	  KLog ("fat: buf_read_blocks dst = %08x, src = %08x, sz = %d offs = %d", (uint32)addr, (uint32_t)((uint8_t *)cache_buf + offset),
+	                nbytes_to_read, offset);
 		memcpy (addr, (uint8_t *)cache_buf + offset, nbytes_to_read);
 		
 		nbytes -= nbytes_to_read;
@@ -215,6 +217,7 @@ int BufReadBlocks (struct Cache *cache, void *addr,	uint32_t block, uint32_t off
 		offset = 0;
 	}
 		
+  KLog ("buf_read_blocks: rc=%d", rc);
 	return rc;
 }
 
@@ -279,6 +282,8 @@ struct Blk *BufGetBlock (struct Cache *cache, uint32_t block)
 	struct Blk *blk;
 	uint32_t hash_idx;
 	int rc;
+	
+	KLog("BufGetBlock %u", block);
 	
 	/* Need to limit read upto end of media, final block may be partial,
 	 * simply use disksize%blocksize for final block? */
@@ -455,7 +460,9 @@ static int BufReadSector (struct Cache *cache, struct Blk *blk, uint32_t sector)
   off64_t offset;
 
   offset = (off64_t)sector * 512;
-  lseek64(block_fd, &offset, SEEK_SET);
+  
+  KLog ("BufReadSector, SEEK_SET=%d, offs:%08x", SEEK_SET, offset);
+  lseek64(block_fd, offset, SEEK_SET);
 
   nbytes_read = read(block_fd, blk->mem, 512);
 
@@ -477,7 +484,7 @@ static int BufWriteSector (struct Cache *cache, struct Blk *blk, int mode)
   off64_t offset;
 
   offset = (off64_t)blk->sector * 512;
-  lseek64(block_fd, &offset, SEEK_SET);
+  lseek64(block_fd, offset, SEEK_SET);
 
   nbytes_written = write(block_fd, blk->mem, 512);
 

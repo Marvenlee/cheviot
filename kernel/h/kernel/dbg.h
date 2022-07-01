@@ -24,7 +24,7 @@
  * Or define DEBUG_LEVEL at top of source file.
  */
 
-#define NDEBUG
+//#define NDEBUG
 
 #ifdef NDEBUG
 #undef KDEBUG
@@ -33,7 +33,7 @@
 #ifdef KDEBUG
 
 #ifndef DEBUG_LEVEL
-#define DEBUG_LEVEL 2
+#define DEBUG_LEVEL 0
 #endif
 
 #define Error(fmt, args...) DoLog(fmt, ##args)

@@ -25,6 +25,8 @@ cp build/host/etc/startup.cfg       build/$KERNEL_IFS_DIR/etc/
 cp build/host/bin/ksh               build/$KERNEL_IFS_DIR/bin/
 cp build/host/bin/ls                build/$KERNEL_IFS_DIR/bin/
 cp build/host/bin/env               build/$KERNEL_IFS_DIR/bin/
+cp build/host/bin/cat               build/$KERNEL_IFS_DIR/bin/
+cp build/host/bin/tr                build/$KERNEL_IFS_DIR/bin/
 	
 arm-none-eabi-objcopy build/host/sbin/boot -O binary output/boot.img
 

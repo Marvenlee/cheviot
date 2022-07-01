@@ -54,6 +54,8 @@ int kopen(char *_path, int oflags, mode_t mode) {
     return sc;
   }
 
+  Info("kopen (%s)", ld.last_component);
+
   return do_open(&ld, oflags, mode);
 }
 

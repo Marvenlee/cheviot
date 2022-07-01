@@ -164,7 +164,7 @@ int detectPartition(void) {
   struct MBRPartitionEntry mbe[4];
   int t;
 
-  KLog(">>>>>>>>>>>>>>>>> FAT - FatInit <<<<<<<<<<<<");
+  KLog(">>>>>>>>>>>>>>>>> FAT - detectPartition <<<<<<<<<<<<");
   blockRead(bootsector, 512, 0);
   memcpy(mbe, bootsector + 446, 16 * 4);
 

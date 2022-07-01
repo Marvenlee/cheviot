@@ -36,13 +36,14 @@ ssize_t read_from_cache (struct VNode *vnode, void *dst, size_t sz, off64_t *off
   current = get_current_process();
 
   if (*offset >= vnode->size) {
+    Info("read_from_cache: rc=0, *offset = %d, v->sz=%d", (int)*offset, vnode->size);
     return 0;
   }
 
   nbytes_remaining =
       (vnode->size - *offset < sz) ? vnode->size - *offset : sz;
 
-  while (nbytes_remaining > 0) {
+  while (nbytes_remaining > 0) {  
     cluster_base = ALIGN_DOWN(*offset, CLUSTER_SZ);
     cluster_offset = *offset % CLUSTER_SZ;
 
@@ -56,6 +57,7 @@ ssize_t read_from_cache (struct VNode *vnode, void *dst, size_t sz, off64_t *off
     buf = bread(vnode, cluster_base);
 
     if (buf == NULL) {
+      Info("bread buf==NULL");
       break;
     }
 

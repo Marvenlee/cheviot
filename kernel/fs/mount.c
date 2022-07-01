@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -164,7 +164,22 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
   client_vnode->uid = stat.st_uid;
   client_vnode->gid = stat.st_gid;
   client_vnode->mode = stat.st_mode;
-  client_vnode->size = stat.st_size;
+  
+  if (S_ISBLK(client_vnode->mode)) {
+    Info ("**** Mounting block device ****");
+    Info ("st_blocks = %d, st_size = %d", stat.st_blocks, stat.st_blksize);
+    client_vnode->size = (off64_t)stat.st_blocks * (off64_t)stat.st_blksize;
+  
+  } else {
+    Info ("**** mounting non-block device ****");
+    client_vnode->size = stat.st_size;
+  }
+    
+  // FIXME: Could we use blocks and block size for block mounted devices ?
+//  blksize_t     st_blksize;
+//  blkcnt_t	st_blocks;
+
+  Info("client_vnode size = %08x %08x", (client_vnode->size >> 32), (uint32_t)client_vnode->size);
   
   server_vnode->flags = V_VALID;
   server_vnode->reference_cnt = 1;

@@ -13,7 +13,7 @@ ExternalProject_Add (
 	                    --prefix=${CMAKE_CURRENT_BINARY_DIR}/build/host
                         CFLAGS=-D_POSIX_VERSION host_alias=arm-none-eabi
   DEPENDS           newlib
-  BUILD_ALWAYS      ON
+  BUILD_ALWAYS      OFF
   INSTALL_DIR       ${CMAKE_CURRENT_BINARY_DIR}/build/host/
   BUILD_COMMAND     make
 )
