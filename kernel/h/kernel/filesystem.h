@@ -18,10 +18,10 @@
 #include <poll.h>
 #include <sys/syslimits.h>
 
+
 #define BUFFER_SZ       1024          // FIXME: Used for queues ?
 
 // lookup() flags
-
 #define LOOKUP_TYPE(x)  (x & 0x0000000f) // Lookup without parent or remove will return just matching vnode
 #define LOOKUP_PARENT   (1 << 0) // Returns parent (and if exists the matching vnode)
 #define LOOKUP_REMOVE   (2 << 0) // Returns both the parent and the vnode
@@ -49,15 +49,6 @@
 // Limit of number of symlinks that can be followed
 
 #define MAX_SYMLINK     32
-
-// IsAllowed() desired access flags
-// TODO: Needed ?
-/*
-#define R_BIT 004
-#define W_BIT 002
-#define X_BIT 001
-*/
-
 
 // Unmount() options
 #define UNMOUNT_FORCE         (1 << 0)
@@ -182,9 +173,7 @@ struct Buf {
   ssize_t max_queue_sz;
   off64_t offset;
   off64_t remaining;
-*/
 
-/*
   off64_t cookie_first;
   off64_t cookie_next;
 */
@@ -218,7 +207,6 @@ struct Pipe
 };
 
 
-
 /*
  *
  */
@@ -250,19 +238,12 @@ struct VNode {
   int rdev;
   int nlink;
 
-
-  // TODO: port Purpose here?
+  // TODO: port Purpose here, helps with freeing if message is needs to be aborted?
   //  struct MsgPort *msgport;
-
-
   LIST_ENTRY(VNode) msgport_link;
   LIST(Msg) msg_list;                 // why queue messages? because of single r/w/cmd per file?
   
-
-
-  
   struct Pipe *pipe;
-
 
   LIST_ENTRY(VNode) hash_entry;
   LIST_ENTRY(VNode) vnode_entry;
@@ -299,7 +280,6 @@ struct SuperBlock {
   struct VNode *server_vnode; // Might be useful?
   struct VNode *root; // Could replace with a flag to indicate root?  (what
                       // about rename path ascension?)
-
   uint32_t flags;
   int reference_cnt;
 
@@ -307,9 +287,7 @@ struct SuperBlock {
   LIST_ENTRY(SuperBlock) link;
 
   struct MsgPort msgport;
-
   int dev;
-
 };
 
 /*
@@ -329,7 +307,8 @@ struct DName {
 
 
 /*
- * Vnode operations for each device type reg, dir, fifo, char, block
+ * TODO: Vnode operations for each device type reg, dir, fifo, char, block
+ * TODO: Replace switch statements in read, write, etc
  */
 struct VNodeOps
 {
@@ -356,9 +335,7 @@ struct VNodeOps
     // ioctl
     // fcntl
     // poll
-    // 
-
-    // need stat,
+    // stat
 };
 
 
@@ -414,20 +391,16 @@ LIST_TYPE(Pipe) pipe_list_t;
 
 // Prototypes
 
-// TODO: Move these somewhere
-SYSCALL int sys_isatty(int fd);
-SYSCALL int sys_oipe(int *fd);
-SYSCALL int sys_fcntl(int fd, int cmd, int arg);
-
 // fs/access.c
 SYSCALL int sys_access(char *path, mode_t permisssions);
 SYSCALL mode_t sys_umask(mode_t mode);
 SYSCALL int sys_chmod(char *_path, mode_t mode);
 SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid);
-
 int is_allowed(struct VNode *node, mode_t mode);
 
 /* fs/cache.c */
+ssize_t read_from_cache (struct VNode *vnode, void *src, size_t nbytes, off64_t *offset, bool inkernel);
+ssize_t write_to_cache (struct VNode *vnode, void *src, size_t nbytes, off64_t *offset);
 struct Buf *alloc_buf(size_t cluster_size);
 struct Buf *getblk(struct VNode *vnode, uint64_t cluster);
 struct Buf *findblk(struct VNode *vnode, uint64_t cluster);
@@ -439,15 +412,15 @@ int bawrite(struct Buf *buf);
 int bdwrite(struct Buf *buf);
 int bresize(struct Buf *buf, size_t sz);
 int bsync(struct VNode *vnode);
-
-//void SyncFile(struct VNode *vnode);
-//void SyncBlockDev(struct BlockDev *bdev, bool flush);
-
 void strategy(struct Buf *buf);
 void strategy_task(void);
-
 SYSCALL int sys_sync(void);
 SYSCALL int sys_fsync(int fd);
+
+/* fs/char.c */
+SYSCALL int sys_isatty(int fd);
+ssize_t read_from_char(struct VNode *vnode, void *src, size_t nbytes);
+ssize_t write_to_char(struct VNode *vnode, void *src, size_t nbytes);                               
 
 /* fs/dir.c */
 SYSCALL int sys_chdir(char *path);
@@ -467,7 +440,6 @@ void dname_purge_vnode(struct VNode *vnode);
 void dname_purge_superblock(struct SuperBlock *sb);
 void dname_purge_all(void);
 
-
 /* fs/exec.h */
 SYSCALL int sys_exec(char *filename, struct execargs *args);
 int copy_in_argv(char *pool, struct execargs *_args, struct execargs *args);
@@ -475,27 +447,11 @@ int copy_out_argv(void *stack_pointer, int stack_size, struct execargs *args);
 char *alloc_arg_pool(void);
 void free_arg_pool(char *mem);
 
-
 /* fs/handle.c */
+SYSCALL int sys_fcntl(int fd, int cmd, int arg);
 SYSCALL int sys_dup(int h);
 SYSCALL int sys_dup2(int h, int new_h);
 SYSCALL int sys_close(int h);
-
-
-/* fs/open.c */
-SYSCALL int sys_open(char *_path, int oflags, mode_t mode);
-SYSCALL int kopen(char *_path, int oflags, mode_t mode);
-
-
-/* fs/truncate.c */
-SYSCALL int sys_truncate(int fd, size_t sz);
-
-
-//SYSCALL int sys_remove(char *_path);
-SYSCALL int sys_rename(char *oldpath, char *newpath);
-SYSCALL int sys_unlink(char *pathname);
-
-/* fs/handle.c */
 struct Filp *get_filp(int fd);
 int alloc_fd(void);
 int free_fd(int fd);
@@ -506,6 +462,9 @@ int close_on_exec_process_fds(void);
 
 /* fs/init.c */
 int InitVFS(void);
+
+/* fs/link.c */
+SYSCALL int sys_unlink(char *pathname);
 
 /* fs/lookup.c */
 int lookup(char *_path, int flags, struct lookupdata *ld);
@@ -518,50 +477,33 @@ SYSCALL int sys_mknod(char *_handlerpath, uint32_t flags, struct stat *stat);
 SYSCALL int sys_mount(char *_handlerpath, uint32_t flags, struct stat *stat);
 SYSCALL int sys_unmount(int fd, bool force);
 
-/* fs/pipe.c */
+/* fs/open.c */
+SYSCALL int sys_open(char *_path, int oflags, mode_t mode);
+SYSCALL int kopen(char *_path, int oflags, mode_t mode);
 
+/* fs/pipe.c */
 void InitPipes(void);
 struct Pipe *AllocPipe(void);
 void FreePipe(struct Pipe *pipe);
 SYSCALL int sys_pipe(int _fd[2]);
-ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz);
-ssize_t WriteToPipe(struct VNode *vnode, void *_src, size_t sz);
-
+ssize_t read_from_pipe (struct VNode *vnode, void *src, size_t nbytes);
+ssize_t write_to_pipe (struct VNode *vnode, void *src, size_t nbytes);
 
 /* fs/poll.c */
 SYSCALL int sys_poll (struct pollfd *pfds, nfds_t nfds, int timeout);
 SYSCALL int sys_pollnotify (int fd, int ino, short mask, short events);
-
 void wakeup_polls(struct VNode *vnode, short mask, short events);
 int PollNotifyFromISR(struct InterruptAPI *api, uint32_t mask, uint32_t events);
 
-/* fs/queue.c */
-struct Queue *AllocQueue(int type);
-void FreeQueue(struct Queue *q);
-ssize_t ReadQueue(struct Queue *q, void *_dst, size_t sz, int vmin, int vtime);
-ssize_t WriteQueue(struct Queue *q, void *_src, size_t sz, int vmin, int vtime);
+/* fs/truncate.c */
+SYSCALL int sys_truncate(int fd, size_t sz);
 
 /* fs/read.c */
 SYSCALL ssize_t sys_read(int fd, void *buf, size_t count);
 ssize_t kread(int fd, void *dst, size_t sz);
 
-/* fs/write.c */
-SYSCALL ssize_t sys_write(int fd, void *buf, size_t count);
-
-
-ssize_t read_from_char (struct VNode *vnode, void *src,
-                               size_t nbytes);
-ssize_t read_from_cache (struct VNode *vnode, void *src,
-                               size_t nbytes, off64_t *offset, bool inkernel);
-ssize_t ReadFromFifo (struct VNode *vnode, void *src,
-                               size_t nbytes);
-
-ssize_t write_to_char (struct VNode *vnode, void *src,
-                               size_t nbytes);                               
-ssize_t write_to_cache (struct VNode *vnode, void *src,
-                               size_t nbytes, off64_t *offset);
-ssize_t WriteToFifo (struct VNode *vnode, void *src,
-                               size_t nbytes);
+/* fs/rename.c */
+SYSCALL int sys_rename(char *oldpath, char *newpath);
 
 /* fs/seek.c */
 SYSCALL off_t sys_lseek(int fd, off_t pos, int whence);
@@ -577,8 +519,6 @@ void UnlockSuperBlock(struct SuperBlock *sb);
 SYSCALL int sys_socketpair(int fd[2]);
 struct Socket *AllocSocket(void);
 void FreeSocket(struct Socket *socket);
-
-
 
 /* fs/vfs.c */
 ssize_t vfs_read(struct VNode *vnode, void *buf,
@@ -609,27 +549,18 @@ int vfs_rename(struct VNode *src_dvnode, char *src_name,
 int vfs_chmod(struct VNode *vnode, mode_t mode);
 int vfs_chown(struct VNode *vnode, uid_t uid, gid_t gid);
 
-
-
-
 /* fs/vnode.c */
 struct VNode *vnode_new(struct SuperBlock *sb, int inode_nr);
-
-// Pull existing VNode into kernel
 struct VNode *vnode_get(struct SuperBlock *sb, int vnode_nr);
-
-// Allow Vnode to be released from kernel (check it's ref count == 0)
 void vnode_put(struct VNode *vnode);
-
 void vnode_inc_ref(struct VNode *vnode);    // Why not just vnode->ref_cnt++;
-
 void vnode_free(struct VNode *vnode);      // Delete a vnode from cache and disk
-
 
 void vnode_lock(struct VNode *vnode);      // Acquire busy lock
 void vnode_unlock(struct VNode *vnode);    // Release busy lock
 
-
+/* fs/write.c */
+SYSCALL ssize_t sys_write(int fd, void *buf, size_t count);
 
 
 

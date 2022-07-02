@@ -103,13 +103,10 @@ struct Pageframe *AllocPageframe(vm_size size) {
 }
 
 /*
- *
+ * FIXME: Debug FreePageframe, Finish VirtualFree
  */
 void FreePageframe(struct Pageframe *pf) {
-  // FIXME: Debug FreePageframe, remove return
-  return;
-  
-  
+/*  
   KASSERT(pf != NULL);
   KASSERT((pf - pageframe_table) < max_pageframe);
   KASSERT(pf->size == 65536 || pf->size == 16384 || pf->size == 4096);
@@ -127,10 +124,16 @@ void FreePageframe(struct Pageframe *pf) {
     LIST_ADD_TAIL(&free_4k_pf_list, pf, link);
     CoalesceSlab(pf);
   }
+*/
 }
 
 /*
+ * Coalesce free pages in a 64k block.
  *
+ * The page allocator manages memory in three sizes of 4k, 16k and 64k pages.
+ * If a 4k or 16k page is freed, check the other pages in the 64k aligned span
+ * are also free. If all pages in a 64k span are free then coalesce into a
+ * single 64k page. 
  */
 void CoalesceSlab(struct Pageframe *pf) {
   vm_addr base;

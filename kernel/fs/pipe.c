@@ -180,7 +180,7 @@ exit:
  * Do we use same code for pipes as well as socketpair devices?
  */
 
-ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz)
+ssize_t read_from_pipe(struct VNode *vnode, void *_dst, size_t sz)
 {
   uint8_t *dst = (uint8_t *)_dst;
   uint8_t *dst2;
@@ -253,7 +253,7 @@ ssize_t ReadFromPipe(struct VNode *vnode, void *_dst, size_t sz)
  *
  */
 
-ssize_t WriteToPipe(struct VNode *vnode, void *_src, size_t sz)
+ssize_t write_to_pipe(struct VNode *vnode, void *_src, size_t sz)
 {
   uint8_t *src = (uint8_t *)_src;
   uint8_t *src2;

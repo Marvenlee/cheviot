@@ -32,8 +32,8 @@
 #include <string.h>
 
 
-
-SYSCALL vm_addr sys_virtualtophysaddr(vm_addr addr) {
+SYSCALL vm_addr sys_virtualtophysaddr(vm_addr addr)
+{
   struct Process *current;
   struct AddressSpace *as;
   vm_addr va;
@@ -55,11 +55,11 @@ SYSCALL vm_addr sys_virtualtophysaddr(vm_addr addr) {
   return pa;
 }
 
-
 /*
  * Map an area of memory
  */
-SYSCALL void *sys_virtualalloc(void *_addr, size_t len, bits32_t flags) {
+SYSCALL void *sys_virtualalloc(void *_addr, size_t len, bits32_t flags)
+{
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -117,9 +117,9 @@ cleanup:
  * Maps an area of physical memory such as IO device or framebuffer into the
  * address space of the calling process.
  */
-
 SYSCALL void *sys_virtualallocphys(void *_addr, size_t len, bits32_t flags,
-                         void *_paddr) {
+                         void *_paddr)
+{
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -179,7 +179,8 @@ cleanup:
 /*
  *
  */
-SYSCALL int sys_virtualfree(void *_addr, size_t len) {
+SYSCALL int sys_virtualfree(void *_addr, size_t len)
+{
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;
@@ -193,8 +194,9 @@ SYSCALL int sys_virtualfree(void *_addr, size_t len) {
   Info("VirtualFree addr:%08x, sz=%08x", addr, len);
 
   for (va = addr; va < addr + len; va += PAGE_SIZE) {
-    // TODO: Get pageframe (pmapextract?)  decrement ref count.  Free page 
-        
+    // FIXME: Get pageframe (pmapextract?)  decrement ref count.  Free page if ref_cnt == 0
+    // Finish FreePageframe
+    
     PmapRemove(as, va);
   }
 
@@ -207,7 +209,8 @@ SYSCALL int sys_virtualfree(void *_addr, size_t len) {
  * Change the read/write/execute protection attributes of a range of pages in
  * the current address space
  */
-SYSCALL int sys_virtualprotect(void *_addr, size_t len, bits32_t flags) {
+SYSCALL int sys_virtualprotect(void *_addr, size_t len, bits32_t flags)
+{
   struct Process *current;
   struct AddressSpace *as;
   vm_addr addr;

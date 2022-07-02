@@ -109,7 +109,8 @@ The intial work that needs to be done is:
   * Finish of file system syscalls.
   * File creation and write handling, lazy flushing of cache.
   * SD Card driver with write support and determination of media size.
-  * Ext File System support (avoids limits of the FAT FS).
+  * Fix virtualfree and freeing of pages
+  * Ext File System support, cleanup FAT FS.
   * Signal handling (API exists but handlers are not called)
   * Stride scheduler fixes.
   * Permission checks.
@@ -121,7 +122,7 @@ Further work:
   * POSIX threads, currrently supports libtask coroutines.
   * Convert Memory segments back to linked lists.
   * Cleanup poll handling, add select.
-  * Additional drivers for GPIO pins.
+  * Additional drivers for GPIO pins, USB etc.
   * Self host GCC and binutils.
   * Port of a text editor
   
@@ -139,18 +140,5 @@ mechanisms to do system call and return, interrupt and return and trap and retur
 to another address space.  This would allow implementing of several protection
 rings. The process manager at ring 0, the VFS at ring 1, apps at ring 2 and
 sandbox within an app in ring 3.
-
-
-
-
-
-  
-  
-
-
-
-
-
-
 
 

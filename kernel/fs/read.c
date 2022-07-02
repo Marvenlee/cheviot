@@ -61,9 +61,9 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   } else if (S_ISREG(vnode->mode)) {
     xfered = read_from_cache (vnode, dst, sz, &filp->offset, false);
   } else if (S_ISFIFO(vnode->mode)) {
-    xfered = ReadFromPipe (vnode, dst, sz);  
+    xfered = read_from_pipe (vnode, dst, sz);  
   } else if (S_ISBLK(vnode->mode)) {
-    xfered = read_from_block (vnode, dst, sz, &filp->offset);   // FIXME: Don't cache block devices
+    xfered = read_from_block (vnode, dst, sz, &filp->offset);
   } else if (S_ISDIR(vnode->mode)) {
     xfered = -EINVAL;
   } else {

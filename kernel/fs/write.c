@@ -42,9 +42,9 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
   if (S_ISCHR(vnode->mode)) {
     xfered = write_to_char(vnode, src, sz);  
   } else if (S_ISBLK(vnode->mode)) {
-    xfered = write_to_cache(vnode, src, sz, &filp->offset);
+    xfered = write_to_block(vnode, src, sz, &filp->offset);
   } else if (S_ISFIFO(vnode->mode)) {
-    xfered = WriteToPipe(vnode, src, sz);
+    xfered = write_to_pipe(vnode, src, sz);
   } else {
     Info ("Write to unknown file type");
     xfered = -EINVAL;

@@ -16080,8 +16080,8 @@ diff -aurN third_party_original/newlib-3.2.0/newlib/libc/sys/arm/sys/statvfs.h t
 +
 diff -aurN third_party_original/newlib-3.2.0/newlib/libc/sys/arm/sys/syscalls.h third_party/newlib-3.2.0/newlib/libc/sys/arm/sys/syscalls.h
 --- third_party_original/newlib-3.2.0/newlib/libc/sys/arm/sys/syscalls.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-3.2.0/newlib/libc/sys/arm/sys/syscalls.h	2022-06-29 14:50:02.889945384 +0100
-@@ -0,0 +1,210 @@
++++ third_party/newlib-3.2.0/newlib/libc/sys/arm/sys/syscalls.h	2022-07-02 13:10:59.444940803 +0100
+@@ -0,0 +1,214 @@
 +#ifndef _SYS_KSYSCALLS_H
 +#define _SYS_KSYSCALLS_H
 +
@@ -16254,7 +16254,11 @@ diff -aurN third_party_original/newlib-3.2.0/newlib/libc/sys/arm/sys/syscalls.h 
 +
 +int _swi_mknod(char *_path, uint32_t flags, struct stat *stat);
 +
-+
++/*
++ * unistd.h 64-bit syscalls.
++ */
++ 
++off64_t lseek64 (int fd, off64_t offset, int whence);
 +
 +/*
 + *

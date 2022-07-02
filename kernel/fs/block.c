@@ -51,38 +51,19 @@ ssize_t read_from_block (struct VNode *vnode, void *dst, size_t sz, off64_t *off
     xfer = (sz < sizeof buf) ? sz : sizeof buf;
 
     xfered = vfs_read(vnode, buf, xfer, offset);
-    
-    bool has_data = false;
-    for (int t = 0; t<xfered; t++)
-    {
-      if (buf[t] != 0) {
-        Info ("!!!!!!!!!!! block has data, offs %d !", t);
-        has_data = true;
-        break;
-      }
-    }
-    
-    if (!has_data)
-    {
-        Info ("!!!!!!! block is ALL ZEROES !!!! ");
-    }
-    
-    
-    
+        
     CopyOut(dst, buf, xfered);
        
     Info ("ReadFromBlock xfered: %d", xfered);
-    
-     uint8_t *p=buf;
- 
-    for (int t=0; t<8; t++) {      
-      Info ("%02x %02x %02x %02x  %02x %02x %02x %02x", p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
-      p+=8;
-    }
-
 
     return xfered;
 }
 
-
+/*
+ * TODO: write to block device
+ */
+ssize_t write_to_block (struct VNode *vnode, void *dst, size_t sz, off64_t *offset)
+{
+    return -ENOSYS;
+}
 
