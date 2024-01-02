@@ -18,6 +18,8 @@
  * Functions for allocating physical pages of system RAM.
  */
 
+//#define KDEBUG  1
+
 #include <kernel/arch.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
@@ -30,11 +32,46 @@
 #include <string.h>
 
 
+/* @brief   Allocate a page in kernel memory
+ *
+ * @return  Virtual address of an allocated, page-sized area of memory
+ */ 
+void *kmalloc_page(void)
+{
+  void *vaddr;
+  struct Pageframe *pf;
+  
+  pf = alloc_pageframe(PAGE_SIZE);
+  
+  if (pf == NULL) {
+    return NULL;
+  }
+  
+  vaddr = (void *)pmap_pf_to_va(pf);
+  return vaddr;
+}
+
+
+/*
+ *
+ */
+void kfree_page(void *vaddr)
+{
+  struct Pageframe *pf;
+  
+  pf = pmap_va_to_pf((vm_addr)vaddr);
+  
+  if (pf != NULL) {
+    free_pageframe(pf);
+  }
+}
+
 /*
  * Allocate a 4k, 16k or 64k page, splitting larger slabs into smaller sizes if
  * needed. Could eventually do some page movement to make contiguous memory.
  */
-struct Pageframe *AllocPageframe(vm_size size) {
+struct Pageframe *alloc_pageframe(vm_size size)
+{
   struct Pageframe *head = NULL;
   int t;
 
@@ -66,9 +103,7 @@ struct Pageframe *AllocPageframe(vm_size size) {
     return NULL;
   }
 
-  if (head->flags & PGF_INUSE) {
-    Warn("**** Alloc Pageframe in-use");
-  }
+  KASSERT ((head->flags & PGF_INUSE) == 0);
 
   // Split 64k slabs if needed into 4k or 16k allocations.
 
@@ -92,9 +127,9 @@ struct Pageframe *AllocPageframe(vm_size size) {
 
   KASSERT(head->physical_addr < (128 * 1024 * 1024));
 
-  PmapPageframeInit(&head->pmap_pageframe);
+  pmap_pageframe_init(&head->pmap_pageframe);
 
-  vm_addr va = PmapPaToVa(head->physical_addr);
+  vm_addr va = pmap_pa_to_va(head->physical_addr);
 
   // Ahh, this might be because root pages aren't all reserved?
   memset((void *)va, 0, size);
@@ -102,16 +137,32 @@ struct Pageframe *AllocPageframe(vm_size size) {
   return head;
 }
 
+
+/*
+ *
+ */
+
+int dup_pageframe(struct Pageframe *pf)
+{
+  pf->reference_cnt++;
+  return 0;
+}
+
+
 /*
  * FIXME: Debug FreePageframe, Finish VirtualFree
  */
-void FreePageframe(struct Pageframe *pf) {
-/*  
+void free_pageframe(struct Pageframe *pf)
+{
   KASSERT(pf != NULL);
   KASSERT((pf - pageframe_table) < max_pageframe);
   KASSERT(pf->size == 65536 || pf->size == 16384 || pf->size == 4096);
 
-  KASSERT(pf->reference_cnt == 0);
+  pf->reference_cnt--;
+
+  if (pf->reference_cnt > 0) {
+    return;
+  }
 
   pf->flags = 0;
 
@@ -119,12 +170,11 @@ void FreePageframe(struct Pageframe *pf) {
     LIST_ADD_TAIL(&free_64k_pf_list, pf, link);
   } else if (pf->size == 16384) {
     LIST_ADD_TAIL(&free_16k_pf_list, pf, link);
-    CoalesceSlab(pf);
+    coalesce_slab(pf);
   } else {
     LIST_ADD_TAIL(&free_4k_pf_list, pf, link);
-    CoalesceSlab(pf);
+    coalesce_slab(pf);
   }
-*/
 }
 
 /*
@@ -135,7 +185,8 @@ void FreePageframe(struct Pageframe *pf) {
  * are also free. If all pages in a 64k span are free then coalesce into a
  * single 64k page. 
  */
-void CoalesceSlab(struct Pageframe *pf) {
+void coalesce_slab(struct Pageframe *pf)
+{
   vm_addr base;
   vm_addr ceiling;
   vm_size stride;

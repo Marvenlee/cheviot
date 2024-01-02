@@ -23,36 +23,18 @@
 #include <kernel/types.h>
 
 
-struct SuperBlock pipe_sb;
-
 
 /*
  *
  */
-void InitPipes(void)
-{
-  struct Pipe *pipe;
-  
-  LIST_INIT(&free_pipe_list);
-  
-  for (int t=0; t<max_pipe; t++)
-  {
-    LIST_ADD_TAIL(&free_pipe_list, &pipe_table[t], link);
-  }
-}
-
-
-/*
- *
- */
-struct Pipe *AllocPipe(void)
+struct Pipe *alloc_pipe(void)
 {
   struct Pipe *pipe;
     
   pipe = LIST_HEAD(&free_pipe_list);
   
   if (pipe == NULL) {
-    Info("AllocPipe, failed, list empty");
+    Error("alloc_pipe, failed, list empty");
     return NULL;
   }
   
@@ -65,7 +47,13 @@ struct Pipe *AllocPipe(void)
   
   pipe->reader_cnt = 0;
   pipe->writer_cnt = 0;
-  pipe->data = (uint8_t *)pipe_mem_base + (pipe - pipe_table) * PIPE_BUF_SZ;
+  
+  pipe->data = kmalloc_page();
+  
+  if (pipe->data == NULL) {
+    LIST_ADD_HEAD(&free_pipe_list, pipe, link);
+  }   
+  
   InitRendez(&pipe->rendez);
   
   return pipe;
@@ -75,11 +63,13 @@ struct Pipe *AllocPipe(void)
 /*
  *
  */
-void FreePipe(struct Pipe *pipe)
+void free_pipe(struct Pipe *pipe)
 {
   if (pipe != NULL) {
     return;
   }
+
+  // FIXME: kfree_page(pipe->data);
 
   LIST_ADD_HEAD(&free_pipe_list, pipe, link);
 }
@@ -88,45 +78,44 @@ void FreePipe(struct Pipe *pipe)
 /*
  *
  */
-SYSCALL int sys_pipe(int _fd[2])
+int sys_pipe(int _fd[2])
 {
   int fd[2] = {-1, -1};
   struct Filp *filp0 = NULL;
   struct Filp *filp1 = NULL;
+  struct Pipe *pipe = NULL;  
   struct VNode *vnode = NULL;
-  struct Buf *buf = NULL;
+
   struct Process *current;
   int error;
-  struct Pipe *pipe;  
   
- 
-  Info("sys_pipe: _fd=%08x", _fd);
-  
+
   current = get_current_process();
 
-  vnode = vnode_new(&pipe_sb, 0);
   
-  if (vnode == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-  
-  pipe = AllocPipe();
+  pipe = alloc_pipe();
 
   if (pipe == NULL) {
     error = -ENOMEM;
     goto exit;
   }
 
+  vnode = vnode_new(&pipe_sb, 0);
 
-  fd[0] = alloc_fd();
+  if (vnode == NULL) {
+    error = -ENOMEM;
+    goto exit;
+  }
+
+
+  fd[0] = alloc_fd_filp(current);
 
   if (fd[0] < 0) {
     error = -ENOMEM;
     goto exit;
   }
   
-  fd[1] = alloc_fd();
+  fd[1] = alloc_fd_filp(current);
   if (fd[1] < 0) {
     error = -ENOMEM;
     goto exit;
@@ -134,20 +123,23 @@ SYSCALL int sys_pipe(int _fd[2])
   
   Info ("sys_pipe alloced fds: %d, %d", fd[0], fd[1]);
   
-  vnode->mode = _IFIFO | 0777;
-  vnode->superblock = &pipe_sb;
-  vnode->pipe = pipe;
   
-  filp0 = get_filp(fd[0]);
-  filp0->vnode = vnode;
+  filp0 = get_filp(current, fd[0]);
   filp0->offset = 0;
-
-  filp1 = get_filp(fd[1]);
-  filp1->vnode = vnode;
+  filp0->flags = O_RDONLY;
+  filp0->u.vnode = vnode;
+  
+  filp1 = get_filp(current, fd[1]);
   filp1->offset = 0;
-
-  vnode->reference_cnt = 2;
-
+  filp1->flags = O_WRONLY;
+  filp1->u.vnode = vnode;
+  
+  pipe->reader_cnt = 1;
+  pipe->writer_cnt = 1;
+  
+  vnode->pipe = pipe;
+  vnode->mode = _IFIFO | 0777;
+  
   vnode_unlock(vnode);
 
   if (CopyOut(_fd, fd, sizeof fd) != 0) {
@@ -165,12 +157,12 @@ exit:
   // TODO: Need to check these aren't null or -1 when freeing
   Info ("Pipe failed error = %d", error);
   
-/*  FreePipe(pipe);
+/*  free_pipe(pipe);
   vnode_Free(vnode);
   FreeFilp(filp1);
   FreeFilp(filp0);
-  free_fd(fd[1], current);
-  free_fd(fd[0], current);
+  free_fd_filp(fd[1], current);
+  free_fd_filp(fd[0], current);
 */
   return error;
 }
@@ -191,9 +183,7 @@ ssize_t read_from_pipe(struct VNode *vnode, void *_dst, size_t sz)
   ssize_t nbytes_read = 0;   
   int status = 0;
   struct Pipe *pipe;
-  
-  Info("ReadFromPipe, sz = %d", sz);
-
+    
   pipe = vnode->pipe;
   
   while (nbytes_read == 0 && status == 0) {         
@@ -201,15 +191,20 @@ ssize_t read_from_pipe(struct VNode *vnode, void *_dst, size_t sz)
 
     Info ("..Pipe read remaining = %d, data_sz = %d, ref = %d", remaining, pipe->data_sz, vnode->reference_cnt);
       
-    while (pipe->data_sz == 0 && vnode->reference_cnt > 1) {
+    while (pipe->data_sz == 0 && pipe->writer_cnt > 1) {
       Info ("..Pipe read sleeping");
       TaskSleep (&pipe->rendez);
     }
 
-    if ( vnode->reference_cnt <= 1 && pipe->data_sz == 0) {
+    if ( pipe->writer_cnt == 0 && pipe->data_sz == 0) {
       Info ("..Pipe read, ref_cnt = %d, data_sz=%d", vnode->reference_cnt, pipe->data_sz);
       break;
     }  
+    
+    if (pipe->data_sz == 0) {
+      continue;
+    }
+    
 
     nbytes_to_copy = (remaining < pipe->data_sz) ? remaining : pipe->data_sz;
 
@@ -245,6 +240,7 @@ ssize_t read_from_pipe(struct VNode *vnode, void *_dst, size_t sz)
   }
 
   Info ("..Pipe read, read:%d, st:%d", nbytes_read, status);    
+
   return (status == 0) ? nbytes_read : status;
 }
 
@@ -266,7 +262,6 @@ ssize_t write_to_pipe(struct VNode *vnode, void *_src, size_t sz)
   struct Pipe *pipe;
   
   Info("WriteToPipe, sz = %d", sz);
-
   pipe = vnode->pipe;
 
   while (nbytes_written == 0 && status == 0) {
@@ -274,13 +269,13 @@ ssize_t write_to_pipe(struct VNode *vnode, void *_src, size_t sz)
 
     Info ("..Pipe write remaining=%d, free_sz=%d, ref=%d", remaining, pipe->free_sz, vnode->reference_cnt);
 
-    while (pipe->free_sz < PIPE_BUF && vnode->reference_cnt > 1) {
+    while (pipe->free_sz < PIPE_BUF && pipe->reader_cnt >= 1) {
       Info ("..Pipe write sleeping");
       TaskSleep (&pipe->rendez);
     }
 
-    if ( vnode->reference_cnt <= 1) {
-      Info ("Pipe write, ref_cnt = %d, ending xfer", vnode->reference_cnt);
+    if ( pipe->reader_cnt == 0) {
+      Info ("Pipe write, ref_cnt = %d, ending xfer", pipe->reader_cnt);
       // FIXME: pipe reference count ends up being -5
       break;
     }  

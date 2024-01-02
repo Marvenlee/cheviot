@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
-#include <kernel/arm/elf.h>
+
+#define KDEBUG
+
+#include <kernel/board/elf.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/filesystem.h>
@@ -26,11 +28,17 @@
 #include <kernel/vm.h>
 #include <string.h>
 #include <sys/execargs.h>
+#include <sys/wait.h>
 
-/* @brief System call to fork the calling process
+
+/* @brief   Fork the calling process
  *
+ * @return  In parent process, a positive non-zero Process ID of the child process
+ *          In child process, 0 is returned
+ *          On error a negative errno value is returned.
  */
-SYSCALL int sys_fork(void) {
+int sys_fork(void)
+{
   struct Process *current;
   struct Process *proc;
 
@@ -42,14 +50,14 @@ SYSCALL int sys_fork(void) {
 
   fork_process_fds(proc, current);
 
-  if (ArchForkProcess(proc, current) != 0) {
-    close_process_fds(proc);
+  if (arch_fork_process(proc, current) != 0) {
+    fini_fproc(proc);
     FreeProcess(proc);
     return -ENOMEM;
   }
 
-  if (ForkAddressSpace(&proc->as, &current->as) != 0) {
-    close_process_fds(proc);
+  if (fork_address_space(&proc->as, &current->as) != 0) {
+    fini_fproc(proc);
     FreeProcess(proc);
     return -ENOMEM;
   }
@@ -63,13 +71,19 @@ SYSCALL int sys_fork(void) {
   return GetProcessPid(proc);
 }
 
-/* @brief System call to exit the calling process.
+
+/* @brief   Exit the current process.
+ * 
+ * @param   Exit status to return to parent
  */
-SYSCALL void sys_exit(int status) {
+void sys_exit(int status)
+{
   struct Process *current;
   struct Process *parent;
   struct Process *child;
   struct Process *proc;
+  
+  Info("sys_exit(%d)", status);
   
   current = get_current_process();
   parent = current->parent;
@@ -78,8 +92,8 @@ SYSCALL void sys_exit(int status) {
 
   current->exit_status = status;
 
-  close_process_fds(current);
-  CleanupAddressSpace(&current->as);
+  fini_fproc(current);
+  cleanup_address_space(&current->as);
 
   while ((child = LIST_HEAD(&current->child_list)) != NULL) {
     LIST_REM_HEAD(&current->child_list, child_link);
@@ -87,8 +101,8 @@ SYSCALL void sys_exit(int status) {
     if (child->state == PROC_STATE_ZOMBIE) {
 
       // Or attach to root
-      FreeAddressSpace(&child->as);
-      ArchFreeProcess(child);
+      free_address_space(&child->as);
+      arch_free_process(child);
       FreeProcess(child);
     } else {
       LIST_ADD_TAIL(&root_process->child_list, child, child_link);
@@ -96,15 +110,15 @@ SYSCALL void sys_exit(int status) {
     }
   }
 
-// TODO: Cancel any alarms to interrupt handlers
+  // TODO: Cancel any alarms to interrupt handlers
 
-//	parent->usignal.sig_pending |= SIGFCHLD;	
-//	parent->usignal.siginfo_data[SIGCHLD-1].si_signo = SIGCHLD;
-//	parent->usignal.siginfo_data[SIGCHLD-1].si_code = 0;
-//	parent->usignal.siginfo_data[SIGCHLD-1].si_value.sival_int = 0;
+  //	parent->usignal.sig_pending |= SIGFCHLD;	
+  //	parent->usignal.siginfo_data[SIGCHLD-1].si_signo = SIGCHLD;
+  //	parent->usignal.siginfo_data[SIGCHLD-1].si_code = 0;
+  //	parent->usignal.siginfo_data[SIGCHLD-1].si_value.sival_int = 0;
 
   if (current->pid == current->pgrp) {
-	// Kill (-current->pgrp, SIGHUP);
+	  // FIXME: Kill (-current->pgrp, SIGHUP);
   }
     
   TaskWakeup(&parent->rendez);
@@ -113,7 +127,6 @@ SYSCALL void sys_exit(int status) {
   KASSERT(bkl_locked == true);
   
   if (bkl_owner != current) {
-      Info ("bkl_owner = %08x", (vm_addr)bkl_owner);
       KASSERT(bkl_owner == current);
   }
   
@@ -135,14 +148,22 @@ SYSCALL void sys_exit(int status) {
   EnableInterrupts();
 }
 
-/* @brief System call to wait for child processes to exit
+
+/* @brief   Wait for child processes to exit
+ *
+ * @param   pid,
+ * @param   status,
+ * @param   options
+ * @return  PID of exited child process or negative errno on failure  
  */
-SYSCALL int sys_waitpid(int pid, int *status, int options) {
+int sys_waitpid(int pid, int *status, int options)
+{
   struct Process *current;
   struct Process *child;
   bool found = false;
   int found_in_pgrp = 0;
   int err = 0;
+  
   
   current = get_current_process();
 
@@ -276,8 +297,8 @@ SYSCALL int sys_waitpid(int pid, int *status, int options) {
 
   LIST_REM_ENTRY(&current->child_list, child, child_link);
 
-  FreeAddressSpace(&child->as);
-  ArchFreeProcess(child);
+  free_address_space(&child->as);
+  arch_free_process(child);
   FreeProcess(child);
   
   return pid;
@@ -286,7 +307,10 @@ exit:
   return err;
 }
 
-/* @brief Allocate a process structure
+
+/* @brief   Allocate a process structure
+ *
+ * @return  Allocated and initialized Process structure or NULL
  */
 struct Process *AllocProcess(void) {
   struct Process *proc = NULL;
@@ -315,32 +339,39 @@ struct Process *AllocProcess(void) {
   proc->exit_status = 0;
   proc->flags = 0;
   proc->log_level = current->log_level;
-  proc->quanta_used = current->quanta_used;
+  proc->quanta_used = 0;
   proc->sched_policy = current->sched_policy;
-  proc->rr_priority = current->rr_priority;
-  proc->stride_tickets = current->stride_tickets;
-  proc->stride = current->stride;
-  proc->stride_pass = global_pass;
-  proc->msg = NULL;
-
-// FIXME: SigInit(proc);
-
-  init_process_fds(proc);
+  proc->priority = current->priority;
+  proc->desired_priority = current->desired_priority;
+  
+  // FIXME: SigInit(proc);
+  init_msgport(&proc->reply_port);
+  init_fproc(proc);
+  
   InitRendez(&proc->rendez);
   LIST_INIT(&proc->child_list);
 
   return proc;
 }
 
-/* @brief Free a process structure
+ 
+/* @brief   Free a process structure
+ *
+ * @param   proc, Process structure to free
  */
-void FreeProcess(struct Process *proc) {
+void FreeProcess(struct Process *proc)
+{
   proc->in_use = false;
 }
 
-/* @brief Get the process structure of the calling process
+
+/* @brief   Get the process structure of the calling process
+ * 
+ * @param   pid, process ID of process to lookup
+ * @return  Pointer to looked up process or NULL if it doesn't exist.
  */
-struct Process *GetProcess(int pid) {
+struct Process *GetProcess(int pid)
+{
   if (pid < 0 || pid >= max_process) {
     return NULL;
   }
@@ -348,14 +379,21 @@ struct Process *GetProcess(int pid) {
   return (struct Process *)((uint8_t *)process_table + (pid * PROCESS_SZ));
 }
 
-/* @brief Get the process ID of a process
+
+/* @brief   Get the process ID of a process
+ * 
+ * @param   proc, Process structure to get PID of
+ * @return  PID of process
  */
 int GetProcessPid(struct Process *proc)
 {
   return proc->pid;
 }
 
-/* @brief Get the Process ID of the calling process
+
+/* @brief   Get the Process ID of the calling process
+ *
+ * @return  PID of calling process
  */
 int GetPid(void)
 {

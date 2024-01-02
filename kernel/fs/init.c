@@ -14,47 +14,47 @@
  * limitations under the License.
  */
 
-#include <kernel/arm/boot.h>
-#include <kernel/arm/globals.h>
+#include <kernel/board/boot.h>
+#include <kernel/board/globals.h>
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
 #include <kernel/globals.h>
 #include <kernel/proc.h>
 #include <kernel/types.h>
+#include <kernel/msg.h>
 
 static void InitFSLists(void);
 static void InitCache(void);
 
-/*
- *
- */
-int InitVFS(void) {
-  Info("InitVFS()");
 
+/* @brief   Initialize the kernel's virtual filesystem
+ */
+int init_vfs(void)
+{  
   InitFSLists();
   InitCache();
   InitPipes();
   
-  root_vnode = NULL;
-     
-  Info("InitVFS done");
+  root_vnode = NULL;  
   return 0;
 }
 
-static void InitFSLists(void) {
 
+/* @brief   Initialize tables and lists of VFS objects
+ */
+static void InitFSLists(void)
+{
   LIST_INIT(&vnode_free_list);
   LIST_INIT(&filp_free_list);
   LIST_INIT(&dname_lru_list);
-  LIST_INIT(&poll_free_list);
   LIST_INIT(&free_superblock_list);
-  
-  // TODO: Need pagetables allocated for this file cache.
+  LIST_INIT(&kqueue_free_list);
+  LIST_INIT(&knote_free_list);
+  LIST_INIT(&isr_handler_free_list);
 
+  // TODO: Need pagetables allocated for this file cache?
   // TODO Replace NR_VNODE, NR_FILP, NR_DNAME with computed variables max_vnode,
-  // max_filp etc.
-  // Allocate in main.c
-
+  // max_filp etc, that are allocated in main.c
   // Perhaps get some params from kernel command line?
 
   for (int t = 0; t < NR_VNODE; t++) {
@@ -74,19 +74,37 @@ static void InitFSLists(void) {
     LIST_INIT(&dname_hash[t]);
   }
 
-  for (int t = 0; t < NR_POLL; t++) {
-    LIST_ADD_TAIL(&poll_free_list, &poll_table[t], poll_link);
-  }
-
   for (int t = 0; t < max_superblock; t++) {
     LIST_ADD_TAIL(&free_superblock_list, &superblock_table[t], link);
   }
+
+  for (int t = 0; t < max_kqueue; t++) {
+    LIST_ADD_TAIL(&kqueue_free_list, &kqueue_table[t], free_link);
+  }
+
+  for (int t = 0; t < max_knote; t++) {
+    LIST_ADD_TAIL(&knote_free_list, &knote_table[t], link);
+  }
+
+  for (int t = 0; t < max_isr_handler; t++) {
+    LIST_ADD_TAIL(&isr_handler_free_list, &isr_handler_table[t], free_link);
+  }
+
+  for (int t = 0; t < KNOTE_HASH_SZ; t++) {
+    LIST_INIT(&knote_hash[t]);
+  }  
+  
+  for (int t = 0; t < MSGID_HASH_SZ; t++) {
+    LIST_INIT(&msgid_hash[t]);
+  }  
 }
 
-/**
+
+/* @brief   Initialize the VFS's file cache
  *
  */
-static void InitCache(void) {
+static void InitCache(void)
+{
   vm_addr va;
 
   LIST_INIT(&buf_avail_list);
@@ -97,13 +115,8 @@ static void InitCache(void) {
     InitRendez(&buf_table[t].rendez);
     buf_table[t].flags = 0;
     buf_table[t].vnode = NULL;
-    buf_table[t].blockdev = NULL;
     buf_table[t].cluster_offset = 0;
-    buf_table[t].cluster_size = 0;
-    buf_table[t].addr = (void *)va;
-    // TODO: Remove    buf_table[t].offset = 0;
-    //	    buf_table[t].remaining = 0;
-    buf_table[t].dirty_bitmap = 0;
+    buf_table[t].data = (void *)va;
 
     va += CLUSTER_SZ;
 
@@ -115,4 +128,18 @@ static void InitCache(void) {
   }
 }
 
+
+/*
+ *
+ */
+void InitPipes(void)
+{
+  struct Pipe *pipe;
+  
+  LIST_INIT(&free_pipe_list);
+  
+  for (int t=0; t<max_pipe; t++) {
+    LIST_ADD_TAIL(&free_pipe_list, &pipe_table[t], link);
+  }
+}
 

@@ -11,34 +11,42 @@
 #include <sys/mount.h>
 
 
-
-
-/*
+/* @brief   Write the contents of a buffer to a file
  *
+ * @param   fd, file descriptor of file to write to
+ * @param   src, user-mode buffer containing data to write to file
+ * @param   sz, size in bytes of buffer pointed to by src
+ * @return  number of bytes written or negative errno on failure
  */
-SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
+ssize_t sys_write(int fd, void *src, size_t sz)
+{
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;
+  struct Process *current;
   
-  Info("sys_write fd:%d, src:%08x, sz:%d", fd, src, sz);
-  
-  filp = get_filp(fd);
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  if (filp == NULL) {
-    Info ("write - filp is null");
+  if (vnode == NULL) {
     return -EINVAL;
   }
 
-  vnode = filp->vnode;
-
   if (is_allowed(vnode, W_OK) != 0) {
-    Info ("Write IsAllowed failed");
     return -EACCES;
   }
   
+  #if 0   // FIXME: Check if writer permission  
+  if (filp->flags & O_WRITE) == 0) {
+    return -EACCES;
+  } 
+  #endif  
+
+  
   vnode_lock(vnode);
   
+  // TODO: Add write to cache path
   if (S_ISCHR(vnode->mode)) {
     xfered = write_to_char(vnode, src, sz);  
   } else if (S_ISBLK(vnode->mode)) {
@@ -46,26 +54,13 @@ SYSCALL ssize_t sys_write(int fd, void *src, size_t sz) {
   } else if (S_ISFIFO(vnode->mode)) {
     xfered = write_to_pipe(vnode, src, sz);
   } else {
-    Info ("Write to unknown file type");
     xfered = -EINVAL;
   }  
 
-  // Update accesss timestamps
-
+  // TODO: Update accesss timestamps
   vnode_unlock(vnode);
   
   return xfered;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 

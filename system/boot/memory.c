@@ -7,7 +7,8 @@
 /*
     Initialise bmalloc() heap,  determine amount of physical memory.
  */
-vm_size init_mem(void) {
+vm_size init_mem(void)
+{
   uint32 result;
   vm_size size;
 
@@ -30,3 +31,4 @@ vm_size init_mem(void) {
   size = mailbuffer[6];
   return size;
 }
+

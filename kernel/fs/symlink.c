@@ -21,10 +21,10 @@
 #include <kernel/proc.h>
 #include <kernel/types.h>
 
-/*
+/* @brief   Create a symbolic link in the file system
  *
  */
-SYSCALL int sys_symlink(char *_path, char *_link) {
+int sys_symlink(char *_path, char *_link) {
   struct lookupdata ld;
   int status;
 
@@ -43,10 +43,11 @@ SYSCALL int sys_symlink(char *_path, char *_link) {
   return status;
 }
 
-/*
+
+/* @brief   Get the path a symbolic link points to
  *
  */
-SYSCALL int sys_readlink(char *_path, char *_link, size_t link_size) {
+int sys_readlink(char *_path, char *_link, size_t link_size) {
   struct lookupdata ld;
   int status;
   

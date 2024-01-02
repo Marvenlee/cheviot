@@ -20,31 +20,31 @@
 #include <kernel/types.h>
 #include <stdarg.h>
 
-void ItoA32(va_list *ap, int32_t base, char *buf);
-void UItoA32(va_list *ap, int32_t base, char *buf);
-void PrintFormattedInteger(char *buf, int32_t base, uint32_t flags,
-                           int32_t width, void (*printchar_fp)(char, void *),
-                           void *ar);
 
+// Constants
 #define ASCII_TO_INT(n) ((n)-48)
 #define ASCII_TO_UPPER(n) ((n)-32)
-
 #define FLAG_ENDFORMAT (1 << 0)
 #define FLAG_LEFT (1 << 1)
 #define FLAG_SIGN (1 << 2)
 #define FLAG_ZERO (1 << 3)
 #define FLAG_UPPERCASE (1 << 4)
 #define FLAG_ALTERNATE (1 << 5)
-
 #define MIN_int32_t (0x80000000L)
 
-/* DoPrintf();
+// Prototypes
+void ItoA32(va_list *ap, int32_t base, char *buf);
+void UItoA32(va_list *ap, int32_t base, char *buf);
+void PrintFormattedInteger(char *buf, int32_t base, uint32_t flags,
+                           int32_t width, void (*printchar_fp)(char, void *),
+                           void *ar);
+
+
+/* @brief   Printf implementation within the kernel
  *
- * A kernel implementation of the printf() function.  Used by the kernel
- * debugger or other parts of the kernel that needs to print formatted text on
- * the screen.
- *
- *
+ * Used by logging macros KLog(), Error(), Warn(), Info() and by kernel
+ * string buffer functions Vsnprintf() and Snprintf().
+ * 
  * FORMAT SPECIFICATION
  *
  * (%)[-+#0][w](cdiuoxXs%)
@@ -71,7 +71,6 @@ void PrintFormattedInteger(char *buf, int32_t base, uint32_t flags,
  *
  * Example %#010x for value of 15 prints  "0x0000000f"
  */
-
 void DoPrintf(void (*printchar_fp)(char, void *), void *printchar_arg,
               const char *format, va_list *ap) {
   const char *c;
@@ -211,12 +210,14 @@ void DoPrintf(void (*printchar_fp)(char, void *), void *printchar_arg,
   printchar_fp('\0', printchar_arg);
 }
 
-/*
- * ItoA32()
+
+/* @brief   Convert a signed integer into a string
+ * @param   ap, va list to signed integer to convert
+ * @param   base, number base to convert to
+ * @param   buf, buffer to write converted string to
  *
  * Signed Int to ASCII Buffer, LSD-first, buf = [lsd]...[msd][+][0]
  */
-
 void ItoA32(va_list *ap, int32_t base, char *buf) {
   int32_t i = 0;
   char conv[] = {"0123456789abcdef@OVRPHLOW"};
@@ -252,12 +253,12 @@ void ItoA32(va_list *ap, int32_t base, char *buf) {
   buf[i] = '\0';
 }
 
+
 /*
  * UItoA32()
  *
  * Unsigned Int to ASCII Buffer, LSD-first, buf = [lsd]...[msd][+][0]
  */
-
 void UItoA32(va_list *ap, int32_t base, char *buf) {
   int32_t i = 0;
   char conv[] = {"0123456789abcdef@OVRPHLOW"};
@@ -274,12 +275,12 @@ void UItoA32(va_list *ap, int32_t base, char *buf) {
   buf[i] = '\0';
 }
 
+
 /*
  * PrintFormattedInteger();
  *
  * Prints buf in the correct direction. Handles flags, padding and field width
  */
-
 void PrintFormattedInteger(char *buf, int32_t base, uint32_t flags,
                            int32_t width, void (*printchar_fp)(char, void *),
                            void *printchar_arg) {
@@ -361,10 +362,9 @@ struct SnprintfArg {
   int pos;
 };
 
-/*
- * Snprintf();
- */
 
+/* @brief   Printf conversion into a string buffer
+ */
 int Snprintf(char *str, size_t size, const char *format, ...) {
   va_list ap;
 
@@ -383,10 +383,9 @@ int Snprintf(char *str, size_t size, const char *format, ...) {
   return sa.pos - 1;
 }
 
-/*
- * Vsnprintf();
- */
 
+/* @brief   Printf conversion into a string buffer
+ */
 int Vsnprintf(char *str, size_t size, const char *format, va_list args) {
   struct SnprintfArg sa;
 

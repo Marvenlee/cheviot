@@ -27,6 +27,12 @@
 #include "types.h"
 #include <string.h>
 
+
+// Variables
+uint32 *root_pagetables;
+uint32 *root_pagedir;
+uint32 *kernel_pagetables;
+
 // Prototypes
 extern void *memset(void *dst, int value, size_t sz);
 extern uint32 GetCtrl(void);
@@ -36,21 +42,18 @@ void InitPageDirectory(void);
 void InitKernelPagetables(void);
 void InitRootPagetables(void);
 
-uint32 *root_pagetables;
-uint32 *root_pagedir;
-uint32 *kernel_pagetables;
 
-/*!
-    Pulls the kernel up by its bootlaces.
-
-    Kernel is loaded at 1MB (0x00100000) but is compiled to run at 0x80100000.
-    Sets up pagetables to map physical memory starting at 0 to 512MB into kernel
-    starting at 2GB (0x80000000).
-
-    IO memory for screen, timer, interrupt and gpios are mapped at 0xA0000000.
-    Bootloader and loaded modules are identity mapped from 4k upto 478k.
-*/
-void BootstrapKernel(vm_addr kernel_ceiling) {
+/* @brief   Pulls the kernel up by its boot laces.
+ *
+ * Kernel is loaded at 1MB (0x00100000) but is compiled to run at 0x80100000.
+ * Sets up pagetables to map physical memory starting at 0 to 512MB into kernel
+ * starting at 2GB (0x80000000).
+ *
+ * IO memory for screen, timer, interrupt and gpios are mapped at 0xA0000000.
+ * Bootloader and loaded modules are identity mapped from 4k upto 478k.
+ */
+void BootstrapKernel(vm_addr kernel_ceiling)
+{
   vm_addr pagetable_base;
   vm_addr pagetable_ceiling;
   vm_addr heap_ptr;
@@ -58,15 +61,13 @@ void BootstrapKernel(vm_addr kernel_ceiling) {
   heap_ptr = ALIGN_UP(kernel_ceiling, (16384));
   kernel_ceiling = heap_ptr;
 
-  KLog("kernel_ceiling = %08x", kernel_ceiling);
-
   root_pagedir = (uint32 *)heap_ptr;
   heap_ptr += 16384;
 
-  root_pagetables = heap_ptr;
+  root_pagetables = (uint32 *)heap_ptr;
   heap_ptr += 4096;
 
-  kernel_pagetables = heap_ptr;
+  kernel_pagetables = (uint32 *)heap_ptr;
   heap_ptr += 524288;
 
   pagetable_base = kernel_ceiling;
@@ -88,13 +89,8 @@ void BootstrapKernel(vm_addr kernel_ceiling) {
   KLog("bi.pagetable_ceiling = %08x", (vm_addr)bootinfo.pagetable_ceiling);
 
   InitPageDirectory();
-  KLog("InitPageDirectory DONE");
-
   InitKernelPagetables();
-  KLog("InitKernelPagetables DONE");
-
   InitRootPagetables();
-  KLog("InitRootPagetables DONE");
 
   // Set ARM v5 page table format
   uint32 ctrl = GetCtrl();
@@ -106,11 +102,12 @@ void BootstrapKernel(vm_addr kernel_ceiling) {
   EnablePaging(root_pagedir, 0x00800001);
 }
 
-/*!
-    Initialises the root page directory. Root and IO pagetables have entries
-   marked
-    as not present and a partially populated later.
-*/
+
+/*
+ * Initialises the page directory of the initial bootloader process.
+ * Bootloader and IO pagetables have entries marked as not present
+ * and a partially populated later.
+ */
 void InitPageDirectory(void) {
   int t;
   uint32 *phys_pt;
@@ -129,11 +126,11 @@ void InitPageDirectory(void) {
   }
 }
 
-/*!
-    Initialise the page table entries to map phyiscal memory from 0 to 512MB
-   into the
-    kernel starting at 0x80000000.
-*/
+
+/*
+ * Initialise the page table entries to map phyiscal memory from 0 to 512MB
+ * into the kernel starting at 0x80000000.
+ */
 void InitKernelPagetables(void) {
   uint32 pa_bits;
   vm_addr pa;
@@ -146,22 +143,21 @@ void InitKernelPagetables(void) {
   }
 }
 
-/*!
-    Populate the page table for the root process (this bootloader).
-    Identity maps memory from 4k to 478k.  In the kernel user processes
-    use 4k pagetables with 1k being the actual hardware defined pagetable
-    and the remaining 3k holding virtual-PTEs, for each page table entry.
-*/
-void InitRootPagetables(void) {
+
+/* @brief   Initialize the page tables of the initial bootloader process
+ *
+ * Populate the page table for the root process (this bootloader).
+ * Identity maps memory from 4k to 478k. In the kernel user processes
+ * use 4k pagetables with 1k being the actual hardware defined pagetable
+ * and the remaining 3k holding virtual-PTEs, for each page table entry.
+ */
+void InitRootPagetables(void)
+{
   uint32 pa_bits;
   vm_addr pa;
   uint32 *pt;
   int pde_idx;
   int pte_idx;
-
-  KLog("InitRootPagetables...");
-
-  
 
   // Clear root pagetables (ptes and vptes)
   for (pde_idx = 0; pde_idx < ROOT_PAGETABLES_CNT; pde_idx++) {
@@ -174,9 +170,6 @@ void InitRootPagetables(void) {
     memset((uint8 *)pt + VPTE_TABLE_OFFS, 0, PAGE_SIZE - VPTE_TABLE_OFFS);
   }
 
-  KLog("...cleared root pagetables");
-
-
   for (pa = 4096; pa < ROOT_CEILING_ADDR; pa += PAGE_SIZE) {
     pde_idx = (pa & L1_ADDR_BITS) >> L1_IDX_SHIFT;
     pt = (uint32 *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
@@ -186,7 +179,6 @@ void InitRootPagetables(void) {
     pa_bits = L2_TYPE_S | L2_AP(AP_W) | L2_AP(AP_U);
     pa_bits |= L2_B | L2_C;
     pt[pte_idx] = pa | pa_bits;
-  }
-  
-  KLog("... set root pagetables");
+  }  
 }
+

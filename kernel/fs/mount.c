@@ -23,73 +23,66 @@
 #include <kernel/vm.h>
 #include <kernel/utility.h>
 #include <poll.h>
+#include <string.h>
+#include <sys/mount.h>
 
-/*
- * Make a node of a given type char, block, etc which can serve as a mount point
+/* @brief   Create a node on a filesystem
  */ 
-SYSCALL int sys_mknod(char *_path, uint32_t flags, struct stat *_stat) {
+int sys_mknod(char *_path, uint32_t flags, struct stat *_stat)
+{
   struct lookupdata ld;
   struct stat stat;
-  struct Process *current;
-  int fd = -1;
-  int status = -ENOTSUP;
+  int sc;  
   struct VNode *vnode = NULL;
-
-  Info ("**** SysMkNod ****");
-  
-  current = get_current_process();
 
   if (CopyIn(&stat, _stat, sizeof stat) != 0) {
     return -EFAULT;
   }
 
-  if ((status = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
-    return status;
+  if ((sc = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
+    return sc;
   }
 
-  Info ("MkNod lookupp complete");
-  Info ("ld.parent = %08x", ld.parent);
-  Info ("ld.vnode = %08x", ld.vnode);
-  
-  if (ld.vnode != NULL)
-  {    
+  if (ld.vnode != NULL) {    
     vnode_put(ld.vnode);
     vnode_put(ld.parent);
-    status = -EEXIST;
-    goto exit;  
+    return -EEXIST;
   }
     
-  Info ("SysMkNod parent:08x", ld.parent);
-  Info ("SysMkNod comp: %s", ld.last_component);
-    
-  status = vfs_mknod(ld.parent, ld.last_component, &stat, &vnode);
+  sc = vfs_mknod(ld.parent, ld.last_component, &stat, &vnode);
 
   vnode_put(vnode);
   vnode_put(ld.parent);
-  
-  Info ("SysMknod");
 
-exit:
-  return status;
+  return sc;
 }
 
-/*
- * Mount()
+
+/* @brief   Mount a filesystem or special device
  *
+ * @param   _path, path to mount root of new filesystem at
+ * @param   _config, configuration settings to apply to this mount point
+ * @return  file descriptor on success, negative errno on failure
+ *
+ * This mounts a filesystem on top of an existing vnode. A file handle
+ * is returned that points to this mount. A server can then use this
+ * handle to receive and process messages from the kernel's virtual file
+ * system. The sys_kevent, sys_getmsg, sys_replymsg, sys_readmsg and
+ * sys_writemsg system calls are available to servers to process file
+ * system requests.
  */ 
-SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
+int sys_mount(char *_path, uint32_t flags, struct stat *_stat)
+{
   struct lookupdata ld;
   struct stat stat;
   struct Process *current;
   struct VNode *vnode_covered = NULL;
-  struct VNode *server_vnode = NULL;
-  struct VNode *client_vnode = NULL;
+  struct VNode *mount_root_vnode = NULL;
   struct Filp *filp = NULL;
   struct SuperBlock *sb = NULL;
+  struct MsgPort *msgport;
   int fd = -1;
   int error = -ENOTSUP;
-  
-  Info ("SysMount");
   
   current = get_current_process();
 
@@ -97,14 +90,11 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
     return -EFAULT;
   }
 
-
   if (root_vnode != NULL) {
     if ((error = lookup(_path, 0, &ld)) != 0) {
-      Info ("Mount lookup error:%d", error);
       return error;
     }
-    
-    Info ("Mount lookup ok");
+
     vnode_covered = ld.vnode;
 
     if (vnode_covered == NULL) {
@@ -112,10 +102,14 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
       goto exit;
     }
 
-    // TODO: Check stat.st_mode against vnode.mode  TYPE.
-    // As in only mount directories on directories ?
+    if (! ((S_ISDIR(stat.st_mode) && S_ISDIR(vnode_covered->mode))
+        || (S_ISCHR(stat.st_mode) && S_ISCHR(vnode_covered->mode))
+        || (S_ISBLK(stat.st_mode) && S_ISBLK(vnode_covered->mode)))) {
+      errno = -EINVAL;
+      goto exit;
+    }
     
-    // What about permissions, keep covered permissions ?  
+    // TODO: Check covered permissions ?  
 
     dname_purge_vnode(vnode_covered);
 
@@ -124,196 +118,133 @@ SYSCALL int sys_mount(char *_path, uint32_t flags, struct stat *_stat) {
       goto exit;
     }
 
-  } else {
-    vnode_covered = NULL;  
+  } else { 
+    // TODO: Check mount path is "/" only
+    vnode_covered = NULL; 
   }
 
-
-  sb = AllocSuperBlock();
-
-  if (sb == NULL) {
+  fd = alloc_fd_superblock(current);
+  
+  if (fd < 0) {
     error = -ENOMEM;
     goto exit;
   }
+  
+  sb = get_superblock(current, fd);
+  
+  mount_root_vnode = vnode_new(sb, stat.st_ino);
 
-
-  server_vnode = vnode_new(sb, -1);
-
-  if (server_vnode == NULL) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-  client_vnode = vnode_new(sb, 0);
-
-  if (client_vnode == NULL) {
+  if (mount_root_vnode == NULL) {
     error = -ENOMEM;
     goto exit;    
   }
 
   InitRendez(&sb->rendez);
-  init_msgport(&sb->msgport, server_vnode);
-  sb->server_vnode = server_vnode; // FIXME: Needed?
-  sb->root = client_vnode;         // FIXME: Needed?
+  init_msgport(&sb->msgport);
+
+  sb->msgport.context = sb;
+  
+  sb->root = mount_root_vnode;
   sb->flags = flags;
-  sb->reference_cnt = 2;
+  sb->reference_cnt = 1;
   sb->busy = false;
 
-  client_vnode->flags = V_VALID | V_ROOT;
-  client_vnode->reference_cnt = 1;
-  client_vnode->uid = stat.st_uid;
-  client_vnode->gid = stat.st_gid;
-  client_vnode->mode = stat.st_mode;
+  mount_root_vnode->flags = V_VALID | V_ROOT;
+  mount_root_vnode->reference_cnt = 1;
+  mount_root_vnode->uid = stat.st_uid;
+  mount_root_vnode->gid = stat.st_gid;
+  mount_root_vnode->mode = stat.st_mode;
   
-  if (S_ISBLK(client_vnode->mode)) {
-    Info ("**** Mounting block device ****");
-    Info ("st_blocks = %d, st_size = %d", stat.st_blocks, stat.st_blksize);
-    client_vnode->size = (off64_t)stat.st_blocks * (off64_t)stat.st_blksize;
+  // TODO: dev_ stat.st_dev (major and minor numbers)
+  // Check major/minor numbers, are allocated by current process.
+  
+  // TODO: Read-only filesystems don't need delayed writes
+  if (S_ISDIR(mount_root_vnode->mode)) {
+    init_superblock_bdflush(sb);
+  }
+  
+  if (S_ISBLK(mount_root_vnode->mode)) {    
+    mount_root_vnode->size = (off64_t)stat.st_blocks * (off64_t)stat.st_blksize;
+
+    // FIXME: Could we use blocks and blkize instead of vnode->size?
+    // Add these fields to vnode?
+    //  blksize_t     st_blksize;
+    //  blkcnt_t	st_blocks;
   
   } else {
-    Info ("**** mounting non-block device ****");
-    client_vnode->size = stat.st_size;
+    mount_root_vnode->size = stat.st_size;
   }
     
-  // FIXME: Could we use blocks and block size for block mounted devices ?
-//  blksize_t     st_blksize;
-//  blkcnt_t	st_blocks;
-
-  Info("client_vnode size = %08x %08x", (client_vnode->size >> 32), (uint32_t)client_vnode->size);
-  
-  server_vnode->flags = V_VALID;
-  server_vnode->reference_cnt = 1;
-  server_vnode->uid = current->uid;
-  server_vnode->gid = current->gid;
-  server_vnode->mode = 0777 | _IFPORT;
-  server_vnode->size = 0;
-
-  // TODO: initialize rest of fields
-
-  fd = alloc_fd();
-
-  if (fd < 0) {
-    error = -ENOMEM;
-    goto exit;
-  }
-
-
-  Info ("Mount client_vnode = %08x", client_vnode);
-  Info ("Mount server_vnode = %08x", server_vnode);
-  Info ("Mount root_vnode = %08x", root_vnode);
-  Info ("Mount vnode covered = %08x", vnode_covered);
-  Info ("Mount client sb=%08x", client_vnode->superblock);
-  Info ("Mount server sb=%08x", server_vnode->superblock);
-
-
-  client_vnode->vnode_covered = vnode_covered;
-  wakeup_polls(client_vnode, POLLPRI, POLLPRI);
-  
-  if (vnode_covered != NULL) {
-    vnode_covered->vnode_mounted_here = client_vnode;   // Or should it be SuperBlock (rename to VFS?) mounted here?
-    wakeup_polls(vnode_covered, POLLPRI, POLLPRI);
-  }
-  
-  filp = get_filp(fd);
-
-  filp->vnode = server_vnode;
-  filp->offset = 0;
+  mount_root_vnode->vnode_covered = vnode_covered;
+  knote(&mount_root_vnode->knote_list, NOTE_ATTRIB);
 
   if (root_vnode == NULL) {
-    root_vnode = client_vnode;
+    root_vnode = mount_root_vnode;
   }    
-
+  
   if (vnode_covered != NULL) {
+    vnode_covered->vnode_mounted_here = mount_root_vnode;
+    knote(&vnode_covered->knote_list, NOTE_ATTRIB);
+
     vnode_inc_ref(vnode_covered);
     vnode_unlock(vnode_covered);
   }
 
-  vnode_inc_ref(client_vnode);
-  vnode_inc_ref(server_vnode);
-
-  vnode_unlock(server_vnode);
-  vnode_unlock(client_vnode);
-
-  Info ("sb = %08x", sb);
-  Info ("SysMount fd = %d", fd);
-  Info ("*************************************");
+  vnode_inc_ref(mount_root_vnode);
+  vnode_unlock(mount_root_vnode);
   
-  // TODO: As the mount has changed, may want to wakeup tasks polling it for changes
-
   return fd;
 
 exit:
 
   // FIXME: Need to understand/cleanup what vnode get/put/free/ alloc? do
+  //  vnode_put(server_vnode); // FIXME: Not a PUT?  Removed below?
+  //  free_msgportid(portid);
 
-  Info ("Mount: Vnodeput server_vnode");
-  vnode_put(server_vnode); // FIXME: Not a PUT?  Removed below?
-  free_fd(fd);
+  Error("Mount: failed %d", error);
 
-  Info ("Mount: Vnodeput ld.vnode");
-  vnode_put(ld.vnode);
-  
-  vnode_free(client_vnode);
-  vnode_free(server_vnode);
-  FreeSuperBlock(sb);
-
-  Info ("Mount: Vnodeput vnode_covered");  
+  vnode_put(ld.vnode);  
+  vnode_free(mount_root_vnode);
+  free_fd_superblock(current, fd);
   vnode_put(vnode_covered);
   return error;
 }
 
-/*
- * FIXME: unmount: Do we need this as a syscall?
- * Should it not be a path instead of fd?
+
+/* @brief   Move a mount point to another location.
+ *
+ * Used in conjunction with sys_pivotroot to move the /dev mount on the IFS 
+ * to /dev on the new root moumt 
  */
-SYSCALL int sys_unmount(int fd, bool force)
+int sys_movemount(char *_new_path, char *_old_path)
 {
-  return -ENOSYS;
-}
-
-/*
- *
- */ 
-SYSCALL int sys_chroot(char *_new_root) {
-  // Change the root for the current process.
-  return -ENOSYS;
-}
-
-/*
- * Move a mount point to another location.  SUPERUSER only.
- * This is used to move the /dev mount on the IFS to /DEV on the new root moumt 
- *
- * Alternatively we would have to handle '/dev' in PivotRoot
- */
-SYSCALL int sys_movemount(char *_new_path, char *_old_path) {
   struct lookupdata ld;
   struct VNode *new_vnode;
   struct VNode *old_vnode;
   int error;
   
-  Info("SysMoveMount");
   
   if ((error = lookup(_new_path, 0, &ld)) != 0) {
-    Info("Failed to find new path");
+    Error("Failed to find new path");
     goto exit;
   }
 
   new_vnode = ld.vnode;
   
   if (new_vnode->vnode_mounted_here != NULL) {
-    Info("new vnode already has mount\n");
+    Error("new vnode already has mount\n");
     goto exit;
   }
 
   if ((error = lookup(_old_path, 0, &ld)) != 0) {
-    Info("Failed to find old path");
+    Error("Failed to find old path");
     goto exit;
   }
 
   old_vnode = ld.vnode;
     
   if (old_vnode->vnode_mounted_here == NULL) {
-    Info("old vnode not a mount point\n");
+    Error("old vnode not a mount point\n");
     goto exit;
   }
   
@@ -324,9 +255,7 @@ SYSCALL int sys_movemount(char *_new_path, char *_old_path) {
   new_vnode->vnode_mounted_here = old_vnode->vnode_mounted_here;  
   new_vnode->vnode_mounted_here->vnode_covered = new_vnode;  
   old_vnode->vnode_mounted_here = NULL;
-  
-  
-  
+    
   vnode_put (old_vnode);   // release 
   vnode_put (new_vnode);   // release
 
@@ -336,41 +265,41 @@ exit:
   return error;
 }
 
-/*
+
+/* @brief   Pivot the root directory
  *
  */
-SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
+int sys_pivotroot(char *_new_root, char *_old_root)
+{
   struct lookupdata ld;
   struct VNode *new_root_vnode;
   struct VNode *old_root_vnode;
   struct VNode *current_root_vnode;
   int sc;
 
-  Info("!!!!!!!!!!!!! PivotRoot() !!!!!!!!!!!!");
-
   // TODO: Check these are directories (ROOT ones)
 
   if ((sc = lookup(_new_root, 0, &ld)) != 0) {
-    Info ("PivotRoot lookup _new_root failed");
+    Error("PivotRoot lookup _new_root failed");
     return sc;
   }
 
   new_root_vnode = ld.vnode;
 
   if (new_root_vnode == NULL) {
-    Info ("PivotRoot failed new_root -ENOENT");
+    Error("PivotRoot failed new_root -ENOENT");
     return -ENOENT;
   }
 
   if ((sc = lookup(_old_root, 0, &ld)) != 0) {
-    Info ("PivotRoot lookup _old_root failed");
+    Error("PivotRoot lookup _old_root failed");
     return sc;
   }
 
   old_root_vnode = ld.vnode;
 
   if (old_root_vnode == NULL) {
-    Info ("PivotRoot lookup _old_root -ENOENT");
+    Error("PivotRoot lookup _old_root -ENOENT");
     vnode_put(new_root_vnode);
     return -ENOENT;
   }
@@ -385,12 +314,173 @@ SYSCALL int sys_pivotroot(char *_new_root, char *_old_root) {
 
   // TODO: Do we need to do any reference counting tricks, esp for current_vnode?
   
-  dname_purge_all();
-  
+  dname_purge_all();  
   vnode_put (old_root_vnode);
   vnode_put (new_root_vnode);
-  Info ("*********** PIVOT ROOT SUCCESS **********");
 
   return 0;
 }
+
+
+/*
+ * Need to have separate function to sync the device,
+ * flush all pending delayed writes and anything in message queue
+ * Prevent further access
+ */ 
+int close_mount(struct Process *proc, int fd)
+{
+  struct SuperBlock *sb;
+  struct VNode *vnode_covered;
+  
+  KASSERT(proc != NULL);
+  
+  sb = get_superblock(proc, fd);
+  
+  if (sb == NULL) {
+    return -EINVAL;
+  }
+
+  /* FIXME: Check refernce count is zero when finally freeing
+  
+  vnode_covered = sb->vnode_covered;
+
+  vnode_mounted_here = ;
+  
+  invalidate_superblock_blks(sb);
+  invalidate_dnlc_entries(sb);
+  invalidate_vnodes(sb);
+
+  // TODO: Read-only filesystems don't need delayed writes
+
+  if (S_ISDIR(vnode_mounted_here->mode)) {
+    deinit_superblock_bdflush(sb);
+  }
+
+  vnode_covered->vnode_mounted_here = NULL;
+
+  */
+  
+  free_fd_superblock(proc, fd);
+
+  return 0;
+}
+
+
+/*
+ * Get the superblock of a file descriptor created by sys_mount()
+ */
+struct SuperBlock *get_superblock(struct Process *proc, int fd)
+{
+  struct Filp *filp;
+
+  KASSERT(proc != NULL);
+  
+  filp = get_filp(proc, fd);
+    
+  if (filp == NULL) {
+    Error("get_superblock, filp is NULL");
+    return NULL;
+  }
+  
+  if (filp->type != FILP_TYPE_SUPERBLOCK) {
+    Error("get_superblock, filp type is not SUPERBLOCK");
+    return NULL;
+  }
+    
+  return filp->u.superblock;
+}
+
+
+/*
+ * Allocates a handle structure.  Checks to see that free_handle_cnt is
+ * non-zero should already have been performed prior to calling alloc_fd().
+ */
+int alloc_fd_superblock(struct Process *proc)
+{
+  int fd;
+  struct SuperBlock *sb;
+
+  fd = alloc_fd_filp(proc);
+  
+  if (fd < 0) {
+    Error("alloc_fd_superblock fd < 0");
+    return -EMFILE;
+  }
+  
+  sb = alloc_superblock();
+  
+  if (sb == NULL) {
+    free_fd_filp(proc, fd);
+    return -EMFILE;
+  }
+ 
+  set_fd(proc, fd, FILP_TYPE_SUPERBLOCK, 0, sb);  
+  return fd;
+}
+
+
+
+/*
+ * Returns a handle to the free handle list.
+ */
+int free_fd_superblock(struct Process *proc, int fd)
+{
+  struct SuperBlock *sb;
+  
+  sb = get_superblock(proc, fd);
+
+  if (sb == NULL) {
+    return -EINVAL;
+  }
+
+  free_superblock(sb);
+  free_fd_filp(proc, fd);
+  return 0;
+}
+
+
+/*
+ *
+ */
+struct SuperBlock *alloc_superblock(void)
+{
+  struct SuperBlock *sb;
+
+  sb = LIST_HEAD(&free_superblock_list);
+
+  if (sb == NULL) {
+    Error("no free superblocks");
+    return NULL;
+  }
+
+  sb->reference_cnt = 1;
+
+  LIST_REM_HEAD(&free_superblock_list, link);
+  memset(sb, 0, sizeof *sb);
+  InitRendez (&sb->rendez);
+  
+  sb->dev = sb - superblock_table;  
+  return sb;
+}
+
+
+/*
+ *
+ */
+void free_superblock(struct SuperBlock *sb)
+{
+  KASSERT (sb != NULL);
+
+  sb->reference_cnt--;
+  
+  if (sb->reference_cnt == 0) {
+    // TODO: Wakeup anything block on rendez ?
+    LIST_ADD_TAIL(&free_superblock_list, sb, link);
+  }
+}
+
+
+
+
+
 

@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/* @brief   Functions for using the Directory Name Lookup Cache
+ *          FIXME: These have been removed until vnodes and their reference counting
+ *          have been debugged.
+ */
+
 //#define KDEBUG
 
 #include <kernel/dbg.h>
@@ -24,7 +29,9 @@
 #include <kernel/utility.h>
 #include <sys/mount.h>
 
-/*
+
+/* @brief   Lookup a file in the Directory Name Lookup Cache
+ *
  * Looks up a vnode in the DNLC based on parent directory vnode
  * and the filename. Stores the resulting vnode pointer in vnp.
  *
@@ -33,15 +40,14 @@
  * TODO:  Add LOOKUP_NOCACHE flag handling  (should be in superblock->flags)
  */
 
-int dname_lookup(struct VNode *dir, char *name, struct VNode **vnp) {
+int dname_lookup(struct VNode *dir, char *name, struct VNode **vnp)
+{
   int t;
   int sz;
   int key;
   struct DName *dname;
 
-  KLog("********** DNameLookup %s", name);
-
-  if (dir->superblock->flags & MOUNTF_NODNLC) {
+  if (dir->superblock->flags & MNT_NODNLC) {
     *vnp = NULL;
     return -1;
   }
@@ -51,16 +57,16 @@ int dname_lookup(struct VNode *dir, char *name, struct VNode **vnp) {
     return -1;
   }
 
-  for (key = 0, t = 0; t < sz && name[t] != '\0'; t++)
+  for (key = 0, t = 0; t < sz && name[t] != '\0'; t++) {
     key += name[t];
-
+  }
+  
   key %= DNAME_HASH;
 
   dname = LIST_HEAD(&dname_hash[key]);
 
   while (dname != NULL) {
     if (dname->dir_vnode == dir && StrCmp(dname->name, name) == 0) {
-
       // TODO: Replace with inode_nr, do a VNodeGet
       *vnp = dname->vnode;
       vnode_inc_ref(*vnp);
@@ -74,31 +80,32 @@ int dname_lookup(struct VNode *dir, char *name, struct VNode **vnp) {
   return -1;
 }
 
-/*
- * Add an entry to the DNLC, replaces existing entry, useful when negative
- * caching
- * and removing or adding file.
+
+/* @brief   Add a filename and associated vnode to the Directory Name Lookup Cache
+ *
+ * Replaces existing entry, useful when negative caching and removing or adding file.
  * TODO: (Perhaps assert we are not replacing existing vnode with another valid
  * vnode).
  */
-int dname_enter(struct VNode *dir, struct VNode *vn, char *name) {
+int dname_enter(struct VNode *dir, struct VNode *vn, char *name)
+{
   int t;
   int sz;
   int key;
   struct DName *dname;
 
-  if (dir->superblock->flags & MOUNTF_NODNLC) {
+  if (dir->superblock->flags & MNT_NODNLC) {
     return -1;
   }
 
-  KLog("************** DNameEnter %s", name);
-
-  if ((sz = StrLen(name) + 1) > DNAME_SZ)
+  if ((sz = StrLen(name) + 1) > DNAME_SZ) {
     return -1;
-
-  for (key = 0, t = 0; t < sz && name[t] != '\0'; t++)
+  }
+  
+  for (key = 0, t = 0; t < sz && name[t] != '\0'; t++) {
     key += name[t];
-
+  }
+  
   key %= DNAME_HASH;
 
   dname = LIST_HEAD(&dname_hash[key]);
@@ -132,18 +139,17 @@ int dname_enter(struct VNode *dir, struct VNode *vn, char *name) {
   return 0;
 }
 
-/*
- * Remove a single DNLC entry using the parent directory vnode and filename
+
+/* @brief   Remove an entry from the Directory Name Lookup Cache
  */
-int dname_remove(struct VNode *dir, char *name) {
+int dname_remove(struct VNode *dir, char *name)
+{
   int t;
   int sz;
   int key;
   struct DName *dname;
   
-  Info ("******* DNameRemove");
-
-  if (dir->superblock->flags & MOUNTF_NODNLC) {
+  if (dir->superblock->flags & MNT_NODNLC) {
     return -1;
   }
 
@@ -173,12 +179,15 @@ int dname_remove(struct VNode *dir, char *name) {
   return -1;
 }
 
-/*
+
+/* @brief   Remove all entries in the DNLC that reference a specific vnode
+ *
  * Removes any DNLC entry associated with a vnode, whether it is
  * a directory_vnode or the vnode it points to,
  * For example "/dir" "/dir/." "/dir/another/.." all point to same vnode
  */
-void dname_purge_vnode(struct VNode *vnode) {
+void dname_purge_vnode(struct VNode *vnode)
+{
   int t;
 
   for (t = 0; t < NR_DNAME; t++) {
@@ -193,11 +202,13 @@ void dname_purge_vnode(struct VNode *vnode) {
   }
 }
 
-/*
- * Removes all DNLC entries associated with VNodes belonging to the
- * SuperBlock.
+
+/* @brief   Remove all DNLC entries related to a specific superblock
+ *
+ * @param   sb,
  */
-void dname_purge_superblock(struct SuperBlock *sb) {
+void dname_purge_superblock(struct SuperBlock *sb)
+{
   for (int t = 0; t < NR_DNAME; t++) {
     if (dname_table[t].hash_key != -1 &&
         (dname_table[t].vnode->superblock == sb)) {
@@ -210,13 +221,14 @@ void dname_purge_superblock(struct SuperBlock *sb) {
   }
 }
 
-/*
- * To be called on Pivot Root.
- */
-void dname_purge_all(void) {
 
-  Info ("DNamePurgeAll()");
-  
+/* @brief   Remove all entries from the Directory Name Lookup Cache
+ *
+ * To be used if filesystem hierarchy dramatically alters, e.g. when
+ * sys_pivotroot() is called.
+ */
+void dname_purge_all(void)
+{
   for (int t = 0; t < NR_DNAME; t++) {
     dname_table[t].hash_key = -1;
     dname_table[t].vnode = NULL;
@@ -224,3 +236,4 @@ void dname_purge_all(void) {
 
   LIST_INIT(&dname_lru_list);
 }
+

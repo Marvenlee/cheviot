@@ -25,36 +25,38 @@
 #include <poll.h>
 #include <string.h>
 #include <fcntl.h>
+#include <kernel/kqueue.h>
 
-/*
- * TODO: Access
+/* @brief   access system call
+ * 
  */
-SYSCALL int sys_access(char *pathname, mode_t permissions)
+int sys_access(char *pathname, mode_t permissions)
 {
+  Info ("sys_access");
   return F_OK;
 }
 
 
-/*
+/* @brief   umask system call
  *
  */
-SYSCALL mode_t sys_umask (mode_t mode)
+mode_t sys_umask (mode_t mode)
 {
   mode_t old_mode;
   struct Process *current;
   
   current = get_current_process();
   
-  old_mode = current->default_mode;
-  current->default_mode = mode;
+  old_mode = current->fproc->umask;
+  current->fproc->umask = mode;
   return old_mode;
 }
 
 
-/*
+/* @brief chmod system call
  *
  */
-SYSCALL int sys_chmod(char *_path, mode_t mode)
+int sys_chmod(char *_path, mode_t mode)
 {
   struct Process *current;
   struct lookupdata ld;
@@ -81,17 +83,17 @@ SYSCALL int sys_chmod(char *_path, mode_t mode)
     err = EPERM;
   }
 
-  wakeup_polls(vnode, POLLPRI,POLLPRI);
+  knote(&vnode->knote_list, NOTE_ATTRIB);
   
   vnode_put(vnode);
   return err;
 }
 
 
-/*
+/* @brief   chown system call
  *
  */
-SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid)
+int sys_chown(char *_path, uid_t uid, gid_t gid)
 {
   struct Process *current;
   struct lookupdata ld;
@@ -119,13 +121,16 @@ SYSCALL int sys_chown(char *_path, uid_t uid, gid_t gid)
     err = EPERM;
   }
 
-  wakeup_polls(vnode, POLLPRI, POLLPRI);
+  knote(&vnode->knote_list, NOTE_ATTRIB);
   vnode_put(vnode);
   return 0;
 }
 
 
-/*
+/* @brief   Check if an operation is allowed on a file
+ * 
+ * TODO:  Should this also check the filp's mode bits ? 
+ * 
  * TODO:  What if group and other have more privileges than owner?
  * TODO:  Add root/administrator check (GID = 0 or 1 for admins)?
  * Admins can't access root files.

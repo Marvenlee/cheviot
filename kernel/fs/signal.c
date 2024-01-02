@@ -26,11 +26,26 @@
 #include <kernel/dbg.h>
 #include <poll.h>
 
-/*
- * TODO: Used by device drivers to send a signal to a client, 
+
+/* @brief   Send a signal to processes with a particular open file
+ *
+ * @param   fd, file handle of the mount point created by sys_mount()
+ * @param   ino, inode number of file whose processes with it open shall receive signal
+ * @param   signal, signal to raise
+ *
+ * This system call is intended for the TTY driver to be able to send
+ * signals to client processes in response to keyboard inputs such
+ * as SIGTERM, SIGKILL, etc.
+ *
+ * TODO: sys_signalnotify implementation
+ *
+ * This may change to only support character devices, the "ino" parameter will
+ * then be deprecated.
  */
-SYSCALL int sys_signalnotify(int fd, int ino, int signal)
+int sys_signalnotify(int fd, int ino, int signal)
 {
   return -ENOSYS;
 }
+
+
 

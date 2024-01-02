@@ -4,54 +4,84 @@
 #include <kernel/error.h>
 #include <kernel/lists.h>
 #include <kernel/types.h>
-#include <kernel/proc.h>
+#include <kernel/sync.h>
+#include <kernel/kqueue.h>
+#include <sys/syscalls.h>
+#include <unistd.h>
 
-struct VNode;
+
+
+// Forward declarations
+struct Msg;
+struct Process;
 struct MsgPort;
-struct Buf;
+struct MsgID2Msg;
 
-struct IOV {
-  void *addr;
-  size_t size;
+// List types
+LIST_TYPE(Msg, msg_list_t, msg_link_t);
+
+// Constants
+#define MSGID_HASH_SZ       128
+
+
+
+/* @brief   Kernel Message
+ */
+struct Msg
+{
+  msg_link_t link;
+  msgid_t msgid;
+  struct MsgPort *port;       // The port it is attached to or NULL if not attached.
+                              // Set to reply_port on reply, so any msgid_to_msg fails after replymsg
+                              
+  struct MsgPort *reply_port; // The reply port to reply to
+  int reply_status;  
+  int siov_cnt;
+  struct IOV *siov;
+  int riov_cnt;
+  struct IOV *riov;
 };
 
-struct Msg {
-  LIST_ENTRY(Msg) link;
-  struct MsgPort *port;
-  int pid;
-  int type;
-  int state;
-  int iov_cnt;
-  ssize_t offset;
-  struct IOV *iov;
-  struct Buf *buf;
+
+/* @brief   Message Port for interprocess communication
+ */
+struct MsgPort
+{
   struct Rendez rendez;
-  int reply_status;
+  msg_list_t pending_msg_list;
+  knote_list_t knote_list;    
+  void *context;              // For pointer to superblock or other data
 };
 
 
-struct MsgPort {
-  struct VNode *server_vnode;
 
-  LIST(Msg) pending_msg_list;   // pending list of vnodes
-};
+// Macros
+#define NELEM(a) (sizeof(a) / sizeof(*a))   // Calculate number of elements in an array
 
+/*
+ * Prototypes
+ */
+int sys_sendrec(int fd, int siov_cnt, struct IOV *siov, int riov_cnt, struct IOV *riov);
+int sys_getmsg(int server_fd, msgid_t *msgid, void *buf, size_t buf_sz);
+int sys_replymsg(int server_fd, msgid_t *msgid, int status, void *buf, size_t buf_sz);
+int sys_readmsg(int server_fd, msgid_t *msgid, void *buf, size_t buf_sz, off_t offset);
+int sys_writemsg(int server_fd, msgid_t *msgid, void *buf, size_t buf_sz, off_t offset);
 
-// Is message a synchronous SendMsg or async PutMsg.
-#define MSG_SENDREC   1
-#define MSG_ASYNC     2
+int ksendmsg(struct MsgPort *msgport, int siov_cnt, struct IOV *siov, int riov_cnt, struct IOV *riov);
+int kputmsg(struct MsgPort *msgport, struct Msg *msg);
+int kreplymsg(struct Msg *msg);
+struct Msg *kgetmsg(struct MsgPort *port);
+int kwaitport(struct MsgPort *msgport, struct timespec *timeout);
+int seekiov(int iov_cnt, struct IOV *iov, off_t offset, int *i, size_t *iov_remaining);
 
-#define MSG_STATE_SEND 1
-#define MSG_STATE_RECEIVED 2
-#define MSG_STATE_REPLIED 3
+struct Msg *msgid_to_msg(struct MsgPort *port, msgid_t msgid);
+msgid_t new_msgid(void);
+void hash_msg(struct Msg *msg);
+void unhash_msg(struct Msg *msg);
 
+int init_msgport(struct MsgPort *msgport);
+int fini_msgport(struct MsgPort *msgport);
 
-int init_msgport(struct MsgPort *msgport, struct VNode *vnode);
-int ksendmsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg);
-int kputmsg(struct MsgPort *port, struct VNode *vnode, struct Msg *msg);
-int sys_receivemsg(int server_fd, int *pid, void *buf, size_t buf_sz);
-int sys_replymsg(int server_fd, int pid, int status);
-int sys_readmsg(int server_fd, int pid, void *buf, size_t buf_sz);
-int sys_writemsg(int server_fd, int pid, void *buf, size_t buf_sz);
 
 #endif
+

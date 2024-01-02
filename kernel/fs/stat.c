@@ -22,20 +22,23 @@
 #include <kernel/types.h>
 #include <sys/mount.h>
 
-SYSCALL int sys_stat(char *_path, struct stat *_stat) {
+
+/* @brief   Get the file statistics of a named file
+ *
+ * @param   _path, pathname to file to gather statistics of
+ * @param   _stat, pointer to stat structure to return statistics
+ * @return  0 on success, negative errno on error
+ */
+int sys_stat(char *_path, struct stat *_stat) {
   struct stat stat;
   struct lookupdata ld;
   int sc;
 
-  Info ("SysStat");
+  Info("sys_stat");
 
   if ((sc = lookup(_path, 0, &ld)) != 0) {
-    Info ("SysStat lookup: sc:%d", sc);
     return sc;
   }
-
-  Info ("SysStat vnode:%08x", ld.vnode);  
-  Info ("SysStat parent:%08x", ld.parent);
 
   stat.st_dev = ld.vnode->superblock->dev;
   stat.st_ino = ld.vnode->inode_nr;
@@ -56,7 +59,7 @@ SYSCALL int sys_stat(char *_path, struct stat *_stat) {
   if (_stat == NULL) {
     return -EFAULT;
   }
-  
+
   if (CopyOut(_stat, &stat, sizeof stat) != 0) {
     return -EFAULT;
   }
@@ -64,30 +67,33 @@ SYSCALL int sys_stat(char *_path, struct stat *_stat) {
   return 0;
 }
 
-/*
+
+/* @brief   Get the file statistics of an open file
  *
+ * @param   fd, file handle of file to gather statistics of
+ * @param   _stat, pointer to stat structure to return statistics
+ * @return  0 on success, negative errno on error 
  */
-SYSCALL int sys_fstat(int fd, struct stat *_stat) {
+int sys_fstat(int fd, struct stat *_stat) {
   struct Filp *filp;
   struct VNode *vnode;
   struct stat stat;
+  struct Process *current;
 
-  Info ("SysFStat");
+  Info("sys_fstat");
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  filp = get_filp(fd);
-
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  vnode = filp->vnode;
 
   vnode_lock(vnode);
   
   // FIXME: Should have vnodehold  when we know the vnode
   // But we don't acquire it , so no need for hold/put here.
-
-  // If necessary, do getvattrs
 
   stat.st_dev = vnode->superblock->dev;
   stat.st_ino = vnode->inode_nr;
@@ -105,11 +111,7 @@ SYSCALL int sys_fstat(int fd, struct stat *_stat) {
 
   vnode_unlock(vnode);
 
-  if (_stat == NULL) {
-    return -EFAULT;
-  }
-  
-  if (CopyOut(_stat, &stat, sizeof stat) != 0) {
+  if (_stat == NULL || CopyOut(_stat, &stat, sizeof stat) != 0) {
     return -EFAULT;
   }
   

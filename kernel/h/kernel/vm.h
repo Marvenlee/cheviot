@@ -1,90 +1,45 @@
 #ifndef KERNEL_VM_H
 #define KERNEL_VM_H
 
+#include <sys/syscalls.h>
 #include <kernel/arch.h>
 #include <kernel/lists.h>
 #include <kernel/types.h>
 
-/**
- *
- */
+// Forward declarations
+struct Pageframe;
 
-#define MEM_TYPE_PAGETABLE 1
-#define MEM_TYPE_PAGEDIR 2
-#define MEM_TYPE_PAGE 3
-#define MEM_TYPE_KERNEL 4
+// Linked list types
+LIST_TYPE(Pageframe, pageframe_list_t, pageframe_list_link_t);
 
-/*
- * VirtualAlloc flags
- */
-
-/*
- * VirtualAlloc() protections
- */
-#define PROT_NONE			    0
-#define PROT_READ			    (1<<0)
-#define PROT_WRITE			    (1<<1)
-#define PROT_EXEC			    (1<<2)
-#define PROT_ALL			    (PROT_READ | PROT_WRITE | PROT_EXEC)
-#define PROT_READWRITE 		    (PROT_READ | PROT_WRITE)
-#define PROT_READEXEC		    (PROT_READ | PROT_EXEC)
-
-#define MAP_FIXED				(1<<3)
-#define MAP_WIRED				(1<<4)
-#define MAP_NOX64				(1<<5)
-#define MAP_BELOW16M			(1<<6)
-#define MAP_BELOW4G				(1<<7)
-
-#define CACHE_DEFAULT	 		(0<<8)
-#define CACHE_WRITEBACK	 		(1<<8)
-#define CACHE_WRITETHRU	 		(2<<8)
-#define CACHE_WRITECOMBINE 		(3<<8)
-#define CACHE_UNCACHEABLE  		(4<<8)
-#define CACHE_WEAKUNCACHEABLE	(5<<8)
-#define CACHE_WRITEPROTECT		(6<<8)
-
-
-#define NCACHE_POLICIES 5
 
 // Flags used for kernel administration of pages
-#define MEM_RESERVED (0 << 28)
-#define MEM_GARBAGE (1 << 28)
-#define MEM_ALLOC (2 << 28)
-#define MEM_PHYS (3 << 28)
-#define MEM_FREE (4 << 28)
+#define MEM_RESERVED  (0 << 28)
+#define MEM_GARBAGE   (1 << 28)
+#define MEM_ALLOC     (2 << 28)
+#define MEM_PHYS      (3 << 28)
+#define MEM_FREE      (4 << 28)
 
-// FIXME: Rename MAP_COW and MAP_USER (off limits to user apps)
-#define MAP_COW (1 << 26)
-#define MAP_USER (1 << 27)
+#define MAP_COW       (1 << 26)
+#define MAP_USER      (1 << 27)
 
+// PROT_MASK and CACHE_MASK are defined in sys/syscalls.h
 #define MEM_MASK 0xF0000000
-#define PROT_MASK 0x0000000F
-#define CACHE_MASK 0x00000F00
-
 #define VM_SYSTEM_MASK (MEM_MASK | MAP_COW | MAP_USER)
 
-#define MEM_TYPE(flags) (flags & MEM_MASK)
 
-//#define CACHE_AGE               (1<<0)
-//#define CACHE_BUSY				(1<<0)
+// Pageframe.flags
+#define PGF_INUSE       (1 << 0)
+#define PGF_RESERVED    (1 << 1)
+#define PGF_CLEAR       (1 << 2)
+#define PGF_KERNEL      (1 << 3)
+#define PGF_USER        (1 << 4)
+#define PGF_PAGETABLE   (1 << 5)
 
-/*
- *
- */
-
-#define PGF_INUSE (1 << 0)
-#define PGF_RESERVED (1 << 1)
-#define PGF_CLEAR (1 << 2)
-#define PGF_KERNEL (1 << 3)
-#define PGF_USER (1 << 4)
-#define PGF_PAGETABLE (1 << 5)
-
-/*
- *
- */
-
+// Number of segments in an address space 
 #define NSEGMENT 32
 
+// Lower bits of AddressSpace.segment_table[]
 #define SEG_TYPE_FREE 0
 #define SEG_TYPE_ALLOC 1
 #define SEG_TYPE_PHYS 2
@@ -92,92 +47,96 @@
 #define SEG_TYPE_MASK 0x0000000f
 #define SEG_ADDR_MASK 0xfffff000
 
-struct Pageframe {
-  vm_size size; // Pageframe is either 64k, 16k, or 4k
+
+/* @brief   Structure representing a physical page of memory
+ */
+struct Pageframe
+{
+  vm_size size;                           // Pageframe is either 64k, 16k, or 4k
   vm_addr physical_addr;
-  int reference_cnt; // Count of vpage references.
+  int reference_cnt;                      // Count of vpage references.
   bits32_t flags;
-  LIST_ENTRY(Pageframe)
-  link; // cache lru, busy link.  (busy and LRU on separate lists?)
-  LIST_ENTRY(Pageframe)
-  free_slab_link;
+  pageframe_list_link_t link;            // cache lru, busy link.  (busy and LRU on separate lists?)
+  pageframe_list_link_t free_slab_link;
   struct PmapPageframe pmap_pageframe;
   size_t free_object_size;
   int free_object_cnt;
   void *free_object_list_head;
 };
 
-struct AddressSpace {
-  struct Pmap pmap;
 
+/* @brief   Address space of a process
+ *
+ * TODO: Convert segments back to list of memregions instead of small array
+ * The original intent was to have a single address space OS with a single
+ * segment table. This segment table could be quickly searched with a binary
+ * tree (though possibly expensive to insert).
+ */
+struct AddressSpace
+{
+  struct Pmap pmap;
   vm_addr segment_table[NSEGMENT];
   int segment_cnt;
 };
 
-LIST_TYPE(Pageframe)
-pageframe_list_t;
 
-//#define NSLAB_SZ 3
-
-#define SLAB_4K_SZ 0
-#define SLAB_16K_SZ 1
-#define SLAB_64K_SZ 2
+/*
+ * Prototypes
+ */
 
 // vm/addressspace.c
+int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as);
+void cleanup_address_space(struct AddressSpace *as);
+void free_address_space(struct AddressSpace *as);
 
-// int InitAddressSpace (struct AddressSpace *as);
+// boards/.../pmap.c
+int pmap_create(struct AddressSpace *as);
+void pmap_destroy(struct AddressSpace *as);
 
-int ForkAddressSpace(struct AddressSpace *new_as, struct AddressSpace *old_as);
-void CleanupAddressSpace(struct AddressSpace *as);
-void FreeAddressSpace(struct AddressSpace *as);
+int pmap_supports_cache_policy(bits32_t flags);
 
-// arch/pmap.c
-
-int PmapCreate(struct AddressSpace *as);
-void PmapDestroy(struct AddressSpace *as);
-
-int PmapSupportsCachePolicy(bits32_t flags);
-
-int PmapEnter(struct AddressSpace *as, vm_addr addr, vm_addr paddr,
-              bits32_t flags);
-int PmapRemove(struct AddressSpace *as, vm_addr addr);
-int PmapProtect(struct AddressSpace *as, vm_addr addr, bits32_t flags);
-
-int PmapExtract(struct AddressSpace *as, vm_addr va, vm_addr *pa,
-                uint32_t *flags);
+int pmap_enter(struct AddressSpace *as, vm_addr addr, vm_addr paddr, bits32_t flags);
+int pmap_remove(struct AddressSpace *as, vm_addr addr);
+int pmap_protect(struct AddressSpace *as, vm_addr addr, bits32_t flags);
+int pmap_extract(struct AddressSpace *as, vm_addr va, vm_addr *pa, bits32_t *flags);
 
 // Could merge into PmapExtract, return a status flag, with -1 for no pte, -2
 // for no pde etc.
-bool PmapIsPageTablePresent(struct AddressSpace *as, vm_addr va);
-bool PmapIsPagePresent(struct AddressSpace *as, vm_addr va);
+bool pmap_is_pagetable_present(struct AddressSpace *as, vm_addr va);
+bool pmap_is_page_present(struct AddressSpace *as, vm_addr va);
 
-void PmapFlushTLBs(void);
-void PmapInvalidateAll(void);
-void PmapSwitch(struct Process *next, struct Process *current);
+uint32_t *pmap_alloc_pagetable(void);
+void pmap_free_pagetable(uint32_t *pt);
 
-void PmapPageframeInit(struct PmapPageframe *ppf);
+void pmap_flush_tlbs(void);
+void pmap_invalidate_all(void);
+void pmap_switch(struct Process *next, struct Process *current);
 
-vm_addr PmapPfToPa(struct Pageframe *pf);
-struct Pageframe *PmapPaToPf(vm_addr pa);
-vm_addr PmapVaToPa(vm_addr vaddr);
-vm_addr PmapPaToVa(vm_addr paddr);
-vm_addr PmapPfToVa(struct Pageframe *pf);
-struct Pageframe *PmapVaToPf(vm_addr va);
-int PmapCacheEnter(vm_addr addr, vm_addr paddr);
-int PmapCacheRemove(vm_addr va);
-int PmapCacheExtract(vm_addr va, vm_addr *pa);
+void pmap_pageframe_init(struct PmapPageframe *ppf);
+
+vm_addr pmap_pf_to_pa(struct Pageframe *pf);
+struct Pageframe *pmap_pa_to_pf(vm_addr pa);
+vm_addr pmap_va_to_pa(vm_addr vaddr);
+vm_addr pmap_pa_to_va(vm_addr paddr);
+vm_addr pmap_pf_to_va(struct Pageframe *pf);
+struct Pageframe *pmap_va_to_pf(vm_addr va);
+
+int pmap_cache_enter(vm_addr addr, vm_addr paddr);
+int pmap_cache_remove(vm_addr va);
+int pmap_cache_extract(vm_addr va, vm_addr *pa);
+
+int pmap_interprocess_copy(struct AddressSpace *dst_as, void *dst, 
+                           struct AddressSpace *src_as, void *src,
+                           size_t sz);
 
 // vm/pagefault.c
-
-int PageFault(vm_addr addr, bits32_t access);
-void SysDoPageFault(struct Process *proc);
+int page_fault(vm_addr addr, bits32_t access);
 
 // vm/vm.c
-
-SYSCALL void *sys_virtualalloc(void *addr, size_t len, bits32_t flags);
-SYSCALL void *sys_virtualallocphys(void *addr, size_t len, bits32_t flags, void *paddr);
-SYSCALL int sys_virtualfree(void *addr, size_t size);
-SYSCALL int sys_virtualprotect(void *addr, size_t size, bits32_t flags);
+void *sys_virtualalloc(void *addr, size_t len, bits32_t flags);
+void *sys_virtualallocphys(void *addr, size_t len, bits32_t flags, void *paddr);
+int sys_virtualfree(void *addr, size_t size);
+int sys_virtualprotect(void *addr, size_t size, bits32_t flags);
 
 vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
                       int type, bits32_t flags);
@@ -190,26 +149,22 @@ vm_addr *segment_alloc(struct AddressSpace *as, vm_size size, uint32_t flags,
 int segment_splice(struct AddressSpace *as, vm_addr addr);
 
 // arch/memcpy.s
-
 int CopyIn(void *dst, const void *src, size_t sz);
 int CopyOut(void *dst, const void *src, size_t sz);
 int CopyInString(void *dst, const void *src, size_t max_sz);
 
-void MemSet(void *mem, int c, size_t sz);
-void MemCpy(void *dst, const void *src, size_t sz);
+// vm/page.c
+void *kmalloc_page(void);
+void kfree_page(void *vaddr);
+struct Pageframe *alloc_pageframe(vm_size);
+void free_pageframe(struct Pageframe *pf);
+void coalesce_slab(struct Pageframe *pf);
 
-// pageframe.c
-
-struct Pageframe *AllocPageframe(vm_size);
-void FreePageframe(struct Pageframe *pf);
-void CoalesceSlab(struct Pageframe *pf);
-struct Pageframe *PhysicalAddrToPageframe(vm_addr pa);
-
-void *AllocPage(void);
-void FreePage(void *va);
 
 /*
  * VM Macros
+ * TODO: Replace ALIGN_UP and ALIGN_DOWN macros with roundup and rounddown
+ * from <sys/param.h>
  */
 
 #define ALIGN_UP(val, alignment)                                               \

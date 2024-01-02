@@ -24,9 +24,11 @@
 #include <kernel/vm.h>
 #include <poll.h>
 
-SYSCALL int sys_ioctl(int fd, int cmd, void *arg)
+/*
+ *
+ */
+int sys_ioctl(int fd, int cmd, void *arg)
 {
-  Info ("Ioctl ENOSYS");
   return -ENOSYS;
 }
 

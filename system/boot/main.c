@@ -1,3 +1,4 @@
+#include <string.h>
 #include "bootstrap.h"
 #include "dbg.h"
 #include "elf.h"
@@ -5,16 +6,22 @@
 #include "memory.h"
 #include "types.h"
 #include <stdint.h>
-#include <string.h>
 
-#define KDEBUG
+// Prototypes (not picked up in string.h)
+void *	 memchr (const void *, int, size_t);
+int 	 memcmp (const void *, const void *, size_t);
+void *	 memcpy (void *__restrict, const void *__restrict, size_t);
+void *	 memmove (void *, const void *, size_t);
+void *	 memset (void *, int, size_t);
 
-void memcpy (void *dst, void *src, size_t sz);
-
+// External references
 extern uint32_t rootfs_image_offset;
 extern uint32_t rootfs_image_size;
 
-/* @brief Boot the operating system and map the IFS image to top of memory
+
+/* @brief   Bootloader for Raspberry Pi
+ *
+ * Boot the operating system and map the IFS image to top of memory
  * 
  * kernel.img contains this bootloader and the IFS file system image.
  * Bootloader starts at 0x8000 (32K)

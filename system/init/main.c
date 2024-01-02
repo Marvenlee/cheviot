@@ -8,60 +8,42 @@
 #include <sys/signal.h>
 #include <sys/stat.h>
 #include <sys/syscalls.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <libgen.h>
 #include <sys/syslimits.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
-
-//#define NKLog
-
-// Constants
-#define ARG_SZ 256
+#include "init.h"
 
 // Globals
-extern char **environ;
-
 static char *argv[ARG_SZ];
 static char linebuf[256];
 static char *src = NULL;
 static bool tty_set = false;
-
 static char *dummy_env[1];
 
 
-// Prototypes
-int DoInit(void);
-int cmdStart (void);
-int cmdChdir (void);
-int cmdMknod (void);
-int cmdWaitfor (void);
-int cmdSleep (void);
-int cmdSettty (void);
-int cmdPivot (void);
-int cmdRemount (void);
-int cmdSetEnv(void);
-char *tokenize(char *line);
-char *readLine(void);
-void PrintGreeting(void);
-
-
-
-int main(int argc, char **argv) {
-  int rc;
-
-  dummy_env[0] = NULL;
-  environ = dummy_env;
-
-  rc = DoInit();
-
-  while (1) {
-    sleep(10);
-  }
-}
-
-
-int DoInit(void) {
+/* @brief   Main function of system init process
+ *
+ * @param   argc, unused
+ * @param   argv, unused
+ * @return  0 on success, non-zero on failure
+ *
+ * This process is embedded on the initial file system (IFS) along with the
+ * kernel and a few other tools. It's purpose is to start any additional
+ * servers and device drivers during the inital phase of system startup.
+ * 
+ * Once other servers that handle the on-disk root filesystem are initialized
+ * then this performs a pivot-root, where the root "/" path is pivotted
+ * from pointing to the IFS image's root to that of on-disk root filesystem.
+ *
+ * The IFS executable is the first process started by the kernel. The IFS forks
+ * so that the child process becomes the IFS handler server and the parent/root
+ * process performs an exec of "/sbin/init" to become this process.
+ */
+int main(int argc, char **argv)
+{
   int status;
   struct stat st;
   char *line;
@@ -70,47 +52,50 @@ int DoInit(void) {
   int sc;
   int pid;
   int startup_cfg_fd;
+
+  log_info("**** /sbin/init started ****");
+
+  dummy_env[0] = NULL;
+  environ = dummy_env;
   
+  log_info("opening etc/startup.cfg");
   
   if ((startup_cfg_fd = open("/etc/startup.cfg", O_RDWR)) < 0) {
-    KLog("Failed to open /etc/startup.cfg");
+    log_error("failed to open etc/startup.cfg");
     return -1;
   }
-  
-  KLog("!!! Opened startup.cfg !!!");
-  
-  KLog("!!! fstat startup.cfg !!!");
 
+  log_info("opened etc/startup.cfg");
+  
   if ((sc = fstat(startup_cfg_fd, &st)) != 0) {
-    KLog ("fstat failed %d", sc);
     close(startup_cfg_fd);
     return -1;
   }
   
-  KLog("!!! Stat OK startup.cfg !!!");
-
-  
+  log_info("statted etc/startup.cfg");
+  log_info("startup.cfg size = %d", st.st_size);
+    
   buf = malloc (st.st_size + 1);
   
   if (buf == NULL) {
-    KLog ("malloc failed");
+    log_error("malloc buf failed");
     close(startup_cfg_fd);
     return -1;
   }
 
-  read(startup_cfg_fd, buf, st.st_size);
-  close(startup_cfg_fd);
   
+  read(startup_cfg_fd, buf, st.st_size);
+
+  close(startup_cfg_fd);  
   buf[st.st_size] = '\0';
   src = buf;
-  
-  KLog ("Init event loop");
-  
+   
+  log_info("processing startup.cfg");
+   
   while ((line = readLine()) != NULL) {
     cmd = tokenize(line);
     
-    if (cmd == NULL || cmd[0] == '\0')
-    {
+    if (cmd == NULL || cmd[0] == '\0') {
       continue;
     }
     
@@ -135,16 +120,15 @@ int DoInit(void) {
     } else if (strncmp("settty", cmd, 6) == 0) {
       cmdSettty();
     } else {
-      KLog ("UNKOWN CMD: %s", cmd);
+      log_error("init script, unknown command: %s", cmd);
     }
   }
- 
- 
+  
   do {
     pid = waitpid(0, &status, 0);
   } while (sc == 0);
   
-  // Shutdown system/reboot
+  // TODO: Shutdown system/reboot
   while (1) {
     sleep(10);
   }
@@ -152,11 +136,14 @@ int DoInit(void) {
   return 0;
 }
 
+
+/* @brief   Handle a "start" command in startup.cfg
+ *
+ * format: start <exe_name> [optional args ...]
+ */
 int cmdStart (void) {
   char *tok;
   int pid;
-
-  KLog("cmdStart");
 
   for (int t=0; t<ARG_SZ; t++)
   {
@@ -169,30 +156,27 @@ int cmdStart (void) {
   }
 
   if (argv[0] == NULL) {
-    KLog ("no arg");
     exit(-1);
   }
     
   pid = fork();
-//  KLog ("pid = %d", pid);
   
   if (pid == 0) {  
     execve((const char *)argv[0], argv, NULL);
-    
-//    KLog ("execve failed argv[0] = %08x", argv[0]);
- //   KLog ("execve failed exe = %s", argv[0]);
-    
     exit(-2);
   }
   else if (pid < 0) {
     exit(-1);
   }
   
-//  KLog ("** start done, pid = %d", pid);
   return 0;
 }
 
 
+/* @brief   Handle a "mknod" command in startup.cfg
+ * 
+ * format: mknod <path> <st_mode> <type>
+ */
 int cmdMknod (void) {
   char *fullpath;
   struct stat st;
@@ -201,26 +185,21 @@ int cmdMknod (void) {
   char *modestr;
   int status;
 
-  KLog("****** cmdMknod *********");
-    
   fullpath = tokenize(NULL);
 
   if (fullpath == NULL) {
-    KLog ("fullpath = null");
     return -1;
   }
   
   modestr = tokenize(NULL);
   
   if (modestr == NULL) {
-    KLog ("modestr = null");
     return -1;
   }
 
   typestr = tokenize(NULL);
   
   if (typestr == NULL) {
-    KLog ("typestr = null");
     return -1;
   }
   
@@ -231,7 +210,6 @@ int cmdMknod (void) {
   } else if (typestr[0] == 'b') {
     mode |= _IFBLK;
   } else {
-    KLog ("******************** init: Unknown mknod type, %c", typestr[0]);
     return -1;
   }
   
@@ -240,31 +218,35 @@ int cmdMknod (void) {
   st.st_gid = 0;
   st.st_mode = mode;
   
-  KLog ("**** mknod path:%s", fullpath);    
-    
   status = mknod2(fullpath, 0, &st);
 
   return status;
 }
 
-  // Need to be able to open regardless of dir/file or whatever.
 
+/* @brief   Handle a "chdir" command in startup.cfg
+ *
+ * format: chdir <pathname>
+ */
 int cmdChdir (void) {
   char *fullpath;
-  
-  KLog("cmdChdir");
   
   fullpath = tokenize(NULL);
 
   if (fullpath == NULL) {
     return -1;
   }
-  
+
   return chdir(fullpath);
 }
 
 
-
+/* @brief   Handle a "waitfor" command in startup.cfg
+ *
+ * format: waitfor <path>
+ *
+ * Waits for a filesystem to be mounted at <path>
+ */
 int cmdWaitfor (void) {
   char *fullpath;
   struct stat st;
@@ -274,13 +256,10 @@ int cmdWaitfor (void) {
   int fd = -1;
   struct pollfd pfd;
   int sc;
-  
-  KLog ("cmdWaitfor");
-  
+
   fullpath = tokenize(NULL);
   
   if (fullpath == NULL) {
-    KLog ("path is null");
     exit(-1);
   }
 
@@ -289,48 +268,63 @@ int cmdWaitfor (void) {
   parent_path = dirname(path);
   
   if (stat(parent_path, &parent_stat) != 0) {
-    KLog ("waitfor failed to fstat parent dir");
     exit(-1);
   }
   
   fd = open (fullpath, O_RDONLY);
   
   if (fd < 0) {
-    KLog ("failed to open %s for waitfor", fullpath);
     exit(-1);
   }
 
-  while (1) {
-    pfd.fd = fd;
-    pfd.events = POLLPRI;
-    pfd.revents = 0;
-    
-    sc = poll(&pfd, 1, -1);
-  
-    if (sc != 0) {
-      goto exit;
-    }
-  
-    if (stat(fullpath, &st) != 0) {
-      KLog ("waitfor failed to stat file");
-      continue;
-    }
-    
-    if (st.st_dev != parent_stat.st_dev) {
-      KLog ("Found matching device");
+
+#if 0
+  int kq;
+  struct kevent ev;
+  struct timespec ts;
+
+  if ((kq = kqueue()) != 0) {
+    return -1;
+  }
+
+  ts.tv_sec = 0;
+  ts.tv_nanoseconds = 200 * 1000000;
+
+  // FIXME: Use EVFILT_FS, no filehandle needed, is notified on all
+  // global mount/unmount changes.
+      
+  EV_SET(&ev, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE, 0, 0, 0); 
+  kevent(kq, &ev, 1,  NULL, 0, NULL);
+
+  while(1) {
+    if (stat(fullpath, &st) == 0 && st.st_dev != parent_stat.st_dev) {
       break;
     }
-    
+
+    kevent(kq, NULL, 0, &ev, 1, &ts);
   }
   
-  
-exit:  
-  close(fd);
+  close(kq);    
+
+#else
+  while (1) {
+    if (stat(fullpath, &st) == 0 && st.st_dev != parent_stat.st_dev) {
+      break;
+    }    
+
+    sleep(1);
+  }
+#endif
+
+  close(fd);  
   return 0;  
 }
 
 
-
+/* @brief   Handle a "sleep" command in startup.cfg
+ *
+ * format: sleep <seconds>
+ */
 int cmdSleep (void) {
     int seconds = 0;
     char *tok;    
@@ -338,25 +332,23 @@ int cmdSleep (void) {
     tok = tokenize(NULL);
   
     if (tok == NULL) {
-      KLog ("cmdSleep arg failed");
       return -1;
     }
 
     seconds = atoi(tok);
-
-    KLog ("cmdSleep %d", seconds);
-    
     sleep(seconds);    
     return 0;
 }
 
 
+/* @brief   Handle a "pivot" command in startup.cfg
+ *
+ * format: pivot <new_root_path> <old_root_path>
+ */
 int cmdPivot (void) {
   char *new_root;
   char *old_root;
   int sc;
-  
-  KLog("cmdPivot");
   
   new_root = tokenize(NULL);  
   if (new_root == NULL) {
@@ -369,17 +361,13 @@ int cmdPivot (void) {
   }
   
   sc = pivotroot (new_root, old_root);
-
-  if (sc == 0) {
-    KLog ("!!!!!!!! pivotted !!!!!!!!!!!!!!");  
-  } else {
-    KLog ("!!!!!!!! PIVOT FAILED !!!!!!!!!!!");  
-  }
-
   return sc;
 }
 
-
+/* @brief   Handle a "remount" command in startup.cfg
+ *
+ * format: remount <new_path> <old_path>
+ */
 int cmdRemount (void) {
   char *new_path;
   char *old_path;
@@ -395,38 +383,29 @@ int cmdRemount (void) {
     return -1;
   }
   
-//  sc = movemount (new_path, old_path);
-
-  if (sc == 0) {
-    KLog ("!!!!!!!! remounted !!!!!!!!!!!!!!");  
-  } else {
-    KLog ("!!!!!!!! REMOUNT FAILED !!!!!!!!!!!");  
-  }
-
+  sc = movemount (new_path, old_path);
   return sc;
 }
 
-/*
+
+/* @brief   Handle a "setty" command in startup.cfg
  *
+ * format: settty <tty_device_path>
  */
 int cmdSettty (void) {
   int fd;
   int old_fd;
   char *tty;
-  
-  KLog("***** cmdSetty ******");
 
   tty = tokenize(NULL);
   
   if (tty == NULL) {
-    KLog ("************* cmdSettty tty = NULL");
     return -1;
   }
   
   old_fd = open(tty, O_RDWR);  
   
   if (old_fd == -1) {
-    KLog ("************* cmdSettty failed open %s", tty); 
     return -1;
   }
   
@@ -445,8 +424,10 @@ int cmdSettty (void) {
   return 0;
 }
 
-/*
+
+/* @brief   Handle a "setenv" command in startup.cfg
  *
+ * format: setenv <name> <value>
  */
 int cmdSetEnv(void)
 {
@@ -466,7 +447,8 @@ int cmdSetEnv(void)
   setenv (name, value, 1);
 }
 
-/*
+
+/* @brief   Split a line of text from startup.cfg into nul-terminated tokens
  *
  */
 char *tokenize(char *line)
@@ -511,7 +493,8 @@ char *tokenize(char *line)
     return start;    
 }
 
-/*
+
+/* @brief   Read a line from startup.cfg
  *
  */
 char *readLine(void)
@@ -520,9 +503,10 @@ char *readLine(void)
     linebuf[255] = '\0';
     
     if (*src == '\0') {
+        log_info("no more file to read, src:%08x", src);
         return NULL; 
     }
-    
+        
     while (*src != '\0' && *src != '\r' && *src != '\n') {
         *dst++ = *src++;
     }
@@ -533,10 +517,13 @@ char *readLine(void)
     
     *dst = '\0';
     
+    log_info("startup.cfg: %s", linebuf);
+    
     return linebuf;
 }
 
-/*
+
+/* @brief   Print a test-card/greeting to stdout
  *
  */
 void PrintGreeting(void)

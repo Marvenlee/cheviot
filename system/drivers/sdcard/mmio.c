@@ -19,24 +19,32 @@
  * THE SOFTWARE.
  */
 
+#include "sdcard.h"
+#include <sys/debug.h>
 #include "mmio.h"
 #include <stdint.h>
 
 extern void memory_barrier();
 
-inline void mmio_write(uint32_t reg, uint32_t data) {
+inline void mmio_write(uint32_t reg, uint32_t data)
+{
   memory_barrier();
   *(volatile uint32_t *)(reg) = data;
   memory_barrier();
 }
 
-inline uint32_t mmio_read(uint32_t reg) {
+inline uint32_t mmio_read(uint32_t reg)
+{
+  uint32_t val;
   memory_barrier();
-  return *(volatile uint32_t *)(reg);
+  val = *(volatile uint32_t *)(reg);
   memory_barrier();
+  
+  return val;
 }
 
-__attribute__((naked)) void memory_barrier() {
+__attribute__((naked)) void memory_barrier(void)
+{
   __asm("mov r0, #0");
   __asm("mcr p15, #0, r0, c7, c10, #5");
   __asm("mov pc, lr");

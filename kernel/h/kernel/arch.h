@@ -9,8 +9,8 @@
 #endif
 
 #ifdef ARCH_ARM
-#include <kernel/arm/arm.h>
-#include <kernel/arm/task.h>
+#include <kernel/board/arm.h>
+#include <kernel/board/task.h>
 #endif
 
 #endif

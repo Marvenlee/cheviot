@@ -7,7 +7,7 @@
 #endif
 
 #ifdef ARCH_ARM
-#include <kernel/arm/elf.h>
+#include <kernel/board/elf.h>
 #endif
 
 #endif

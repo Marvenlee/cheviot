@@ -23,23 +23,30 @@
 #include <kernel/types.h>
 #include <kernel/vm.h>
 
-/*
- * FIXME: Limit block seeks to stat.block size multiples?
+
+/* @brief   Seek to a new file position
+ * @param   fd,
+ * @param   pos,
+ * @param   whence,
+ * @return  new seek position or negative errno on error
  *
- * vnode lock not needed
+ * FIXME: Limit block seeks to stat.block size multiples?
  * filp will need to either atomically set seek position or need locking if we remove BKL
  */
-SYSCALL off_t sys_lseek(int fd, off_t pos, int whence) {
+off_t sys_lseek(int fd, off_t pos, int whence) {
   struct Filp *filp;
   struct VNode *vnode;
+  struct Process *current;
 
-  filp = get_filp(fd);
+  Info("sys_lseek");
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  vnode = filp->vnode;
 
   if (!S_ISREG(vnode->mode) && !S_ISBLK(vnode->mode)) {
     return -EINVAL;
@@ -57,34 +64,34 @@ SYSCALL off_t sys_lseek(int fd, off_t pos, int whence) {
 }
 
 
-/*
- *
+/* @brief   Seek to a new file position
+ * @param   fd,
+ * @param   pos,
+ * @param   whence,
+ * @return  0 on success or negative errno on error
  */
-SYSCALL int sys_lseek64(int fd, off64_t *_pos, int whence) {
+int sys_lseek64(int fd, off64_t *_pos, int whence) {
+  struct Process *current;
   struct Filp *filp;
   struct VNode *vnode;
   off64_t pos;
   int sc;
+
+  Info("sys_lseek64");
   
   pos = 0;
 
   sc = CopyIn(&pos, _pos, sizeof pos);
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-
-  Info ("lseek64, fd=%d, offs = %08x %08x, wh:%d", fd, (uint32_t)(pos >> 32), (uint32_t)pos, whence);
-  Info ("CopyIn sc = %d", sc);
-
-  filp = get_filp(fd);
-
-  if (filp == NULL) {
-    Info ("lseek64, not valid fd filp");
+  if (vnode == NULL) {
     return -EINVAL;
   }
 
-  vnode = filp->vnode;
-
   if (!S_ISREG(vnode->mode) && !S_ISBLK(vnode->mode)) {
-    Info ("lseek64 failed, not reg or blk");
     return -EINVAL;
   } else if (whence == SEEK_SET) {
     filp->offset = pos;
@@ -93,15 +100,12 @@ SYSCALL int sys_lseek64(int fd, off64_t *_pos, int whence) {
   } else if (whence == SEEK_END) {
     filp->offset = vnode->size + pos;
   } else {
-    Info ("lseek64 failed");
     return -EINVAL;
   }
 
   pos = filp->offset;
 
   CopyOut(_pos, &pos, sizeof pos);
-
-  Info ("lseek64 new offs = %08x %08x", (uint32_t)(pos>>32), (uint32_t)pos);
   return 0;
 }
 

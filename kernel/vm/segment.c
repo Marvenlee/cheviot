@@ -29,12 +29,13 @@
 #include <kernel/vm.h>
 #include <string.h>
 
-/**
+
+/*
  *
  */
-
 vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
-                      int type, bits32_t flags) {
+                      int type, bits32_t flags)
+{
   vm_addr *seg;
   vm_addr base;
   int t;
@@ -104,7 +105,11 @@ vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
   return addr;
 }
 
-void segment_free(struct AddressSpace *as, vm_addr base, vm_size size) {
+
+/*
+ */
+void segment_free(struct AddressSpace *as, vm_addr base, vm_size size)
+{
   int lo;
   int hi;
   
@@ -133,11 +138,9 @@ void segment_free(struct AddressSpace *as, vm_addr base, vm_size size) {
  * starting at idx. Coalesce them if possible?
  *
  */
-
-void segment_insert(struct AddressSpace *as, int index, int cnt) {
-  int t;
-
-  for (t = as->segment_cnt - 1 + cnt; t >= (index + cnt); t--) {
+void segment_insert(struct AddressSpace *as, int index, int cnt)
+{
+  for (int t = as->segment_cnt - 1 + cnt; t >= (index + cnt); t--) {
     as->segment_table[t] = as->segment_table[t - cnt];
   }
 

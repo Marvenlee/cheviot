@@ -26,8 +26,9 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "sdcard.h"
 
-int usleep(useconds_t usec) {
+int delay_microsecs(useconds_t usec) {
 
   struct timer_wait tw = register_timer(usec);
   while (!compare_timer(tw)) {

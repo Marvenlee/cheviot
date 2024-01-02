@@ -17,7 +17,7 @@
 #ifndef SERIAL_H
 #define SERIAL_H
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <stdint.h>
 #include <unistd.h>
@@ -26,25 +26,162 @@
 #include <sys/fsreq.h>
 #include <sys/termios.h>
 #include <sys/interrupts.h>
+#include <sys/syscalls.h>
 #include <sys/syslimits.h>
 #include <task.h>
 
 
+#define SERIAL_IRQ  57
+#define INO_NR 0
 #define PAGE_SIZE 4096
-
 #define POLL_TIMEOUT 100000
-
-#define ALIGN_UP(val, alignment)                                               \
-  ((((val) + (alignment)-1) / (alignment)) * (alignment))
-
-#define ALIGN_DOWN(val, alignment) ((val) - ((val) % (alignment)))
-
-#define UART_CLK (3000000 * 16)
 #define NULL ((void *)0)
 
-#define SERIAL_IRQ  57
+#if defined(BOARD_RASPBERRY_PI_1)
 
-#define INO_NR 0
+#define UART_CLK (3000000 * 16)
+
+enum Base {
+  GPIO_BASE_PA      = 0x00200000, // 0x??200000
+  UART_BASE_PA      = 0x00201000, // 0x??201000
+  IRQ_BASE          = 0x0000B000, // 0x??00B000
+  TIMER_BASE        = 0x00003000, // 0x??003000
+  BCM2835_PERI_BASE = 0x20000000,
+};
+
+struct bcm2835_uart_registers {
+  uint32_t data;      // 0x00
+  uint32_t rsrecr;    // 0x04
+  uint32_t resvd1[4]; // 0x08  
+  uint32_t flags;     // 0x18
+  uint32_t resvd2;    // 0x1C
+  uint32_t ilpr;      // 0x20
+  uint32_t ibrd;      // 0x24
+  uint32_t fbrd;      // 0x28
+  uint32_t lcrh;      // 0x2C
+  uint32_t ctrl;      // 0x30
+  uint32_t ifls;      // 0x34
+  uint32_t imsc;      // 0x38
+  uint32_t ris;       // 0x3C
+  uint32_t mis;       // 0x40
+  uint32_t icr;       // 0x44
+};
+
+struct bcm2835_gpio_registers {
+  uint32_t fsel[6];     // 0x00
+  uint32_t resvd1;      // 0x18
+  uint32_t set[2];      // 0x1C
+  uint32_t resvd2;      // 0x24
+  uint32_t clr[2];      // 0x28
+  uint32_t resvd3[25];  // 0x30
+  uint32_t pud;         // 0x94
+  uint32_t pud_clk[2];  // 0x98
+};
+
+extern volatile struct bcm2835_uart_registers *uart;
+extern volatile struct bcm2835_gpio_registers *gpio;
+
+#elif defined(BOARD_RASPBERRY_PI_4)
+
+#define UART_CLK (3000000 * 16)
+
+enum Base {
+  GPIO_BASE_PA      = 0x00200000, // 0x??200000
+  UART_BASE_PA      = 0x00201000, // 0x??201000
+//  IRQ_BASE          = 0x0000B000, // 0x??00B000
+//  TIMER_BASE        = 0x00003000, // 0x??003000
+
+  AUX_BASE_PA          = PERIPHERAL_BASE + 0x215000,
+    AUX_ENABLES     = AUX_BASE + 4,
+    AUX_MU_IO_REG   = AUX_BASE + 64,
+    AUX_MU_IER_REG  = AUX_BASE + 68,
+    AUX_MU_IIR_REG  = AUX_BASE + 72,
+    AUX_MU_LCR_REG  = AUX_BASE + 76,
+    AUX_MU_MCR_REG  = AUX_BASE + 80,
+    AUX_MU_LSR_REG  = AUX_BASE + 84,
+    AUX_MU_CNTL_REG = AUX_BASE + 96,
+    AUX_MU_BAUD_REG = AUX_BASE + 104,
+    AUX_UART_CLOCK  = 500000000,
+    UART_MAX_QUEUE  = 16 * 1024
+
+  BCM2711_PERI_BASE = 0xFE000000,
+};
+
+
+#define AUX_UART_CLOCK  = 500000000
+#define UART_MAX_QUEUE  = 16 * 1024
+
+
+struct bcm2711_aux_registers
+{
+  uint32_t aux_irq;
+  uint32_t aux_enables;
+  uint32_t resvd1[14];
+  uint32_t aux_mu_io_reg;
+  uint32_t aux_mu_ier_reg;
+  uint32_t aux_mu_iir_reg;
+  uint32_t aux_mu_lcr_reg;
+  uint32_t aux_mu_mcr_reg;
+  uint32_t aux_mu_lsr_reg;
+  uint32_t aux_mu_cntl_reg;
+  uint32_t aux_mu_baud_reg;
+};
+
+
+struct bcm2711_uart_registers
+{
+  uint32_t data;      // 0x00
+  uint32_t rsrecr;    // 0x04
+  uint32_t resvd1[4]; // 0x08  
+  uint32_t flags;     // 0x18
+  uint32_t resvd2;    // 0x1C
+  uint32_t ilpr;      // 0x20
+  uint32_t ibrd;      // 0x24
+  uint32_t fbrd;      // 0x28
+  uint32_t lcrh;      // 0x2C
+  uint32_t ctrl;      // 0x30
+  uint32_t ifls;      // 0x34
+  uint32_t imsc;      // 0x38
+  uint32_t ris;       // 0x3C
+  uint32_t mis;       // 0x40
+  uint32_t icr;       // 0x44
+};
+
+
+struct bcm2711_gpio_registers
+{
+  uint32_t fsel[6];     // 0x00 
+  uint32_t resvd1;      // 0x18
+  uint32_t set[2];      // 0x1C
+  uint32_t resvd2;      // 0x24
+  uint32_t clr[2];      // 0x28
+  uint32_t resvd3;      // 0x30
+  uint32_t lev[2];      // 0x34
+  uint32_t resvd4;      // 0x3c
+  uint32_t eds[2];      // 0x40
+  uint32_t resvd5;      // 0x48
+  uint32_t ren[2];      // 0x4c
+  uint32_t resvd6;      // 0x54
+  uint32_t fen[2];      // 0x58
+  uint32_t resvd7;      // 0x60
+  uint32_t hen[2];      // 0x64
+  uint32_t resvd8;      // 0x6c
+  uint32_t len[2];      // 0x70
+  uint32_t resvd9;      // 0x78
+  uint32_t aren[2];     // 0x7c
+  uint32_t resvd10;     // 0x84
+  uint32_t afen[2];     // 0x88
+  uint32_t resvd11[21];  // 0x90
+  uint32_t pup_pdn_ctrl[4]; // 0xe4  
+};
+
+
+extern volatile struct bcm2711_aux_registers *aux;
+extern volatile struct bcm2711_gpio_registers *gpio;
+
+#else
+#error "serial: unknown board"
+#endif
 
 
 enum FSel {
@@ -61,48 +198,6 @@ enum FlowControl {
   FLOW_CONTROL_SW   = 1,
   FLOW_CONTROL_HW   = 2,
 };
-
-
-enum Base {
-    NONE       = 0,
-    GPIO_BASE_PA  = 0x200000, // 0x??200000
-    UART_BASE_PA = 0x201000, // 0x??201000
-    IRQ_BASE   = 0x00B000, // 0x??00B000
-    TIMER_BASE = 0x003000, // 0x??003000
-    BCM2708_PERI_BASE = 0x20000000,
-};
-
-
-
-struct bcm2835_uart_registers {
-  uint32_t data;      // 0x00 - 0x04
-  uint32_t rsrecr;    // 0x04 - 0x08
-  uint32_t resvd1[4]; // 0x08 - 0x18  
-  uint32_t flags;     // 0x18 - 0x1C
-  uint32_t resvd2;    // 0x1C - 0x20
-  uint32_t ilpr;      // 0x20 - 0x24
-  uint32_t ibrd;      // 0x24 - 0x28
-  uint32_t fbrd;      // 0x28 - 0x2C
-  uint32_t lcrh;      // 0x2C - 0x30
-  uint32_t ctrl;      // 0x30 - 0x34
-  uint32_t ifls;      // 0x34 - 0x38
-  uint32_t imsc;      // 0x38 - 0x3C
-  uint32_t ris;       // 0x3C - 0x40
-  uint32_t mis;       // 0x40 - 0x44
-  uint32_t icr;       // 0x44 - 0x48
-};
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 enum {
@@ -177,25 +272,11 @@ enum {
 };
 
 
-
-struct bcm2835_gpio_registers {
-  uint32_t fsel[6];     // 0x00 - 0x14
-  uint32_t resvd1;      // 0x18 - 0x1C
-  uint32_t set[2];      // 0x1C - 0x024
-  uint32_t resvd2;      // 0x24 - 0x28
-  uint32_t clr[2];      // 0x28 - 0x30
-  uint32_t resvd3[25];  // 0x30 - 0x94
-  uint32_t pud;         // 0x94 - 0x98
-  uint32_t pud_clk[2];  // 0x98 - 0x10
-};
-
-
-
-
-
-// types
-
-struct Config {
+/*
+ * Configuration settings
+ */
+struct Config
+{
   char pathname[PATH_MAX + 1];
   uid_t uid;
   gid_t gid;
@@ -208,86 +289,30 @@ struct Config {
 };
 
 
-
-// globals
-
-extern int fd;
-extern int interrupt_fd;
-
-extern int sid;
-
-extern int tx_head;
-extern int tx_sz;
-extern int tx_free_head;
-extern int tx_free_sz;
-extern uint8_t tx_buf[4096];
-
-extern int rx_head;
-extern int rx_sz;
-extern int rx_free_head;
-extern int rx_free_sz;
-extern uint8_t rx_buf[4096];
-
-extern int line_cnt;
-extern int line_end;
-
-
-extern bool write_pending;
-extern bool read_pending;
-extern int read_msgid;
-extern int write_msgid;
-
-extern Rendez tx_rendez;
-extern Rendez rx_rendez;
-
-extern Rendez tx_free_rendez;
-extern Rendez rx_data_rendez;
-
-extern Rendez write_cmd_rendez;
-extern Rendez read_cmd_rendez;
-
-extern struct fsreq read_fsreq;
-extern struct fsreq write_fsreq;
-
-
-
-extern struct termios termios;
-extern volatile struct bcm2835_uart_registers *uart;
-extern volatile struct bcm2835_gpio_registers *gpio;
-
-extern struct Config config;
-
-
-
-
-
-
 // prototypes
-void cmd_isatty(int sid, struct fsreq *req);
-void cmd_read(int sid, struct fsreq *req);
-void cmd_write(int sid, struct fsreq *req);
-void cmd_tcsetattr(int sid, struct fsreq *req);
-void cmd_tcgetattr(int sid, struct fsreq *req);
+void cmd_isatty(msgid_t msgid, struct fsreq *req);
+void cmd_read(msgid_t msgid, struct fsreq *req);
+void cmd_write(msgid_t msgid, struct fsreq *req);
+void cmd_tcsetattr(msgid_t msgid, struct fsreq *req);
+void cmd_tcgetattr(msgid_t msgid, struct fsreq *req);
 
-void init (int argc, char *argv[]);
+void init(int argc, char *argv[]);
 int process_args(int argc, char *argv[]);
 int mount_device(void);
 
 void configure_gpio(uint32_t pin, enum FSel fn, enum PullUpDown action);
 void set_gpio(uint32_t pin, bool state);
-void configure_uart(void);
+int configure_uart(void);
 
 void io_delay(uint32_t cycles);
 
-void reader_task (void *arg);
-void writer_task (void *arg);
-
-
+void reader_task(void *arg);
+void writer_task(void *arg);
 void uart_tx_task(void *arg);
 void uart_rx_task(void *arg);
 
 void line_discipline(uint8_t ch);
-
+int get_line_length(void);
 void echo(uint8_t ch);
 
 void interrupt_handler(int irq, struct InterruptAPI *api);
@@ -297,7 +322,6 @@ void Delay(uint32_t cycles);
 
 void isb(void);
 void dsb(void);
-
 void dmb(void);
 
 void input_processing(uint8_t ch);

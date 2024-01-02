@@ -27,7 +27,8 @@
 /*
  *
  */
-SYSCALL int sys_rename(char *oldpath, char *newpath) {
+int sys_rename(char *oldpath, char *newpath)
+{
 /*
 
   struct Lookup oldl;

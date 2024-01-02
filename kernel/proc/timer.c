@@ -24,7 +24,8 @@
  * actual system time
  *
  * The bottom half of the timer processing does the actual timer
- * expiration.  It increments a softclock variable which indicates
+ * expiration. This is run as the highest priority task in the kernel.
+ * The bottom half increments a softclock variable which indicates
  * where the processing and expiration of timers has currently reached.
  * The hardclock can get ahead of the softclock if the system is particularly
  * busy or preemption disabled for long periods.
@@ -34,7 +35,7 @@
  *
  * A hash table is used to quickly insert and find timers to expire.  This
  * is a hashed timing wheel, with jiffies_per_second entries in the hash table.
- * This means times of 1.001, 2.001, 3.001 etc are all in the same hash
+ * This means times of 1.342, 45.342, 789.342 etc are all in the same hash
  * bucket.
  *
  * Further reading:
@@ -43,9 +44,9 @@
  *    Efficient Implementation of a Timer Facility" by G Varghese & T,Lauck
  */
 
-//#define KDEBUG
+//#define KDEBUG 1
 
-#include <kernel/arm/raspberry.h>
+#include <kernel/board/raspberry.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
@@ -55,40 +56,47 @@
 #include <sys/time.h>
 
 
-/*
- * Returns the system time in seconds and microseconds.
- *
- * Acquire timer spinlock to read the current value of hardclock
+/* @brief   Returns the system time in seconds and microseconds.
+ * 
+ * @param   tv_user, returns the system time in seconds and microseconds
+ * @return  0 on success, negative errno on error
  */
-
-SYSCALL int sys_gettimeofday(struct timeval *tv_user) {
+int sys_gettimeofday(struct timeval *tv_user)
+{
+  int_state_t int_state;
   struct timeval tv;
 
-  SpinLock(&timer_slock);
+  int_state = DisableInterrupts();
   tv.tv_sec = hardclock_time / JIFFIES_PER_SECOND;
   tv.tv_usec = (hardclock_time % JIFFIES_PER_SECOND); // TODO: FIXME 
-  SpinUnlock(&timer_slock);
+  RestoreInterrupts(int_state);
 
   CopyOut(tv_user, &tv, sizeof(struct timeval));
   return 0;
 }
 
 
-/*
+/* @brief   Set the system time
+ *
  * TODO:
  */
-SYSCALL int sys_settimeofday(struct timeval *tv_user) {
+int sys_settimeofday(struct timeval *tv_user)
+{
   return 0;
 }
 
-/*
+
+/* @brief   Set a timeout alarm
+ * 
  * TODO;
  */
-SYSCALL int sys_alarm(int seconds) { 
+int sys_alarm(int seconds)
+{ 
   // Enable alarm timer.
   
   return -ENOSYS;
 }
+
 
 /*
  *
@@ -100,46 +108,55 @@ void SleepCallback(struct Timer *timer)
   TaskWakeup (&process->rendez);
 }
 
-/*
+
+/* @brief   System call to put the current process to sleep
+ * 
+ * @param   seconds, duration to sleep for
+ * @return  0 on success, negative errno on error 
  *
+ * TODO: Abort sleep upon catching signals and return remaining time?
  */
-SYSCALL int sys_sleep(int seconds) {
+int sys_sleep(int seconds)
+{
+  int_state_t int_state;
   struct Process *current;
   struct Timer *timer;
-  
-  Info ("SysSleep(%d)", seconds);
+
+  Info ("sys_sleep(%d)", seconds);
+  Info("hard_clock =%u", (uint32_t)hardclock_time);
   
   current = get_current_process();
     
-  timer = &current->sleep_timer;
-  
+  timer = &current->sleep_timer;  
   timer->process = current;
   timer->armed = true;
   timer->callback = SleepCallback;
 
-  SpinLock(&timer_slock);
+  int_state = DisableInterrupts();
   timer->expiration_time = hardclock_time + (seconds * JIFFIES_PER_SECOND);
-  SpinUnlock(&timer_slock);
-
+  RestoreInterrupts(int_state);
+  
   LIST_ADD_TAIL(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
-
-  // Can be interrupted by a signal (do we return remainder ?)
 
   while (timer->armed == true) {
     TaskSleep(&current->rendez);
   }
+
+  Info ("sys_sleep awakened");
   
   return 0;
 }
 
 
 
-/*
- * Arms a timer to expire at either a relative or absolute time specified
- * by tv_user.
+
+/* @brief   Arm a timer to expire at either a relative or absolute time
+ *
  * Setting tv_user to NULL will cancel an existing armed timer.
  */
-int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
+int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg)
+{
+  int_state_t int_state;
   struct Timer *timer;
   struct Process *current;
   int remaining = 0;
@@ -148,7 +165,8 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
 
   timer = &current->timeout_timer;
   
-  DisableInterrupts();
+  int_state = DisableInterrupts();
+
   if (timer->armed == true) {
 
     remaining = hardclock_time - timer->expiration_time / JIFFIES_PER_SECOND;
@@ -156,15 +174,10 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
     LIST_REM_ENTRY(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
     timer->armed = false;
   }
-  EnableInterrupts();
-  
-  // Calculate absolute time of expiry
   
   if (milliseconds > 0) {
-    SpinLock(&timer_slock);
     timer->expiration_time = hardclock_time + (milliseconds/(1000/JIFFIES_PER_SECOND)) + 1;
-    SpinUnlock(&timer_slock);
-
+    
     timer->process = current;    
     timer->callback = callback;
     timer->arg = arg;
@@ -173,68 +186,100 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg) {
     LIST_ADD_TAIL(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
   }
 
+  RestoreInterrupts(int_state);
+
   return remaining;  
 }
 
-/*
- * Top half of timer handling.
- * Called from within timer interrupt.  Updates the quanta used of all running
- * processes and advances the hard_clock (the wall time).
+
+/* @brief   Determine if a softclock time has caught up with the hardclock
+ *
+ * @param   softclock, time to compare to the hardclock time
+ * @return  true if the softclock time is less than the hardclock time, false otherwise 
  */
-void TimerTopHalf(void) {
-  int t;
+bool softclock_trailing_hardclock(uint64_t softclock)
+{
+  int_state_t int_state;
+  bool trailing;
+  
+  int_state = DisableInterrupts(); 
+  trailing = (softclock < hardclock_time);
+  RestoreInterrupts(int_state);
+
+  return trailing;
+}
 
 
-  for (t = 0; t < max_cpu; t++) {
+/* @brief   Timer handling in the timer interrupt service routine
+ *
+ * Called from within timer interrupt.  Updates the quanta used of all currently
+ * running processes and advances the hard_clock (the wall time).
+ *
+ * NOTES: For SMP, we may have separate hardware timers for each CPU and use
+ * these to increment the quanta used for scheduling. Only a single CPU needs
+ * to increment the hardclock time. 
+ */
+void TimerTopHalf(void)
+{
+  int_state_t int_state;
+  
+  for (int t = 0; t < max_cpu; t++) {
     if (cpu_table[t].current_process != NULL) {
       cpu_table[t].current_process->quanta_used++;
     }
 
-    cpu_table[t].reschedule_request = true;
+//    cpu_table[t].reschedule_request = true;     // Unused,
   }
 
-  SpinLock(&timer_slock);
+//  int_state = DisableInterrupts(); 
   hardclock_time++;
-  SpinUnlock(&timer_slock);
-
+//  RestoreInterrupts(int_state);
+  
+//  LedToggle();   // FIXME: System locks up early in init.exe when this added.
+  
   TaskWakeupFromISR(&timer_rendez);
 }
 
-/*
- * Bottom half of timer handling.
- * 
- * Run this in a high-priority kernel thread.
+
+/* @brief   Timer handling deferred to a high priority kernel task.
+ *
+ * NOTES:
+ * Is there a race condition if TaskSleep cancels timer and bucket is being processed ?
+ * It is removed from timing wheel, no longer armed but callback still called.
+ * We have the BKL/cooperative scheduling in kernel, only single task is running until
+ * Reschedule() is called.  TaskWakeup() called from callbacks such as sleep do not reschedule.
  */
-void TimerBottomHalf(void) {
+void TimerBottomHalf(void)
+{
+  int_state_t int_state;
+  bool logtimerwakeup = false;
+  
+  Info("TimerBottomHalf: hard_clock =%u",(uint32_t)hardclock_time);
+  
   struct Timer *timer, *next_timer;
 
-  while (1)
-  {
+  while (1) {
     KASSERT(bkl_locked == true);
     KASSERT(bkl_owner == timer_process);
-
-    // Timer task sleeps, leaving the kernel.
     
-    TaskSleep (&timer_rendez);
+    TaskSleep(&timer_rendez);
     
-    SpinLock(&timer_slock);
-
+    int_state = DisableInterrupts(); 
     while (softclock_time < hardclock_time) {
-
-      SpinUnlock(&timer_slock);
-
+      RestoreInterrupts(int_state);
+      
       timer = LIST_HEAD(&timing_wheel[softclock_time % JIFFIES_PER_SECOND]);
 
       while (timer != NULL) {
         next_timer = LIST_NEXT(timer, timer_entry);
 
-        if (timer->expiration_time <= softclock_time) {
+        if (timer->expiration_time <= softclock_time) {          
           LIST_REM_ENTRY(&timing_wheel[softclock_time % JIFFIES_PER_SECOND], timer, timer_entry);
           timer->armed = false;
   
           if (timer->callback != NULL) {
             timer->callback(timer);
-          }
+          }        
         }
         
         timer = next_timer;
@@ -242,10 +287,12 @@ void TimerBottomHalf(void) {
 
       softclock_time++;
 
-      SpinLock(&timer_slock);
+      int_state = DisableInterrupts();
     }
-
-    SpinUnlock(&timer_slock);
+    RestoreInterrupts(int_state);
+    
+    // What if timer interrupt occurs here, does this mean we end up waiting for
+    // an extra JIFFY for the next timer interrupt?
   }
 }
 

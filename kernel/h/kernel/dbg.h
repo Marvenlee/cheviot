@@ -33,7 +33,7 @@
 #ifdef KDEBUG
 
 #ifndef DEBUG_LEVEL
-#define DEBUG_LEVEL 0
+#define DEBUG_LEVEL 2
 #endif
 
 #define Error(fmt, args...) DoLog(fmt, ##args)
@@ -121,7 +121,7 @@
  * macros above.
  */
 
-SYSCALL void SysDebug(char *s);
+void SysDebug(char *s);
 
 void DoLog(const char *format, ...);
 void KLog2(const char *format, va_list ap);
@@ -132,5 +132,7 @@ void KPrintXY(int x, int y, char *s);
 void ProcessesInitialized(void);
 
 void MemDump(void *addr, size_t sz);
+
+void LogFDs(void);
 
 #endif

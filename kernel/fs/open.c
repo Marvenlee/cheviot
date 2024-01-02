@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -24,18 +24,21 @@
 #include <kernel/vm.h>
 #include <poll.h>
 
+
 // Static Prototypes
 static int do_open(struct lookupdata *ld, int oflags, mode_t mode);
+
 
 /*
  *
  */
-SYSCALL int sys_open(char *_path, int oflags, mode_t mode) {
+int sys_open(char *_path, int oflags, mode_t mode)
+{
   struct lookupdata ld;
   int sc;
 
   if ((sc = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
-    Info ("Open - lookup failed, sc = %d", sc);
+    Error("Open - lookup failed, sc = %d", sc);
     return sc;
   }
 
@@ -50,14 +53,13 @@ int kopen(char *_path, int oflags, mode_t mode) {
   int sc;
 
   if ((sc = lookup(_path, LOOKUP_PARENT | LOOKUP_KERNEL, &ld)) != 0) {
-    Info ("Kopen - lookup failed, sc = %d", sc);
+    Error("Kopen - lookup failed, sc = %d", sc);
     return sc;
   }
 
-  Info("kopen (%s)", ld.last_component);
-
   return do_open(&ld, oflags, mode);
 }
+
 
 /*
  *
@@ -71,16 +73,13 @@ static int do_open(struct lookupdata *ld, int oflags, mode_t mode) {
   int err = 0;
   struct stat stat;
   
-  Info ("DoOpen");
-  
   current = get_current_process();
   vnode = ld->vnode;
   dvnode = ld->parent;
-  
-    
+      
   if (vnode == NULL) {
     if ((oflags & O_CREAT) && is_allowed(dvnode, W_OK) != 0) {
-      Info("SysOpen vnode_put O_CREAT");
+      Error("SysOpen vnode_put O_CREAT");
       vnode_put(dvnode);
       return -ENOENT;
     }
@@ -90,7 +89,7 @@ static int do_open(struct lookupdata *ld, int oflags, mode_t mode) {
     stat.st_gid = current->gid;
 
     if ((err = vfs_create(dvnode, ld->last_component, oflags, &stat, &vnode)) != 0) {
-      Info("SysOpen vnode_put vfs_create");
+      Error("SysOpen vnode_put vfs_create");
       vnode_put(dvnode);      
       return err;
     }
@@ -104,41 +103,40 @@ static int do_open(struct lookupdata *ld, int oflags, mode_t mode) {
 //    }
   }
 
-  Info("SysOpen vnode_put dvnode");
   vnode_put(dvnode);
 
   if (oflags & O_TRUNC) {
     if ((err = vfs_truncate(vnode, 0)) != 0) {
-      Info("SysOpen vnode_put vfs_truncate");
+      Error("SysOpen vnode_put vfs_truncate");
       vnode_put(vnode);
       return err;
     }
   }
 
-  fd = alloc_fd();
+  fd = alloc_fd_filp(current);
   
   if (fd < 0) {
     err = -ENOMEM;
     goto exit;
   }
 
-  filp = get_filp(fd);
-  filp->vnode = vnode;
+  filp = get_filp(current, fd);
+  filp->type = FILP_TYPE_VNODE;
+  filp->u.vnode = vnode;
+  
   if (oflags & O_APPEND)
     filp->offset = vnode->size;
   else
     filp->offset = 0;
 
   vnode_unlock(vnode);
-
-  Info ("DoOpen success");
   return fd;
   
 exit:
-  Info ("DoOpen failed: %d", err);
-  free_fd(fd);
+  Error("DoOpen failed: %d", err);
+  free_fd_filp(current, fd);
 
-  Info("SysOpen vnode_put exit:");
+  Error("SysOpen vnode_put exit:");
   vnode_put(vnode);
   return err;
 }

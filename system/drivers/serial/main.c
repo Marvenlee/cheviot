@@ -28,42 +28,59 @@
 #include <unistd.h>
 #include <sys/fsreq.h>
 #include <poll.h>
-#include "serial.h"
 #include <sys/debug.h>
 #include <sys/lists.h>
 #include <task.h>
+#include <sys/event.h>
+#include "serial.h"
+#include "globals.h"
 
 
-int LineLength(void);
-
-/*
- * main
+/* @brief   Main task of the serial driver for Pi's mini-uart
+ *
+ * Libtask coroutines are used for concurrency in the serial driver
+ * We follow Djikstra's Secretaries and Directors pattern of 
+ * Cooperating Sequential Processes.  We have the main task acting
+ * as the secretary, waiting for external events such as messages
+ * arriving on the message port, timers or when implemented, interrupts.
+ * This then wakes up director tasks or sub-secretary tasks as needed.
+ *
+ * We perform a repeated taskyield at the end to let these other tasks
+ * run. Once that returns 0, indicating no other tasks are in a runnable
+ * state then this main task (secretary) goes back to waiting for
+ * incoming events.
+ *
+ * For the Raspberry Pi 1 we use the pl011 uart.
  */
-void taskmain(int argc, char *argv[]) {
+void taskmain(int argc, char *argv[])
+{
   struct fsreq req;
   int sc;
-  int msgid;
-  struct pollfd pfd[2];
+  int nevents;
   uint32_t mis;
-
-  KLog ("**** serial.exe ****");
+  msgid_t msgid;
+  struct kevent ev;
+  struct timespec timeout;
 
   init(argc, argv);
 
-  while (1) {
-    pfd[0].fd = fd;
-    pfd[0].events = POLLIN;
-    pfd[0].revents = 0;
-    pfd[1].fd = interrupt_fd;
-    pfd[1].events = POLLPRI;
-    pfd[1].revents = 0;
-    
-    // TODO:  POLL_TIMEOUT to become inter-char timeout if input == RAW and VTIME != 0
+  taskcreate(reader_task, NULL, 4096);
+  taskcreate(writer_task, NULL, 4096);
+  taskcreate(uart_tx_task, NULL, 4096);
+  taskcreate(uart_rx_task, NULL, 4096);
 
-    sc = poll(pfd, 2, POLL_TIMEOUT);
-    
-    if (pfd[0].revents & POLLIN) {        
-      while ((sc = receivemsg(fd, &msgid, &req, sizeof req)) == sizeof req) {
+  timeout.tv_sec = 0;
+  timeout.tv_nsec = 100 * 1000000;
+  EV_SET(&ev, portid, EVFILT_MSGPORT, EV_ADD | EV_ENABLE, 0, 0, 0); 
+  // EV_SET(&ev[1], interrupt_fd, EVFILT_IRQ, EV_ADD | EV_ENABLE, 0, 0, 0); 
+  kevent(kq, &ev, 1,  NULL, 0, NULL);
+
+  while (1) {
+    errno = 0;
+    nevents = kevent(kq, NULL, 0, &ev, 1, &timeout);
+
+    if (nevents == 1 && ev.ident == portid && ev.filter == EVFILT_MSGPORT) {
+      while ((sc = getmsg(portid, &msgid, &req, sizeof req)) == sizeof req) {
         switch (req.cmd) {
           case CMD_READ:
             cmd_read(msgid, &req);
@@ -86,33 +103,27 @@ void taskmain(int argc, char *argv[]) {
             break;
 
           default:
-            exit(-1);
+            log_error("serial: unknown command: %d", req.cmd);
+            exit(EXIT_FAILURE);
         }
-      }
+      }      
       
       if (sc != 0) {
-        exit(-1);
+        log_error("serial: getmsg sc=%d %s", sc, strerror(errno));
+        exit(EXIT_FAILURE);
       }
     }
 
-    if (pfd[1].revents & POLLPRI) {
-        // Read interrupt status register and invoke deferred-procedure-call tasklets
-
-        dmb();    
-//      mis = uart->mis;      
-        dmb();    
-
-//      if (mis & (INT_RXR | INT_RTR)) {
-        taskwakeupall(&rx_rendez);
-//      }
-
-//      if (mis & INT_TXR) {
-        taskwakeupall(&tx_rendez);
-//      }      
-
-        interrupt_clear();
+    // Read interrupt status register and wakeup appropriate rx and tx tasks
+#if 0  
+    if (nevents == 1 && ev.ident == interrupt_fd && ev.filter == EVFILT_IRQ) {      
+      uart_process_interrupts();
     }
-        
+#else  
+    uart_process_interrupts();  
+#endif
+    
+    //  Yield until no other task is running.            
     while (taskyield() != 0);
   }
 
@@ -122,50 +133,29 @@ void taskmain(int argc, char *argv[]) {
 /*
  *
  */
-void cmd_isatty (int msgid, struct fsreq *fsreq)
+void cmd_isatty (msgid_t msgid, struct fsreq *fsreq)
 {
-  struct fsreply reply;
-  
-  reply.args.isatty.status = 0;
-	seekmsg(fd, msgid, sizeof *fsreq);
-	writemsg(fd, msgid, &reply, sizeof reply);
-	replymsg (fd, msgid, 0);
+  replymsg(portid, msgid, 0, NULL, 0);
 }
 
 /*
  *
  */
-void cmd_tcgetattr (int msgid, struct fsreq *fsreq)
+void cmd_tcgetattr(msgid_t msgid, struct fsreq *fsreq)
 {	
-  struct fsreply reply;
-  
-  seekmsg(fd, msgid, sizeof *fsreq + sizeof reply);		
-  writemsg(fd, msgid, &termios, sizeof termios);
-
-  reply.args.tcgetattr.status = 0;
-	seekmsg(fd, msgid, sizeof *fsreq);
-	writemsg(fd, msgid, &reply, sizeof reply);
-	replymsg (fd, msgid, 0);
+  replymsg(portid, msgid, 0, &termios, sizeof termios);
 }
 
 /*
  * FIX: add actions to specify when/what should be modified/flushed.
  */ 
-void cmd_tcsetattr (int msgid, struct fsreq *fsreq)
+void cmd_tcsetattr(msgid_t msgid, struct fsreq *fsreq)
 {
-  struct fsreply reply;
-  
-  seekmsg(fd, msgid, sizeof *fsreq + sizeof reply);		
-  readmsg(fd, msgid, &termios, sizeof termios);
-
-  // Perhaps make sure whole termios is written.
+  readmsg(portid, msgid, &termios, sizeof termios, sizeof *fsreq);
 
   // TODO: Flush any buffers, change stream mode to canonical etc
-  
-  reply.args.tcsetattr.status = 0;
-	seekmsg(fd, msgid, sizeof *fsreq);
-	writemsg(fd, msgid, &reply, sizeof reply);
-	replymsg (fd, msgid, 0);
+
+	replymsg(portid, msgid, 0, NULL, 0);
 }
 
 /*
@@ -174,7 +164,7 @@ void cmd_tcsetattr (int msgid, struct fsreq *fsreq)
  *
  * Only 1 reader and only 1 writer and only 1 tc/isatty cmd
  */
-void cmd_read(int msgid, struct fsreq *req) {
+void cmd_read(msgid_t msgid, struct fsreq *req) {
 
   read_pending = true;
   read_msgid = msgid;
@@ -185,7 +175,7 @@ void cmd_read(int msgid, struct fsreq *req) {
 /*
  * 
  */
-void cmd_write(int msgid, struct fsreq *req) {
+void cmd_write(msgid_t msgid, struct fsreq *req) {
 
   write_pending = true;
   write_msgid = msgid;
@@ -198,7 +188,6 @@ void cmd_write(int msgid, struct fsreq *req) {
  */
 void reader_task (void *arg)
 {
-  struct fsreply reply;
   ssize_t nbytes_read;
   size_t line_length;
   size_t remaining;
@@ -223,11 +212,9 @@ void reader_task (void *arg)
       }
     
       // Could we remove line_length calculation each time ?
-      line_length = LineLength();
+      line_length = get_line_length();
       remaining = (line_length < read_fsreq.args.read.sz) ? line_length : read_fsreq.args.read.sz;
     }
-
-    seekmsg(fd, read_msgid, sizeof (struct fsreq) + sizeof reply);
          
     nbytes_read = 0;
     
@@ -235,7 +222,8 @@ void reader_task (void *arg)
       sz = sizeof rx_buf - rx_head;
       buf = &rx_buf[rx_head]; 
       
-      writemsg(fd, read_msgid, buf, sz);
+      writemsg(portid, read_msgid, buf, sz, 0);
+
       nbytes_read += sz;
     
       sz = remaining -= sz;
@@ -244,8 +232,9 @@ void reader_task (void *arg)
       sz = remaining;
       buf = &rx_buf[rx_head];
     }
-    
-    writemsg(fd, read_msgid, buf, sz);
+        
+    writemsg(portid, read_msgid, buf, sz, nbytes_read);
+
     nbytes_read += sz;
 
     rx_head = (rx_head + nbytes_read) % sizeof rx_buf;
@@ -262,13 +251,9 @@ void reader_task (void *arg)
           
     taskwakeupall(&rx_rendez);
     
-    
-    reply.cmd = CMD_READ;
-    reply.args.read.nbytes_read = nbytes_read;          
-    seekmsg(fd, read_msgid, sizeof (struct fsreq));
-    writemsg(fd, read_msgid, &reply, sizeof reply);
+    replymsg(portid, read_msgid, nbytes_read, NULL, 0);
 
-    replymsg(fd, read_msgid, 0);  
+    read_msgid = -1;
     read_pending = false;
   }
 }
@@ -278,7 +263,6 @@ void reader_task (void *arg)
  */
 void writer_task (void *arg)
 {
-  struct fsreply reply;
   ssize_t nbytes_written;
   size_t remaining;
   uint8_t *buf;
@@ -301,8 +285,6 @@ void writer_task (void *arg)
       tasksleep(&tx_free_rendez);
     }
 
-    seekmsg(fd, write_msgid, sizeof (struct fsreq) + sizeof reply);
-    
     remaining = (tx_free_sz < write_fsreq.args.write.sz) ? tx_free_sz : write_fsreq.args.write.sz;
     nbytes_written = 0;
         
@@ -310,7 +292,7 @@ void writer_task (void *arg)
       sz = sizeof tx_buf - tx_free_head;
       buf = &tx_buf[tx_free_head]; 
       
-      readmsg(fd, write_msgid, buf, sz);
+      readmsg(portid, write_msgid, buf, sz, sizeof (struct fsreq));
 
       nbytes_written += sz;      
       sz = remaining -= sz;
@@ -320,25 +302,20 @@ void writer_task (void *arg)
       buf = &tx_buf[tx_free_head];
     }
 
-
-//    KLog ("Writer readmsg2: sz:%d", sz);
-    
     if (sz > sizeof tx_buf) {
       exit (8);
     }
     
-    readmsg(fd, write_msgid, buf, sz);
+    readmsg(portid, write_msgid, buf, sz, sizeof (struct fsreq) + nbytes_written);
     nbytes_written += sz;
 
     tx_free_head = (tx_free_head + nbytes_written) % sizeof tx_buf;
     tx_free_sz -= nbytes_written;
     tx_sz += nbytes_written;
         
-    reply.cmd = CMD_WRITE;
-    reply.args.write.nbytes_written = nbytes_written;          
-    seekmsg(fd, write_msgid, sizeof (struct fsreq));
-    writemsg(fd, write_msgid, &reply, sizeof reply);
-    replymsg(fd, write_msgid, 0);  
+    replymsg(portid, write_msgid, nbytes_written, NULL, 0);
+    
+    write_msgid = -1;
     write_pending = false;
 
     taskwakeupall(&tx_rendez);
@@ -354,7 +331,7 @@ void uart_tx_task(void *arg)
   while (1) {  
     dmb();
 
-    while (tx_sz == 0 || (uart->flags & FR_TXFF)) {
+    while (tx_sz == 0 || uart_tx_ready() == false) {
       tasksleep(&tx_rendez);
     }
   
@@ -364,11 +341,9 @@ void uart_tx_task(void *arg)
       exit(8);
     }
     
-    while (tx_sz > 0 /*&& (uart->flags & FR_TXFF) == 0*/) {
-        
-        while (uart->flags & FR_BUSY);
-        
-        uart->data = tx_buf[tx_head];
+    while (tx_sz > 0 /* && uart_tx_ready() == true */) {        
+
+        uart_write_byte(tx_buf[tx_head]);
         tx_head = (tx_head + 1) % sizeof tx_buf;
         tx_sz--;
         tx_free_sz++;
@@ -395,14 +370,14 @@ void uart_rx_task(void *arg)
   {
     dmb();
 
-    while (rx_free_sz == 0 || (uart->flags & FR_RXFE)) {
+    while (rx_free_sz == 0 || uart_rx_ready() == false) {
       tasksleep (&rx_rendez);
     }
 
     dmb();
     
-    while(rx_free_sz > 0 && (uart->flags & FR_RXFE) == 0) {      
-      ch = uart->data;
+    while(rx_free_sz > 0 && uart_rx_ready() == true) {      
+      ch = uart_read_byte();
       line_discipline(ch);         
     }  
 
@@ -481,7 +456,7 @@ void line_discipline(uint8_t ch)
 /*
  *
  */
-int LineLength(void)
+int get_line_length(void)
 {  
   for (int t=0; t < rx_sz; t++) {    
     if (rx_buf[(rx_head + t) % sizeof rx_buf] == termios.c_cc[VEOL] ||
@@ -511,25 +486,6 @@ void echo(uint8_t ch)
     taskwakeupall(&tx_rendez);
 }
 
-/*
- *
- */
-void interrupt_handler(int irq, struct InterruptAPI *api)
-{    
-  dmb();
-  api->MaskInterrupt(SERIAL_IRQ);
-  api->PollNotifyFromISR(api, POLLPRI, POLLPRI);  
-  dmb();
-}
 
-/*
- *
- */
-void interrupt_clear(void)
-{
-  uart->rsrecr = 0;
-  uart->icr = 0xffffffff;
-  unmaskinterrupt(SERIAL_IRQ);
-}
 
 

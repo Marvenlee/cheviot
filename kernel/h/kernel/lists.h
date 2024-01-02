@@ -9,22 +9,25 @@
 ** -----------------------------------------------------------------------------
 */
 
-/* Could add a name, makes it easier for arrays */
-
 #define LIST_INITIALIZER                                                       \
   { NULL, NULL }
 
-#define LIST_TYPE(type)                                                        \
+#define LIST_TYPE(type, headertype, entrytype)                                 \
   typedef struct {                                                             \
     struct type *head;                                                         \
     struct type *tail;                                                         \
-  }
+  } headertype;                                                                \
+                                                                               \
+  typedef struct {                                                             \
+    struct type *next;                                                         \
+    struct type *prev;                                                         \
+  } entrytype
 
-#define LIST(type)                                                             \
+#define LIST(type, header)                                                     \
   struct {                                                                     \
     struct type *head;                                                         \
     struct type *tail;                                                         \
-  }
+  } header
 
 #define LIST_DECLARE(name, type)                                               \
   struct name {                                                                \
@@ -34,11 +37,11 @@
 
 #define LIST_DEFINE(name) struct name
 
-#define LIST_ENTRY(type)                                                       \
+#define LIST_ENTRY(type, entry)                                                \
   struct {                                                                     \
     struct type *next;                                                         \
     struct type *prev;                                                         \
-  }
+  } entry
 
 #define LIST_INIT(header)                                                      \
   {                                                                            \
@@ -159,17 +162,17 @@
 #define QUEUE_INITIALIZER                                                      \
   { NULL, NULL }
 
-#define QUEUE_TYPE(type)                                                       \
+#define QUEUE_TYPE(type, headertype)                                           \
   typedef struct {                                                             \
     struct type *head;                                                         \
     struct type *tail;                                                         \
-  }
+  } headertype
 
-#define QUEUE(type)                                                            \
+#define QUEUE(type, header)                                                    \
   struct {                                                                     \
     struct type *head;                                                         \
     struct type *tail;                                                         \
-  }
+  } header
 
 #define QUEUE_DECLARE(name, type)                                              \
   struct name {                                                                \
@@ -179,10 +182,10 @@
 
 #define QUEUE_DEFINE(name) struct name
 
-#define QUEUE_ENTRY(type)                                                      \
+#define QUEUE_ENTRY(type, entry)                                               \
   struct {                                                                     \
     struct type *next;                                                         \
-  }
+  } entry
 
 #define QUEUE_INIT(header)                                                     \
   {                                                                            \
@@ -387,13 +390,20 @@
 #define CIRCLEQ_INITIALIZER                                                    \
   { NULL }
 
-#define CIRCLEQ_TYPE(type)                                                     \
-  typedef struct { struct type *head; }
+#define CIRCLEQ_TYPE(type, headertype, entrytype)                              \
+  typedef struct {                                                             \
+    struct type *head;                                                         \
+  } headertype;                                                                \
+                                                                               \
+  typedef struct {                                                             \
+    struct type *next;                                                         \
+    struct type *prev;                                                         \
+  } entrytype
 
-#define CIRCLEQ(type)                                                          \
+#define CIRCLEQ(type, header)                                                  \
   struct {                                                                     \
     struct type *head;                                                         \
-  }
+  } heasder
 
 #define CIRCLEQ_DECLARE(name, type)                                            \
   struct name {                                                                \
@@ -402,11 +412,11 @@
 
 #define CIRCLEQ_DEFINE(name) struct name
 
-#define CIRCLEQ_ENTRY(type)                                                    \
+#define CIRCLEQ_ENTRY(type, entry)                                             \
   struct {                                                                     \
     struct type *next;                                                         \
     struct type *prev;                                                         \
-  }
+  } entry
 
 #define CIRCLEQ_INIT(header) (header)->head = NULL;
 

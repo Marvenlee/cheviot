@@ -32,10 +32,10 @@
 #include <string.h>
 
 
-/*
- *
+/* @brief   Page fault exception handler
  */
-int PageFault(vm_addr addr, bits32_t access) {
+int page_fault(vm_addr addr, bits32_t access)
+{
   struct Process *current;
   uint32_t page_flags;
   vm_addr paddr;
@@ -49,7 +49,7 @@ int PageFault(vm_addr addr, bits32_t access) {
   real_addr = addr;
   addr = ALIGN_DOWN(addr, PAGE_SIZE);
     
-  if (PmapExtract(&current->as, addr, &paddr, &page_flags) != 0) {
+  if (pmap_extract(&current->as, addr, &paddr, &page_flags) != 0) {
     // Page is not present
     return -1;
   }
@@ -68,55 +68,55 @@ int PageFault(vm_addr addr, bits32_t access) {
     return -1;
   }
 
-  pf = PmapPaToPf(paddr);
+  pf = pmap_pa_to_pf(paddr);
 
   KASSERT(pf->physical_addr == paddr);
 
   if (pf->reference_cnt > 1) {
     pf->reference_cnt--;
-    if (PmapRemove(&current->as, addr) != 0) {
-      PmapFlushTLBs();
+    if (pmap_remove(&current->as, addr) != 0) {
+      pmap_flush_tlbs();
       return -1;
     }
 
     // Now new page frame
 
-    if ((pf = AllocPageframe(PAGE_SIZE)) == NULL) {
+    if ((pf = alloc_pageframe(PAGE_SIZE)) == NULL) {
       return -1;
     }
 
-    src_kva = PmapPaToVa(paddr);
-    dst_kva = PmapPaToVa(pf->physical_addr);
+    src_kva = pmap_pa_to_va(paddr);
+    dst_kva = pmap_pa_to_va(pf->physical_addr);
 
-    MemCpy ((void *)dst_kva, (void *)src_kva, PAGE_SIZE);
+    memcpy((void *)dst_kva, (void *)src_kva, PAGE_SIZE);
 
     page_flags = (page_flags | PROT_WRITE) & ~MAP_COW;
 
-    if (PmapEnter(&current->as, addr, pf->physical_addr, page_flags) != 0) {
-      PmapFlushTLBs();
-      FreePageframe(pf);
+    if (pmap_enter(&current->as, addr, pf->physical_addr, page_flags) != 0) {
+      pmap_flush_tlbs();
+      free_pageframe(pf);
       return -1;
     }
 
     pf->reference_cnt++;
-    PmapFlushTLBs();
+    pmap_flush_tlbs();
   } else if (pf->reference_cnt == 1) {
-    if (PmapRemove(&current->as, addr) != 0) {
-      PmapFlushTLBs();
+    if (pmap_remove(&current->as, addr) != 0) {
+      pmap_flush_tlbs();
       return -1;
     }
 
     page_flags = (page_flags | PROT_WRITE) & ~MAP_COW;
 
-    if (PmapEnter(&current->as, addr, paddr, page_flags) != 0) {
-      PmapFlushTLBs();
+    if (pmap_enter(&current->as, addr, paddr, page_flags) != 0) {
+      pmap_flush_tlbs();
       pf->reference_cnt--;
       
       // TODO: Free page
       return -1;
     }
 
-    PmapFlushTLBs();
+    pmap_flush_tlbs();
   } else {
     KernelPanic();
   }

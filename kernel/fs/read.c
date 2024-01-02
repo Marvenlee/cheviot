@@ -26,33 +26,42 @@
 #include <sys/mount.h>
 
 
-/*
+/* @brief   Read the contents of a file to a buffer
  *
+ * @param   fd, file descriptor of file to read from
+ * @param   dst, user-mode buffer to read data from file into
+ * @param   sz, size in bytes of buffer pointed to by dst
+ * @return  number of bytes read or negative errno on failure
  */
-SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
+ssize_t sys_read(int fd, void *dst, size_t sz)
+{
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;
-
-  Info("sys_read fd:%d, dst:%08x, sz:%d", fd, dst, sz);
+  struct Process *current;
   
-  filp = get_filp(fd);
+  Info("sys_read");
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  vnode = filp->vnode;
 
   if (is_allowed(vnode, R_OK) != 0) {
     return -EACCES;
   }
 
+#if 0   // FIXME: Check if reader permission  
+  if (filp->flags & O_READ) == 0) {
+    return -EACCES;
+  } 
+#endif  
+
   // Can VNode lock fail?  Can we do multiple readers/single writer ?
   vnode_lock(vnode);
-
-  // Needed for all vnode operations that can block, even briefly
-
 
   // Separate into vnode_ops structure for each device type
 
@@ -66,8 +75,9 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
     xfered = read_from_block (vnode, dst, sz, &filp->offset);
   } else if (S_ISDIR(vnode->mode)) {
     xfered = -EINVAL;
-  } else {
-    Info ("Read from unknown, -EINVAL (oct) %o", vnode->mode);
+  } else if (S_ISDIR(vnode->mode)) {
+    xfered = -EINVAL;
+  } else if (S_ISSOCK(vnode->mode)) {
     xfered = -EINVAL;
   }
   
@@ -75,29 +85,27 @@ SYSCALL ssize_t sys_read(int fd, void *dst, size_t sz) {
   
   vnode_unlock(vnode);
   
-  Info ("sys_read xfered = %d",xfered);
-  
   return xfered;
 }
 
-/*
+
+/* @brief   Read from a file to a kernel buffer
  *
  */
 ssize_t kread(int fd, void *dst, size_t sz) {
   struct Filp *filp;
   struct VNode *vnode;
   ssize_t xfered;
-  
-  Info("KRead fd=%d, sz=%d", fd, sz);
-  
-  filp = get_filp(fd);
+  struct Process *current;
+    
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  vnode = filp->vnode;
-
+  
   if (is_allowed(vnode, R_OK) != 0) {
     return -EACCES;
   }
@@ -107,7 +115,6 @@ ssize_t kread(int fd, void *dst, size_t sz) {
   if (S_ISREG(vnode->mode)) {
     xfered = read_from_cache (vnode, dst, sz, &filp->offset, true);
   } else {
-    Info ("Read from unknown, -EINVAL (oct) %o", vnode->mode);
     xfered = -EINVAL;
   }
   
@@ -115,8 +122,5 @@ ssize_t kread(int fd, void *dst, size_t sz) {
   
   return xfered;
 }
-
-
-
 
 

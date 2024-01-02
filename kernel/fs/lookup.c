@@ -24,105 +24,81 @@
 #include <kernel/utility.h>
 #include <string.h>
 
-/* Static Prototypes
- */
-static int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld);
-static int lookup_path(struct lookupdata *ld);
-static int lookup_last_component(struct lookupdata *ld);
-static char *path_token(struct lookupdata *ld);
-static bool is_last_component(struct lookupdata *ld);
-static int walk_component (struct lookupdata *ld);
-
 
 /* @brief Vnode lookup of a path
  *
  * @param _path
  * @param flags    0 - Lookup vnode of file or dir, do not return parent
-                   LOOKUP_PARENT  - return parent and optionally vnode if it exists
-                   LOOKUP_REMOVE - return parent AND vnode
-                   LOOKUP_NOFOLLOW - Do not follow the last component if a symlink (is this in conjunction with PARENT?
+ *                 LOOKUP_PARENT  - return parent and optionally vnode if it exists
+ *                 LOOKUP_REMOVE - return parent AND vnode
+ *                 LOOKUP_NOFOLLOW - Do not follow the last component if a symlink (is this in conjunction with PARENT?
  * @param lookup
  * @returns 0 on success, negative errno on error
+ *
+ * FIXME: Do we call vfs_close when we vnode_put an inode that has zero reference count?
  */
 int lookup(char *_path, int flags, struct lookupdata *ld)
 {
   int rc;
   
   if ((rc = init_lookup(_path, flags, ld)) != 0) {
-    Info ("Lookup init failed");
+    Error("Lookup init failed");
     return rc;
   }
 
   if (flags & LOOKUP_PARENT) {    
-    Info("---");
-    Info("Lookup parent");
-    
     if (ld->path[0] == '/' && ld->path[1] == '\0') {  // Replace with IsPathRoot()
-      Info ("Lookup failed root");
+      Error("Lookup failed root");
       return -EINVAL;  
     }
 
     if ((rc = lookup_path(ld)) != 0) {
-      Info ("Lookup failed x");
+      Error("Lookup failed");
       return rc;
     }
 
     ld->parent = ld->vnode;
     ld->vnode = NULL;
     
-    Info ("ld.parent = %08x", ld->parent);
-
     rc = lookup_last_component(ld);
 
-    Info ("Lookup last component rc=%d", rc);
-    
     // What if it failed for some other reason than it doesn't exit, could this be a vulnerability?    
-
-    // What if it is path/.
+    // What if it is path/. ?
     // Need to throw an error, we are looking for a path and a last component, path/. is not valid
-
     return 0;
 
   } else if (flags & LOOKUP_REMOVE) {
-    Info("Lookup remove failed");
+    Error("Lookup remove failed");
     return -ENOTSUP;
-    
+        
   } else {
-      if (ld->path[0] == '/' && ld->path[1] == '\0') { // Replace with IsPathRoot()
-        Info("Lookup locking root");
-        ld->parent = NULL;
-        ld->vnode = root_vnode;
-        vnode_inc_ref(ld->vnode);
-        vnode_lock(ld->vnode);
-        return 0;
-      }
+    if (ld->path[0] == '/' && ld->path[1] == '\0') { // Replace with IsPathRoot()
+      ld->parent = NULL;
+      ld->vnode = root_vnode;
+      vnode_inc_ref(ld->vnode);
+      vnode_lock(ld->vnode);
+      return 0;
+    }
 
-      if ((rc = lookup_path(ld)) != 0) {
-        Info ("Lookup failed");
-        return rc;
-      }
-            
-      ld->parent = ld->vnode;
-      ld->vnode = NULL;
-      
-      KASSERT(ld->parent != NULL);
-                  
-      rc = lookup_last_component(ld);
-
-      if (ld->parent != ld->vnode)            
-      {
-        Info ("Lookup . parent == vnode = %08x", ld->parent);
-        vnode_put(ld->parent);
-      }
-      
-      Info ("Lookup ret=%d", rc);      
+    if ((rc = lookup_path(ld)) != 0) {
       return rc;
+    }
+          
+    ld->parent = ld->vnode;
+    ld->vnode = NULL;
+    
+    KASSERT(ld->parent != NULL);
+                
+    rc = lookup_last_component(ld);
+
+    if (ld->parent != ld->vnode)            
+    {
+      vnode_put(ld->parent);
+    }
+    
+    return rc;
   }
 }
-
-
-
-
 
 
 /* @brief Initialize the state for performing a pathname lookup
@@ -132,9 +108,10 @@ int lookup(char *_path, int flags, struct lookupdata *ld)
  * @param lookup
  * @return 0 on success, negative errno on error
  */
-static int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
+int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
 {
   struct Process *current;
+  int path_len;
   
   current = get_current_process();
   
@@ -151,18 +128,17 @@ static int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
     return -EFAULT; // FIXME:  Could be ENAMETOOLONG 
   }
 
-  for (size_t i = StrLen(ld->path); i > 0 && ld->path[i] == '/'; i--) {
+  path_len = StrLen(ld->path);
+
+  for (size_t i = path_len; i > 0 && ld->path[i] == '/'; i--) {
     ld->path[i] = '\0';
   }
   
-  Info ("Lookup patn:%s", ld->path);
-  
-  ld->start_vnode = (ld->path[0] == '/') ? root_vnode : current->current_dir;    
+  ld->start_vnode = (ld->path[0] == '/') ? root_vnode : current->fproc->current_dir;    
 
   KASSERT(ld->start_vnode != NULL);
 
   if (!S_ISDIR(ld->start_vnode->mode)) {
-    Info ("root vnode is not a directory");
     return -ENOTDIR;
   }
 
@@ -175,14 +151,12 @@ static int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
  * @param lookup - Lookup state
  * @return 0 on success, negative errno on error
  */
-static int lookup_path(struct lookupdata *ld)
+int lookup_path(struct lookupdata *ld)
 {
   struct VNode *vnode;
   int rc;
   
   KASSERT(ld->start_vnode != NULL);
-
-  Info("LookupPath()");
 
   ld->parent = NULL;
   ld->vnode = ld->start_vnode;
@@ -190,21 +164,22 @@ static int lookup_path(struct lookupdata *ld)
   vnode_inc_ref(ld->vnode);
   vnode_lock(ld->vnode);  
   
-  for(;;) {    
+  while(1) {    
     ld->last_component = path_token(ld);
       
     if (ld->last_component == NULL) {
-      return -EINVAL;
+      rc = -EINVAL;
+      break;
     }
 
     if (ld->parent != NULL) {
-      Info("lookuppath vnodeput 1");
       vnode_put(ld->parent);
       ld->parent = NULL;
     }  
     
     if (is_last_component(ld)) {
-      return 0;
+      rc = 0;
+      break;
     }    
                     
     ld->parent = ld->vnode;
@@ -212,26 +187,23 @@ static int lookup_path(struct lookupdata *ld)
     
     rc = walk_component(ld);
 
-    if (rc != 0)
-    {
-      Info("lookuppath vnodeput 2");
+    if (rc != 0) {
       vnode_put(ld->parent);
       ld->parent = NULL;
-      return rc;
+      break;
     }
     
-    // Check component is a directory, check permissions
-  }    
-
-  Info ("**** LookupPath shouldn't get here ****");
-  return -ENOSYS;
+    // TODO: Check component is a directory, check permissions
+  }
+     
+  return rc;
 }
 
 
 /* @brief Lookup the last component of a pathname
  *
  */
-static int lookup_last_component(struct lookupdata *ld)
+int lookup_last_component(struct lookupdata *ld)
 {
   char *name;
   struct VNode *vnode;
@@ -256,7 +228,7 @@ static int lookup_last_component(struct lookupdata *ld)
  * @param lookup - Lookup state
  * @return - Pathname component null terminated string
  */
-static char *path_token(struct lookupdata *ld)
+char *path_token(struct lookupdata *ld)
 {
   char *ch;
   char *name;
@@ -280,13 +252,10 @@ static char *path_token(struct lookupdata *ld)
     ch++;
   }
 
-  if (*ch == '/')
-  {
+  if (*ch == '/') {
     ld->position = ch + 1;
     ld->separator = '/';
-  }
-  else
-  {
+  } else {
     ld->position = ch;
     ld->separator = '\0';  
   }
@@ -305,7 +274,7 @@ static char *path_token(struct lookupdata *ld)
  * @param lookup - Lookup state
  * @return true if this is the last component, false otherwise
  */
-static bool is_last_component(struct lookupdata *ld)
+bool is_last_component(struct lookupdata *ld)
 {
 //  char *ch;
   
@@ -337,7 +306,7 @@ static bool is_last_component(struct lookupdata *ld)
  * @param name - Filename to lookup
  * @return 
  */
-static int walk_component(struct lookupdata *ld)
+int walk_component(struct lookupdata *ld)
 {
   struct VNode *covered_vnode;
   struct VNode *vnode_mounted_here;
@@ -348,15 +317,12 @@ static int walk_component(struct lookupdata *ld)
   KASSERT(ld->vnode == NULL);
   KASSERT(ld->last_component != NULL);
   
-  Info("WalkComponent path:%s", ld->last_component);
-  
   if (!S_ISDIR(ld->parent->mode)) {
-    Info ("ld->parent is not a directory");
+    Error("ld->parent is not a directory");
     return -ENOTDIR;   
  
   } else if (StrCmp(ld->last_component, ".") == 0) {    
     
-    Info("Walk . ld->parent = %08x", ld->parent);    
     vnode_inc_ref(ld->parent);    
     ld->vnode = ld->parent;
     return 0;
@@ -370,7 +336,6 @@ static int walk_component(struct lookupdata *ld)
     } else if (ld->parent->vnode_covered != NULL) {
       vnode_inc_ref(ld->parent->vnode_covered);
   
-      Info("walkcomponent vnodeput 1");
       vnode_put(ld->parent);
       ld->parent = ld->parent->vnode_covered;
     }
@@ -387,7 +352,6 @@ static int walk_component(struct lookupdata *ld)
   // TODO: Check permissions/access here
     
   if (vnode_mounted_here != NULL) {
-      Info("walkcomponent vnodeput 2");
     vnode_put(ld->vnode);
     ld->vnode = vnode_mounted_here;
     vnode_inc_ref(ld->vnode);

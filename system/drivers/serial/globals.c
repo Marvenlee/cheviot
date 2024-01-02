@@ -32,7 +32,8 @@
 #include "serial.h"
 
 
-int fd;
+int portid;
+int kq;
 int interrupt_fd;
 
 int sid = 0;
@@ -72,8 +73,16 @@ struct fsreq write_fsreq;
 
 struct termios termios;
 
-volatile struct bcm2835_gpio_registers *gpio = (struct bcm2835_gpio_registers *)(BCM2708_PERI_BASE + GPIO_BASE_PA);
-volatile struct bcm2835_uart_registers *uart = (struct bcm2835_uart_registers *)(BCM2708_PERI_BASE + UART_BASE_PA);
+
+#if defined(BOARD_RASPBERRY_PI_1)
+volatile struct bcm2835_uart_registers *uart;
+volatile struct bcm2835_gpio_registers *gpio;
+#elif defined(BOARD_RASPBERRY_PI_4)
+volatile struct bcm2711_aux_registers *aux;
+volatile struct bcm2711_gpio_registers *gpio;
+#endif
+
+
 
 struct Config config;
 

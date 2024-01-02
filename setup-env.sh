@@ -5,3 +5,5 @@
 
 export PATH=$PATH:$PWD/build/native/bin
 
+export BOARD=raspberrypi1
+

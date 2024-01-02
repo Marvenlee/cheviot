@@ -1,4 +1,4 @@
 
-SUBDIRS = devfs fatfs ifs sdcard serial
+SUBDIRS = sdcard serial
 
 

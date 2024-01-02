@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -25,11 +25,15 @@
 #include <kernel/utility.h>
 #include <poll.h>
 #include <string.h>
+#include <kernel/kqueue.h>
 
-/*
+
+/* @brief   Change the current directory
  *
+ * @param   _path, directory pathname to change to
+ * @return  0 on success, negative errno on failure
  */
-SYSCALL int sys_chdir(char *_path)
+int sys_chdir(char *_path)
 {
   struct Process *current;
   struct lookupdata ld;
@@ -37,69 +41,69 @@ SYSCALL int sys_chdir(char *_path)
 
   current = get_current_process();
 
-  Info ("ChDir");
 
   if ((err = lookup(_path, 0, &ld)) != 0) {
-    Info ("Chdir lookup err:%d", err);
     return err;
   }
 
   if (!S_ISDIR(ld.vnode->mode)) {
-    Info ("ChDir -ENOTDIR");
     vnode_put(ld.vnode);
     return -ENOTDIR;
   }
 
-  if (current->current_dir != NULL) {
-    Info ("ChDir - current_Dir != NULL");
-    vnode_put(current->current_dir);
+  if (current->fproc->current_dir != NULL) {
+    vnode_put(current->fproc->current_dir);
   }
 
-  current->current_dir = ld.vnode;
-  vnode_unlock(current->current_dir);
+  current->fproc->current_dir = ld.vnode;
+  vnode_unlock(current->fproc->current_dir);
   return 0;
 }
 
 
-/*
+/* @brief   Change the current directory to that referenced by a file handle
  *
+ * @param   fd, file handle to an existing open directory
+ * @return  0 on success, negative errno on failure
  */
-SYSCALL int sys_fchdir(int fd)
+int sys_fchdir(int fd)
 {
   struct Process *current;
-  struct Filp *filp;
   struct VNode *vnode;
 
-  Info ("FChDir %d", fd);
 
   current = get_current_process();
+  vnode = get_fd_vnode(current, fd);
 
-  filp = get_filp(fd);
-
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  // FIXME: Do we need to lock vnode if we don't block ?
-
-  vnode = filp->vnode;
 
   if (!S_ISDIR(vnode->mode)) {
     return -ENOTDIR;
   }
 
-  Info ("SysFChdir vnode_put");
-  vnode_put(current->current_dir);
-  current->current_dir = vnode;
+  vnode_put(current->fproc->current_dir);
+  current->fproc->current_dir = vnode;
   vnode_inc_ref(vnode);
   return 0;
 }
 
 
-/*
- *
+/* @brief   Change the root directory of the current process
+ */ 
+int sys_chroot(char *_new_root)
+{
+  return -ENOSYS;
+}
+
+
+/* @brief   Open a directory for reading
+ * 
+ * @param   _path, the pathname of a directory to open
+ * @return  0 on success, negative errno on failure
  */
-SYSCALL int sys_opendir(char *_path)
+int sys_opendir(char *_path)
 {
   struct Process *current;
   struct lookupdata ld;
@@ -107,12 +111,10 @@ SYSCALL int sys_opendir(char *_path)
   struct Filp *filp = NULL;
   int err;
 
-  Info("SysOpenDir");
 
   current = get_current_process();
 
   if ((err = lookup(_path, 0, &ld)) != 0) {
-    Warn("OpenDir lookup failed");
     return err;
   }
 
@@ -121,24 +123,23 @@ SYSCALL int sys_opendir(char *_path)
     goto exit;
   }
 
-  fd = alloc_fd();
+  fd = alloc_fd_filp(current);
 
   if (fd < 0) {
     err = -ENOMEM;
     goto exit;
   }
 
-  filp = get_filp(fd);
-  filp->vnode = ld.vnode;
+  filp = get_filp(current,fd);
+  filp->type = FILP_TYPE_VNODE;
+  filp->u.vnode = ld.vnode;
   filp->offset = 0;
-  vnode_unlock(filp->vnode);
+  vnode_unlock(filp->u.vnode);
 
-  Info ("OpenDir handle %d", fd);
   return fd;
 
 exit:
-    free_fd(fd);
-    Info ("SysOpenDir vnode_put");
+    free_fd_filp(current, fd);
     vnode_put(ld.vnode);
     return -ENOMEM;
 }
@@ -154,64 +155,77 @@ void invalidate_dir(struct VNode *dvnode)
 }
 
 
-/*
- * Initially make buf permanent, (until we can somehow unwire it/put it on the
- * reusable list).
+/* @brief   Read the contents of a directory into a buffer
+ * 
+ * @param   fd, file handle to a directory opened by sys_opendir()
+ * @param   dst, pointer to user-mode buffer to read directory entries into
+ * @param   sz, size of user-mode buffer
+ * @return  number of bytes read, 0 indicates end of directory, negative errno values on failure
  *
- *
+ * TODO: Add 4K dir cache in kernel if entire directory is less than 4K. Otherwise readthru
+ * to the FS handler.  rmdir, rm etc should invalidate dir cache.
+ * 
+ * TODO: Need direct copy/page remap from fs handler server to client user-space without the
+ * need for a buffer in the kernel, allows for bigger buffers.
  */
-SYSCALL ssize_t sys_readdir(int fd, void *dst, size_t sz)
+ssize_t sys_readdir(int fd, void *dst, size_t sz)
 {
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
   ssize_t dirents_sz;
   off64_t cookie;
-  uint8_t buffer[512];    // FIXME: add constant name, 255 is max filename length, 512 reasonable size for multiple dirents 
+  uint8_t dirbuf[512];    // FIXME: Replace with inter-address-space direct copy
+  struct Process *current;
 
-  Info("SysReaddir");
-  
-  filp = get_filp(fd);
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  if (filp == NULL) {
-    Info ("Readdir EINVAL");
+  if (vnode == NULL) {
     return -EINVAL;
   }
 
-  vnode = filp->vnode;
-
   if (!S_ISDIR(vnode->mode)) {
-    Info ("Readdir ENOTDIR");
     return -ENOTDIR;
   }
   
   cookie = filp->offset;
 
   vnode_lock(vnode);
-  dirents_sz = vfs_readdir(vnode, buffer, sizeof buffer, &cookie);
+  dirents_sz = vfs_readdir(vnode, dirbuf, sizeof dirbuf, &cookie);
 
-  if (dirents_sz > 0) {  
-    CopyOut(dst, buffer, dirents_sz);
+  if (dirents_sz > 0) {
+    CopyOut(dst, dirbuf, dirents_sz);
   }
-
+  
   filp->offset = cookie;
+  
+  Info("sys_readdir, calling vnode_unlock");
   vnode_unlock(vnode);
+  
+  Info("sys_readdir, ret %d", dirents_sz);  
   return dirents_sz;
 }
 
 
-
-SYSCALL int sys_rewinddir(int fd)
+/* @brief   Seek to the beginning of a directory
+ *
+ * @param   fd, file handle to directory opened with opendir()
+ * @return  0 on success, negative errno on failure
+ */
+int sys_rewinddir(int fd)
 {
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
+  struct Process *current;
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  filp = get_filp(fd);
-
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  vnode = filp->vnode;
 
   if (!S_ISDIR(vnode->mode)) {
     return -EINVAL;
@@ -221,7 +235,14 @@ SYSCALL int sys_rewinddir(int fd)
   return 0;
 }
 
-SYSCALL int sys_createdir(char *_path, mode_t mode)
+
+/* @brief   Create a new directory
+ *
+ * @param   _path, pathname of new directory to create
+ * @param   mode, ownership permissions of the new directory
+ * @return  0 on success, negative errno on failure
+ */
+int sys_createdir(char *_path, mode_t mode)
 {
   struct Process *current;
   struct VNode *dvnode = NULL;
@@ -234,7 +255,6 @@ SYSCALL int sys_createdir(char *_path, mode_t mode)
   current = get_current_process();
 
   if ((err = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
-    Warn("Lookup failed");
     goto exit;
   }
 
@@ -256,7 +276,7 @@ SYSCALL int sys_createdir(char *_path, mode_t mode)
     }
   }
 
-  wakeup_polls(dvnode, POLLPRI, POLLPRI);
+  knote(&dvnode->knote_list, NOTE_WRITE | NOTE_ATTRIB);
   vnode_put (vnode);
   vnode_put (dvnode);
   return 0;
@@ -268,14 +288,18 @@ exit:
 }
 
 
-SYSCALL int sys_rmdir(char *_path) {
+/* @brief   Remove an existing directory
+ * 
+ * @param   _path, pathname of the directory to delete
+ * @return  0 on success, negative errno on failure
+ */
+int sys_rmdir(char *_path) {
   struct VNode *vnode = NULL;
   struct VNode *dvnode = NULL;
   int err = 0;
   struct lookupdata ld;
 
   if ((err = lookup(_path, LOOKUP_REMOVE, &ld)) != 0) {
-    Warn("Lookup failed");
     return err;
   }
 
@@ -294,7 +318,7 @@ SYSCALL int sys_rmdir(char *_path) {
     vfs_rmdir(dvnode, ld.last_component);
   }
 
-  wakeup_polls(dvnode, POLLPRI, POLLPRI);
+  knote(&dvnode->knote_list, NOTE_WRITE | NOTE_ATTRIB);
   vnode_put(vnode); // This should delete it
   vnode_put(dvnode);
   return 0;
@@ -304,6 +328,5 @@ exit:
   vnode_put(dvnode);
   return err;
 }
-
 
 

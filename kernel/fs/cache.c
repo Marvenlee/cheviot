@@ -20,28 +20,36 @@
 #include <kernel/filesystem.h>
 #include <kernel/globals.h>
 #include <kernel/proc.h>
+#include <kernel/vm.h>
+#include <kernel/timer.h>
 #include <kernel/types.h>
 #include <string.h>
 
-/* @brief Read from a file through the VFS file cache
+
+/* @brief   Read from a file through the VFS file cache
+ *
+ * @param   vnode, file to read from
+ * @param   dst, destination address to copy file data to (kernel or user)
+ * @param   sz, number of bytes to read
+ * @param   inkernel, set to true if the destination address is in the kernel (for kread)
+ * @return  number of bytes read or negative errno on failure  
  */
-ssize_t read_from_cache (struct VNode *vnode, void *dst, size_t sz, off64_t *offset, bool inkernel) {
+ssize_t read_from_cache(struct VNode *vnode, void *dst, size_t sz, off64_t *offset, bool inkernel)
+{
   struct Buf *buf;
   off_t cluster_base;
   off_t cluster_offset;
   size_t nbytes_xfered;
   size_t nbytes_remaining;
   struct Process *current;
-  
+
   current = get_current_process();
 
   if (*offset >= vnode->size) {
-    Info("read_from_cache: rc=0, *offset = %d, v->sz=%d", (int)*offset, vnode->size);
     return 0;
   }
 
-  nbytes_remaining =
-      (vnode->size - *offset < sz) ? vnode->size - *offset : sz;
+  nbytes_remaining = (vnode->size - *offset < sz) ? vnode->size - *offset : sz;
 
   while (nbytes_remaining > 0) {  
     cluster_base = ALIGN_DOWN(*offset, CLUSTER_SZ);
@@ -51,23 +59,16 @@ ssize_t read_from_cache (struct VNode *vnode, void *dst, size_t sz, off64_t *off
                         ? CLUSTER_SZ - cluster_offset
                         : nbytes_remaining;
 
-    // Need locks for buffer (only single buffer of given offset, additional requests
-    // must block on buffer->busy.
-    
     buf = bread(vnode, cluster_base);
 
     if (buf == NULL) {
-      Info("bread buf==NULL");
       break;
     }
 
-    if (inkernel == true)
-    {
-        memcpy(dst, buf->addr + cluster_offset, nbytes_xfered);
-    }
-    else
-    {    
-        CopyOut(dst, buf->addr + cluster_offset, nbytes_xfered);
+    if (inkernel == true) {
+        memcpy(dst, buf->data + cluster_offset, nbytes_xfered);
+    } else {    
+        CopyOut(dst, buf->data + cluster_offset, nbytes_xfered);
     }
     
     brelse(buf);
@@ -80,9 +81,19 @@ ssize_t read_from_cache (struct VNode *vnode, void *dst, size_t sz, off64_t *off
   return sz - nbytes_remaining;
 }
 
-/* @brief Write to a file through the VFS file cache
+
+/* @brief   Write to a file through the VFS file cache
+ *
+ * @param   vnode, file to write to
+ * @param   src, user-space source address of the data to be written to the file
+ * @param   sz, number of bytes to write
+ * @return  number of bytes written or negative errno on failure  
+ *
+ * If we are writing a full block, can we avoid reading it in?
+ * if block doesn't exist, does bread create it?
  */
-ssize_t write_to_cache (struct VNode *vnode, void *src, size_t sz, off64_t *offset) {
+ssize_t write_to_cache(struct VNode *vnode, void *src, size_t sz, off64_t *offset)
+{
   struct Buf *buf;
   off_t cluster_base;
   off_t cluster_offset;
@@ -101,18 +112,14 @@ ssize_t write_to_cache (struct VNode *vnode, void *src, size_t sz, off64_t *offs
     nbytes_xfered = (CLUSTER_SZ - cluster_offset < nbytes_remaining)
                         ? CLUSTER_SZ - cluster_offset
                         : nbytes_remaining;
-
+    
     buf = bread(vnode, cluster_base);
 
     if (buf == NULL) {
       break;
     }
 
-    if (buf->cluster_size < cluster_offset + nbytes_xfered) {
-      bresize(buf, cluster_offset + nbytes_xfered);
-    }
-
-    CopyIn(buf->addr + cluster_offset, src, nbytes_xfered);    
+    CopyIn(buf->data + cluster_offset, src, nbytes_xfered);    
 
     src += nbytes_xfered;
     *offset += nbytes_xfered;
@@ -122,23 +129,45 @@ ssize_t write_to_cache (struct VNode *vnode, void *src, size_t sz, off64_t *offs
       vnode->size = *offset;
     }
 
-    bawrite(buf); 
-    // Take offset+sz params, so w know which FS blocks were changed.
-              // Or bitmap of 1k blocks?
+    if (cluster_offset == CLUSTER_SZ) {
+      bawrite(buf);
+    } else {
+      bdwrite(buf);
+    }    
   }
 
   return sz - nbytes_remaining;
 }
 
-/* @Brief Get a cached block of a file
+
+/* @Brief   Get a cached block
+ *
+ * @param   vnode, file to get cached block of
+ * @param   cluster_offset, offset within file to read
+ * @return  buf on success, NULL if it cannot find or create a buf
+ *
+ * This cache operates at the file level and not the block level. As such it
+ * has no understanding of the on disk formatting of a file system. User space
+ * servers implementing file system handlers are free to implement block level
+ * caching if needed.
+ *
+ * See Maurice Bach's 'The Design of the UNIX Operating System' for notes on
+ * getblk, bread, bwrite, bawrite and brelse operations (though they applied to
+ * the block level in the book).
+ *
+ * If cache is now single page blocks instead of larger 16k or 64k clusters
+ * can we use the phys mem mapping to access pages?
+ * Do we need to map cached blocks into a certain area of the kernel?
+ *
+ * Do we need to write the entire cluster?  Is this handled by strategy params?
  */
-struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset) {
+struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset)
+{
   struct Buf *buf;
   struct Pageframe *pf;
+  struct SuperBlock *sb;
+  uint32_t hash;
   vm_addr pa;
-  size_t cluster_size;
-
-  //	Log ("getblk(%d)", (int)cluster_offset);
 
   while (1) {
     if ((buf = findblk(vnode, cluster_offset)) != NULL) {
@@ -148,9 +177,17 @@ struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset) {
       }
 
       buf->flags |= B_BUSY;
-      LIST_REM_ENTRY(&buf_avail_list, buf, free_link);
 
+      if (buf->flags & (B_DELWRI | B_ASYNC)) {
+        buf->flags &= ~(B_DELWRI | B_ASYNC);
+        sb = buf->vnode->superblock;
+  
+        hash = buf->expiration_time % NR_DELWRI_BUCKETS;
+        LIST_REM_ENTRY(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
+      }
+      
       return buf;
+
     } else {
       if ((buf = LIST_HEAD(&buf_avail_list)) == NULL) {
         TaskSleep(&buf_list_rendez);
@@ -160,31 +197,16 @@ struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset) {
       LIST_REM_HEAD(&buf_avail_list, free_link);
       buf->flags |= B_BUSY;
 
-      if (buf->flags & B_DELWRI) {
-        // For the moment, write entire cluster
-        //				buf->offset = 0;
-        //				buf->remaining = buf->cluster_size;
-        buf->flags = (buf->flags | B_WRITE | B_WRITECLUSTER | B_ASYNC) &
-                     ~(B_READ | B_DELWRI);
-        strategy(buf);
-        continue;
-      }
-
       if (buf->flags & B_VALID) {
-        LIST_REM_ENTRY(&buf_hash[buf->cluster_offset % BUF_HASH], buf,
-                       lookup_link);
+        LIST_REM_ENTRY(&buf_hash[buf->cluster_offset % BUF_HASH], buf, lookup_link);
 
-        for (int t = 0; t < CLUSTER_SZ / PAGE_SIZE; t++) {
-          PmapCacheExtract((vm_addr)buf->addr + t * PAGE_SIZE, &pa);
-          pf = PmapPaToPf(pa);
-          PmapCacheRemove((vm_addr)buf->addr + t * PAGE_SIZE);
-          FreePageframe(pf);
-        }
+        pmap_cache_extract((vm_addr)buf->data, &pa);
+        pf = pmap_pa_to_pf(pa);
+        pmap_cache_remove((vm_addr)buf->data);
+        free_pageframe(pf);
       }
 
-      if (S_ISDIR(vnode->mode)) {
-        cluster_size = CLUSTER_SZ;
-      } else if (cluster_offset >= vnode->size) {
+      if (cluster_offset >= vnode->size) {
         cluster_size = 0;
       } else if (vnode->size - cluster_offset < CLUSTER_SZ) {
         cluster_size = ALIGN_UP(vnode->size - cluster_offset, PAGE_SIZE);
@@ -193,59 +215,58 @@ struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset) {
       }
 
       for (int t = 0; t < cluster_size / PAGE_SIZE; t++) {
-        pf = AllocPageframe(PAGE_SIZE);
-        PmapCacheEnter((vm_addr)buf->addr + t * PAGE_SIZE, pf->physical_addr);
+        pf = alloc_pageframe(PAGE_SIZE);
+        pmap_cache_enter((vm_addr)buf->data + t * PAGE_SIZE, pf->physical_addr);
       }
 
-      PmapFlushTLBs();
-      buf->cluster_size = cluster_size;
+      pmap_flush_tlbs();
       buf->flags &= ~B_VALID;
       buf->vnode = vnode;
 
       buf->cluster_offset = cluster_offset;
       LIST_ADD_HEAD(&buf_hash[buf->cluster_offset % BUF_HASH], buf,
                     lookup_link);
-      //		Info ("getblk setting cluster_offset = %d",
-      // cluster_offset);
 
       return buf;
     }
   }
 }
 
-int bresize(struct Buf *buf, size_t sz) {
-  struct Pageframe *pf;
-  vm_addr pa;
 
-  sz = ALIGN_UP(sz, PAGE_SIZE);
+/* @brief   Release a cache block
+ *
+ * @param   buf, buf to be be released
+ */
+void brelse(struct Buf *buf)
+{
+  if (buf->flags & (B_ERROR | B_DISCARD)) {
+    LIST_REM_ENTRY(&buf_hash[buf->cluster_offset % BUF_HASH], buf, lookup_link);
+    buf->flags &= ~(B_VALID | B_ERROR);
+    buf->cluster_offset = -1;
+    buf->vnode = NULL;
 
-  if (sz > buf->cluster_size) {
-    for (int t = buf->cluster_size / PAGE_SIZE; t < sz / PAGE_SIZE; t++) {
-      pf = AllocPageframe(PAGE_SIZE);
-      PmapCacheEnter((vm_addr)buf->addr + t * PAGE_SIZE, pf->physical_addr);
+    if (buf->data != NULL) {
+      LIST_ADD_HEAD(&buf_avail_list, buf, free_link);
     }
-  } else if (sz < buf->cluster_size) {
-    for (int t = sz / PAGE_SIZE; t < buf->cluster_size / PAGE_SIZE; t++) {
-      PmapCacheExtract((vm_addr)buf->addr + t * PAGE_SIZE, &pa);
-      pf = PmapPaToPf(pa);
-      PmapCacheRemove((vm_addr)buf->addr + t * PAGE_SIZE);
-      FreePageframe(pf);
-    }
+  } else if (buf->data != NULL) {
+    LIST_ADD_TAIL(&buf_avail_list, buf, free_link);
   }
 
-  PmapFlushTLBs();
-  buf->cluster_size = sz;
-  return 0;
+  buf->flags &= ~B_BUSY;
+  TaskWakeupAll(&buf_list_rendez);
+  TaskWakeupAll(&buf->rendez);
 }
 
 
-/*
- * findBlk();
+/* @brief   Find a specific file's block in the cache
+ *
+ * @param   vnode, file to find block of
+ * @param   cluster_offset, offset within the file (aligned to cluster size)
+ * @return  buf on success, null if not present
  */
-struct Buf *findblk(struct VNode *vnode, uint64_t cluster_offset) {
+struct Buf *findblk(struct VNode *vnode, uint64_t cluster_offset)
+{
   struct Buf *buf;
-
-  // TODO: Calculate hash based on superblock, vnode_nr and cluster_offset;
 
   buf = LIST_HEAD(&buf_hash[cluster_offset % BUF_HASH]);
 
@@ -260,116 +281,87 @@ struct Buf *findblk(struct VNode *vnode, uint64_t cluster_offset) {
 }
 
 
-/*
- * BRead();
+/* @brief   Read a block from a file
  *
- * Searches for the cluster in the clusterfer cache, if not present allocates
- * a cluster and reads the data from disk.
+ * @param   vnode, vnode of file to read
+ * @param   cluster_offset, reads a block from disk into the cache
+ * @return  Pointer to a Buf that represents a cached block or NULL on failure
+ *
+ * This searches for the block in the cache. if a block is not present
+ * then a new block is allocated in the cache and if needed it's contents
+ * read from disk.
+ *
+ * In the current implementation the cache's block size is 4 Kb.
+ * A block read will be of this size. If the block is at the end of the
+ * file the remaining bytes after the end will be zero.
+ *
  */
-struct Buf *bread(struct VNode *vnode, uint64_t cluster_offset) {
+struct Buf *bread(struct VNode *vnode, uint64_t cluster_offset)
+{
   struct Buf *buf;
+  ssize_t xfered;
 
-  Info ("BRead");
+  // FIXME: What if offset equal to or past end of file?
+  
   buf = getblk(vnode, cluster_offset);
 
   if (buf->flags & B_VALID) {
-    //        Info ("BRead(%d) in cache, returning", (int)cluster_offset);
-
     return buf;
   }
 
-  //    Info ("BRead(%d), strategy", (int)cluster_offset);
-
   buf->flags = (buf->flags | B_READ) & ~(B_WRITE | B_ASYNC);
-  strategy(buf);
 
-  while (!(buf->flags & B_IODONE)) {
-    TaskSleep(&buf->rendez);
+  xfered = vfs_read(vnode, buf->data, CLUSTER_SZ, &cluster_offset);
+
+  if (xfered != CLUSTER_SZ) {
+    Warn("Partial block read");
+    
+    // TODO: Check if this is the end of file    
+    //  buf->flags |= B_ERROR;
+    
+    // TODO: Clear to end of cluster
+    // 
+    
   }
   
-  buf->flags &= ~B_IODONE;
-
   if (buf->flags & B_ERROR) {
+    Info ("block read failed");
     brelse(buf);
     return NULL;
   }
 
   buf->flags = (buf->flags | B_VALID) & ~B_READ;
-  //	buf->offset = 0;
-  //	buf->remaining = cluster_size;
   return buf;
 }
 
 
-/*
- * brelse();
+/* @brief   Writes a block to disk and releases it. Waits for IO to complete.
+ * 
+ * @param   buf, buffer to write
+ * @return  0 on success, negative errno on failure
  *
- * Releases a cluster, wakes up next coroutine waiting for the cluster
- */
-void brelse(struct Buf *buf) {
-  if (buf->flags & (B_ERROR | B_DISCARD)) {
-    LIST_REM_ENTRY(&buf_hash[buf->cluster_offset % BUF_HASH], buf, lookup_link);
-    buf->flags &= ~(B_VALID | B_ERROR);
-    buf->cluster_offset = -1;
-    buf->vnode = NULL;
-
-    if (buf->addr != NULL) {
-      LIST_ADD_HEAD(&buf_avail_list, buf, free_link);
-    }
-  } else if (buf->addr != NULL) {
-    LIST_ADD_TAIL(&buf_avail_list, buf, free_link);
-  }
-
-  buf->flags &= ~B_BUSY;
-  TaskWakeupAll(&buf_list_rendez);
-  TaskWakeupAll(&buf->rendez);
-}
-
-
-/*
- * BDWrite();
+ * FIXME: Work out file size here.  Send only upto file size.
  *
- * How do we do this,  notify FS handler of each write, but only do actual write
- * if timer expired?
- * BUT That means every write requires context switching to FS Handler.  Would
- * prefer a delay if possible.
+ * FIXME:File size is sent with the command, so it can write less than a cluster_sz to disk
+ * Or we keep track of physical block size and how many physical blocks are valid
+ * in cache block.  Harder for sparse files unless we have a bitmap.
  */
-int bdwrite(struct Buf *buf) {
-  /*
-        if (buf->flags & B_DELWRI && buf->expire_time.seconds <
-   current_time.seconds)
-        {
-                brelse (buf);
-                return 0;
-        }
-*/
-
-  buf->flags = (buf->flags | B_WRITE | B_DELWRI) & ~(B_READ | B_ASYNC);
-  //	buf->expire_time.seconds = current_time.seconds + DELWRI_SECONDS;
-  //	buf->expire_time.tv_usec = 0;
-  brelse(buf);
-  return 0;
-}
-
-/*
- * BWrite();
- *
- * Writes a block to disk and releases the cluster.  Waits for IO to complete
- * before
- * returning to the caller.
- */
-
-// FIXME:  Can we have a bitmap of pages to write?
-int bwrite(struct Buf *buf) {
-  buf->flags = (buf->flags | B_WRITE) & ~(B_READ | B_ASYNC);
-  strategy(buf);
-
-  while (!(buf->flags & B_IODONE)) {
-    TaskSleep(&buf->rendez);
-  }
+int bwrite(struct Buf *buf)
+{
+  ssize_t xfered;
+  struct VNode *vnode;
+  off64_t cluster_offset;
   
-  buf->flags &= ~B_IODONE;
+  buf->flags = (buf->flags | B_WRITE) & ~(B_READ | B_ASYNC);
+  vnode = buf->vnode;
+  cluster_offset = buf->cluster_offset;
 
+  // FIXME: Only write a partial cluster if this is last cluster
+  xfered = vfs_write(vnode, buf->data, CLUSTER_SZ, &cluster_offset);
+
+  if (xfered != CLUSTER_SZ) {
+    buf->flags |= B_ERROR;
+  }
   if (buf->flags & B_ERROR) {
     brelse(buf);
     return -1;
@@ -380,169 +372,311 @@ int bwrite(struct Buf *buf) {
   return 0;
 }
 
-// Sync all blocks belonging to a vnode
-// Sync if a vnode is reused.
 
-int bsync(struct VNode *vnode) {
-  // Write file blocks to disk,  Unmap blocks, returning to free mem.
+/* @brief   Write buffer asynchronously.
+ *
+ * @param   buf, buffer to write
+ * @return  0 on success, negative errno on failure
+ *
+ * Queue buffer for write immediately. This block is unlikely to be
+ * written again anytime soon so write as soon as possible.
+ *
+ * This is called when a write will reach the end of the current block
+ * and the next write will write another block.
+ */
+int bawrite(struct Buf *buf)
+{
+  struct SuperBlock *sb;
+  struct VNode *vnode;
+  uint32_t hash;
 
-  return -1;
+  vnode = buf->vnode;
+  sb = vnode->superblock;
+  
+  buf->flags = (buf->flags | B_WRITE | B_ASYNC) & ~(B_READ | B_DELWRI);
+  buf->expiration_time = sb->softclock;
+  
+  hash = buf->expiration_time % NR_DELWRI_BUCKETS;
+  LIST_ADD_TAIL(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
+
+  //  TaskWakeup(&bdflush_task->reply_port.rendez);
+
+  return 0;
 }
 
-// Release all cache elements on a block device, optionally syncing
-// Used for device eject or forced removal.
-int bsyncfs(struct SuperBlock *sb, bool sync) { return -1; }
 
-// Change BlockDev to partition?
+/* @brief   Delayed write to buffer
+ *
+ * @param   buf, buffer to write
+ * @return  0 on success, negative errno on failure
+ *
+ * Delay writing of a block for a few seconds. This block is likely
+ * to be written again soon so schedule it to be written out after a
+ * short delay.
+ *
+ * This is called when a write does not cross into the next block.
+ */
+int bdwrite(struct Buf *buf)
+{
+  struct SuperBlock *sb;
+  struct VNode *vnode;
+  uint32_t hash;
 
-size_t shrink_cache(size_t free) {
+  vnode = buf->vnode;
+  sb = vnode->superblock;
+
+  buf->flags = (buf->flags | B_WRITE | B_DELWRI) & ~(B_READ | B_ASYNC);
+
+  // TODO: Insert onto delwri queue 5 seconds from now
+  // If already on delayed write queue, reinsert it at time, so that
+  // it will eventually get flushed, if time has passed, insert it at
+  // the head so it will be written soon.
+
+  buf->expiration_time = sb->softclock + DELWRI_DELAY_TICKS;
+
+  
+  hash = buf->expiration_time % NR_DELWRI_BUCKETS;
+  LIST_ADD_TAIL(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
+
+  return 0;
+}
+
+
+/* @brief   Write out all cached blocks of a file
+ *
+ * @param   vnode, file to write dirty cached blocks to disk
+ * @return  0 on success, negative errno on failure.
+ */
+int bsync(struct VNode *vnode)
+{
+  // Find all blocks in cache belonging to file, immediately write out.
+  // What if blocks are busy, wait?
+  
+  // Do we notify the bdflush_task ?
+  
+  return -ENOSYS;
+}
+
+
+/* @brief   Write out all cached blocks of a mounted filesystem.
+ * 
+ * @param   sb, superblock of mounted filesystem to sync contents of
+ * @return  0 on success, negative errno on failure
+ */
+int bsyncfs(struct SuperBlock *sb)
+{
+  // Do we notify the bdflush_task ?
+
+  return -ENOSYS;
+}
+
+
+/* @brief   Resize contents of file in cache.
+ * 
+ * @param   vnode, file to resize
+ * @return  0 on success, negative errno on failure
+ *
+ * The new size must already be set within the vnode structure
+ * Delete bufs if needed. Erase partial buf of last block to avoid
+ * leakage of past data.  
+ */
+int btruncate(struct VNode *vnode)
+{
+  return -ENOSYS;
+}
+
+
+/* @brief   Dynamically change the size of the filesystem cache
+ */
+size_t resize_cache(size_t free)
+{
   // Find out how much we need
   // while (cache_shrink_busy)
   // cond_wait();
 
   // Flush LRU until
-  return 0;
+
+  return -ENOSYS;
 }
 
-/*
- * BAWrite();
- *
- * Write cluster asynchronously (um, shouldn't that be what BWrite does?
- * Release the cluster after finishing write asynchronously.
- * Perhaps put it to the FRONT of the LRU list
+
+/* @brief   Initialize a superblock's timing wheel and delayed-write message pool
  *
  */
-
-int bawrite(struct Buf *buf) {
-  buf->flags = (buf->flags | B_WRITE | B_ASYNC) & ~B_READ;
-  strategy(buf);
-  return 0;
-}
-
-/*
- * strategy();
- *
- * FIXME: Test for sb abort, return as if IOERROR IODONE occured.
- *
- * Do we need a separate task for strategy???
- *
- * Depending on whether in-kernel FS, why not send message to fs-handler task.
- * Eventually it will call back with vnode_op_write(file, buf, sz) and/or
- * replymsg;
- * These will wake up what is currently waiting on strategy task.
- *
- * Is there one strategy task?   Or instead of strategy task we put message to
- * FS handler message port?  (or call into handler functions for non-fs modules)
- *
- * Have some cache inteligence, if streaming reads, expunge last 64k from cache.
- * Perhaps read-ahead option too,  Can we return early whilst we read some more
- * data?
- *
- */
-
-void strategy(struct Buf *buf) {
-  struct VNode *vnode;
-  off64_t offset;
-  int sc;
+int init_superblock_bdflush(struct SuperBlock *sb)
+{
+  sb->delwri_timing_wheel = kmalloc_page();
   
+  if (sb->delwri_timing_wheel == NULL) {
+    return -ENOMEM;
+  }
   
-  vnode = buf->vnode;
-  offset = buf->cluster_offset;
-
-  if (buf->flags & B_DELWRI) {
-//    buf->expiration_time = now + 5 seconds;
-    LIST_ADD_TAIL(&delayed_write_queue, buf, delayed_write_link);
-  } else {
-
-      if (buf->flags & B_READ) {
-        sc = vfs_read(vnode, buf->addr, buf->cluster_size, &offset);
-      } else if (buf->flags & B_WRITE) {
-        sc = vfs_write(vnode, buf->addr, buf->cluster_size, &offset);
-      }
-
-      buf->flags |= B_IODONE;     // FIXME: add b_valid ???
-
-      if (sc < 0) {
-        Error ("strategy IO error %d", sc);
-      }   
+  sb->delwrimsg_pool = kmalloc_page();
+  
+  if (sb->delwrimsg_pool == NULL) {
+    kfree_page(sb->delwri_timing_wheel);
+    return -ENOMEM;
   }
 
-  // Do we need to wakeup any rendez?
+  
+  for (int t=0; t < NR_DELWRI_BUCKETS; t++) {
+    LIST_INIT(&sb->delwri_timing_wheel[t]);
+  }
+  
+  LIST_INIT(&sb->free_delwri_msg_list);  
+  for (int t=0; t < NR_DELWRIMSG_PER_SB; t++) {
+    sb->delwrimsg_pool[t].superblock = sb;
+    LIST_ADD_TAIL(&sb->free_delwri_msg_list, &sb->delwrimsg_pool[t], link);
+  }  
 }
 
 
-/*
- * Block Flush daemon, periodically wake up and add Buf's to each VNode's message queues
+/* @brief   Free delayed-write message pool and timing wheel
+ *
  */
+void deinit_superblock_bdflush(struct SuperBlock *sb)
+{
+  kfree_page(sb->delwrimsg_pool);
+  kfree_page(sb->delwri_timing_wheel);
+  
+  sb->delwrimsg_pool = NULL;
+  sb->delwri_timing_wheel = NULL;  
+}
 
-void BDFlush(void) {
-  struct Buf *buf;
-  struct VNode *vnode;
+
+/* @brief   Periodically write dirty blocks on the delayed-write list to disk
+ *
+ * @param   arg, unused
+ * @return  0 on success when task terminates, negative errno on failure
+ */
+int bdflush(void *arg)
+{
+  struct Process *current;
   struct SuperBlock *sb;
-
+  struct Buf *buf;
+  struct DelWriMsg *msg;
+  struct timespec timeout;
+  bool done;
   
-  while (1) {
+  current = get_current_process();
+  
+  sb = LIST_HEAD(&writable_filesystem_list);
+
+  while (sb != NULL) {
+    done = false;
     
-    // TODO:  why sleep?  Any other trigger for a flush?
-    sys_sleep(2);
-
-    // Move into DoFSync().
-    
-
-    buf = LIST_HEAD(&delayed_write_queue);
-
-    if (buf == NULL) {
-      continue;
+    while (!done && softclock_trailing_hardclock(sb->softclock)) { 
+      while((buf = find_delayed_write_buf(sb, sb->softclock)) != NULL) {
+          msg = alloc_delwri_msg(sb);
+        
+          if (msg != NULL) {
+              unhash_delayed_write_buf(sb, sb->softclock, buf);
+              vfs_write_async(sb, msg, buf);            
+          } else {
+            // There are still bufs to process, but no free strategy messages
+            // sp move on to next superblock
+            done = true;
+            break;
+          }
+      }
+     
+      if (buf == NULL) { 
+        // We've processed all the current softclock bufs
+        sb->softclock += BDFLUSH_SOFTCLOCK_TICKS;
+      }            
     }
-
-    vnode = buf->vnode;
-
-    if (buf->flags & B_BUSY) {
-      TaskSleep(&buf->rendez);
-    }
-
-    buf->flags |= B_BUSY;
-
-    // Is this buffer still on the DELWRI list (not just head)?
-
-    if (!(buf->flags & B_DELWRI)) {
-      buf->flags &= ~B_BUSY;
-      TaskWakeupAll(&buf->rendez);
-      TaskWakeupAll(&vnode->rendez);
-      continue;
-    }
-
-    LIST_REM_ENTRY(&delayed_write_queue, buf, delayed_write_link);
-    buf->flags &= ~B_DELWRI;
-    buf->flags |= B_WRITE;
-
-// Need to queue on each message port, in order.
-//    Is vfs read/write/delwrite different to sync messages?
-//    Perhaps vfs_strategy(flags.....)
-      // vfs_read and vfs_write for char and block devices, strategy for FS.      
-//    vfs_delwrite(vnode, buf->addr, buf->cluster_size, &offset);
-
-    buf->msg.iov = NULL;
-    buf->msg.buf = buf;
-
-    sb = vnode->superblock;
+        
+    sb = LIST_NEXT(sb, writable_filesystem_link);
+  }
     
-    kputmsg(&sb->msgport, vnode, &buf->msg);
+  timeout.tv_sec = 0;
+  timeout.tv_nsec = BDFLUSH_WAKEUP_INTERVAL_MS * 1000;
+  kwaitport(&current->reply_port, &timeout);
 
-
-//  Again vfs_delwri should be non-blocking, the following should be done when
-// driver replies to message.  (not here).
-    
-//    buf->flags &= ~B_BUSY;
-//    vnode->busy = false;
-
-//    TaskWakeupAll(&buf->rendez);
-
-
-
+  // Release the buffers of the completed strategy commands  
+  while((msg = (struct DelWriMsg *)kgetmsg(&current->reply_port)) != NULL) {
+    brelse(msg->buf);
+    sb = msg->superblock;
+    free_delwri_msg(sb, msg);  
   }
 }
 
 
+/* @brief   find a block that has expired on the delayed write timing wheel
+ *
+ * @param   sb, superblock to get delayed write block for
+ * @param   softclock_ticks,  softclock time to search for delwri blocks
+ * @return  buf or NULL if no entries in the delayed-write queue
+ *
+ * This does not remove the Buf from the delayed write timing wheel and is
+ * not marked as busy. The Buf is removed by calling unhash_delayed_write_buf().
+ */
+struct Buf *find_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock)
+{
+  struct Buf *buf;
+  uint32_t hash;
+  
+  hash = softclock % NR_DELWRI_BUCKETS;
+  
+  buf = LIST_HEAD(&sb->delwri_timing_wheel[hash]);
+  
+  while (buf != NULL) {  
+    if (buf->expiration_time <= softclock) {
+      return buf;
+    }
+    
+    LIST_NEXT(buf, delwri_hash_link);
+  }
+  
+  return NULL;
+}
+
+
+/* @brief   Removes a Buf from the delayed write timing wheel
+ * 
+ * @param   sb,
+ * @param   softclock,
+ * @param   buf,
+ */
+void unhash_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock, struct Buf *buf)
+{
+  uint32_t hash;
+  
+  hash = softclock % NR_DELWRI_BUCKETS;
+  LIST_REM_ENTRY(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
+
+  buf->flags |= B_BUSY;
+}
+
+
+/* @brief   Allocate a message from a superblock's pool of delayed-write messages
+ *
+ * @param   sb,
+ * @return  pointer to newly allocated message or NULL if no messages available
+ */
+struct DelWriMsg *alloc_delwri_msg(struct SuperBlock *sb)
+{
+  struct DelWriMsg *msg;
+  
+  msg = LIST_HEAD(&sb->free_delwri_msg_list);
+  
+  if (msg == NULL) {
+    return NULL;
+  }
+  
+  LIST_REM_HEAD(&sb->free_delwri_msg_list, link);
+  return msg;
+}
+
+
+/* @brief   Free a message to a superblock's pool of delayed-write messages
+ * 
+ * @oaram   sb,
+ * @param   msg,
+ */
+void free_delwri_msg(struct SuperBlock *sb, struct DelWriMsg *msg)
+{
+  LIST_ADD_HEAD(&sb->free_delwri_msg_list, msg, link);
+}
 
 

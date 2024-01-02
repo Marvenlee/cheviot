@@ -16,7 +16,7 @@
 
 //#define KDEBUG
 
-#include <kernel/arm/elf.h>
+#include <kernel/board/elf.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/filesystem.h>
@@ -29,13 +29,12 @@
 #include <sys/execargs.h>
 
 
+// Private variables
 struct Rendez execargs_rendez;
 bool execargs_busy = false;
 char execargs_buf[MAX_ARGS_SZ];
 
-
 // Private prototypes
-
 int do_exec(int fd, struct execargs *_args);
 static int check_elf_headers(int fd);
 static int load_process(struct Process *proc, int fd, void **entry_point);
@@ -43,19 +42,17 @@ ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz);
 ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz);
 
 
-
-/*
- * Exec system call.
+/* @brief   Exec system call
  */
-SYSCALL int sys_exec(char *filename, struct execargs *_args)
+int sys_exec(char *filename, struct execargs *_args)
 {
   int sc;
   int fd;
-    
-  Info("Exec");
-
-  if ((fd = kopen(filename, O_RDONLY, 0)) < 0) {
-    Info ("*** Exec failed to open file, fd = %d", fd);
+   
+  Info ("sys_exec");
+  
+  if ((fd = sys_open(filename, O_RDONLY, 0)) < 0) {
+    Error("Exec failed to open file, fd = %d", fd);
     return -ENOENT;
   }
   
@@ -74,12 +71,13 @@ SYSCALL int sys_exec(char *filename, struct execargs *_args)
   sys_close(fd);
   
   if (sc == -ENOMEM) {
-    Info ("********* Exec failed to exec, sc = %d", sc);
+    Error("Exec failed to exec, sc = %d", sc);
     sys_exit(-1);
   }
   
   return sc; 
 }
+
 
 /*
  *
@@ -93,68 +91,53 @@ int do_exec(int fd, struct execargs *_args)
   struct execargs args;
   int8_t *pool;
   
+  Info("do_exec");
+  
   current = get_current_process();
 
-  Info("DoExec");
-
   if (check_elf_headers(fd) != 0) {
-    Info ("CheckELFHeaders failed");
+    Error("CheckELFHeaders failed");
     return -ENOEXEC;
   }
   
   if ((pool = alloc_arg_pool()) == NULL)
   {
-    Info("AllocArgPool failed\n");
+    Error("AllocArgPool failed\n");
     return -EBUSY;
   }
   
-  Info ("CopyInArgv");
-  
   if (copy_in_argv(pool, &args, _args) != 0) {
-    Info ("CopyInArgv failed");
+    Error("CopyInArgv failed");
     free_arg_pool(pool);
     return -EFAULT;
   }
 
-  Info("CleanupAddressSpace");
-
-  CleanupAddressSpace(&current->as);
-
-  Info("LoadProcess");
+  cleanup_address_space(&current->as);
 
   if (load_process(current, fd, &entry_point) != 0) {
-    Info("LoadProcess failed");
+    Error("LoadProcess failed");
     free_arg_pool(pool);
     return -ENOMEM;
   }
 
-
-  Info("Allocate Stack");
-  
   if ((stack_base = sys_virtualalloc((void *)0x30000000, USER_STACK_SZ, PROT_READWRITE)) == NULL) {
-    Info("Allocate stack failed");
+    Error("Allocate stack failed");
     free_arg_pool(pool);
     return -ENOMEM;
   }
-
-  Info("CopyOutArgv");
 
   copy_out_argv(stack_base, USER_STACK_SZ, &args);
-  
-  Info("FreeArgPool");
-  
   free_arg_pool(pool);
   
   stack_pointer = stack_base + USER_STACK_SZ - ALIGN_UP(args.total_size, 16) - 16;
 
-  // CloseOnExec (current_process);
-  // USigExec (current_process);
+  // FIXME: CloseOnExec (current_process);
+  // FIXME: USigExec (current_process);
 
-  Info("ArchInitExec");
-
-  ArchInitExec(current, entry_point, stack_pointer, &args);
+  arch_init_exec(current, entry_point, stack_pointer, &args);
   return 0;
 }
+
 
 /*
  *
@@ -167,8 +150,9 @@ char *alloc_arg_pool(void)
 
   execargs_busy = true;
   
-  return execargs_buf;    // TODO: support 8 buffers
+  return execargs_buf;    // TODO: support several arg pool buffers
 }
+
 
 /*
  *
@@ -178,6 +162,7 @@ void free_arg_pool(char *pool)
   execargs_busy = false;
   TaskWakeupAll(&execargs_rendez);
 }
+
 
 /*
  *
@@ -192,7 +177,6 @@ int copy_in_argv(char *pool, struct execargs *args, struct execargs *_args) {
   int sz;
 
   if (_args == NULL) {
-    Info("_args == NULL");
     args->argv = NULL;
     args->argc = 0;
     args->envv = NULL;
@@ -204,12 +188,10 @@ int copy_in_argv(char *pool, struct execargs *args, struct execargs *_args) {
   }
 
   if (CopyIn(args, _args, sizeof *args) != 0) {
-    Info ("Copyin args failed, _args=%08x", (vm_addr)_args);
     goto cleanup;
   }
 
   // TODO : Ensure less than sizeof MAX_ARGS_SZ
-
   argv = (char **)pool;
   envv = (char **)((uint8_t *)argv + (args->argc + 1) * sizeof(char *));
   string_table = (char *)((uint8_t *)envv + (args->envc + 1) * sizeof(char *));
@@ -271,6 +253,7 @@ cleanup:
   return -EFAULT;
 }
 
+
 /*
  *
  */
@@ -297,16 +280,16 @@ int copy_out_argv(void *stack_base, int stack_size, struct execargs *args) {
   return 0;
 }
 
+
 /*
  * CheckELFHeaders();
  *
  * Check that it is a genuine ELF executable.
  */
-static int check_elf_headers(int fd) {
+static int check_elf_headers(int fd)
+{
   Elf32_EHdr ehdr;
   int rc;
-
-  Info ("CheckELFHeaders");
 
   rc = kread_file(fd, 0, &ehdr, sizeof(Elf32_EHdr));
 
@@ -316,41 +299,37 @@ static int check_elf_headers(int fd) {
         ehdr.e_ident[EI_CLASS] == ELFCLASS32 &&
         ehdr.e_ident[EI_DATA] == ELFDATA2LSB && ehdr.e_type == ET_EXEC &&
         ehdr.e_phnum > 0) {
-
-//      Info("CheckElfHeaders - Is ELF");
       return 0;
     } else {
       if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != 'E' ||
         ehdr.e_ident[EI_MAG2] != 'L' || ehdr.e_ident[EI_MAG3] != 'F') {
 
-        Info("no ELF magic marker");
+        Error("no ELF magic marker");
       }
         
       if (ehdr.e_ident[EI_CLASS] != ELFCLASS32) {
-        Info ("Not ELF32 class");
+        Error("Not ELF32 class");
       }
 
       if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB) {
-        Info ("Not ELF LSB");
+        Error("Not ELF LSB");
       }
 
       if (ehdr.e_type != ET_EXEC) {
-        Info ("Not ELF ET_EXEC");
+        Error("Not ELF ET_EXEC");
       }
 
       if (ehdr.e_phnum == 0) {
-        Info ("No ELF program headers");
+        Error("No ELF program headers");
       }
     }    
   } else {
-    Info("CheckElfHeaders - kread failed %d", rc);
+    Error("CheckElfHeaders - kread failed %d", rc);
   }
 
-  Info("FILE IS NOT EXECUTABLE");
+  Error("FILE IS NOT EXECUTABLE");
   return -ENOEXEC;
 }
-
-
 
 
 /*
@@ -368,16 +347,13 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
   void *ret_addr;
   void *segment_base;
   void *segment_ceiling;
-
   Elf32_EHdr ehdr;
   Elf32_PHdr phdr;
   
-  Info ("LoadProcess");
-
   rc = kread_file(fd, 0, &ehdr, sizeof(Elf32_EHdr));
 
   if (rc != sizeof(Elf32_EHdr)) {
-    Info ("ELF header could not read");
+    Error("ELF header could not read");
     return -EIO;
   }
 
@@ -387,19 +363,15 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
   phdr_offs = ehdr.e_phoff;
   
 
-  for (t = 0; t < phdr_cnt; t++) {
-    
-    Info("LoadProcess phdr = %d", t);
-    
+  for (t = 0; t < phdr_cnt; t++) {    
     rc = kread_file(fd, phdr_offs + t * sizeof(Elf32_PHdr), &phdr, sizeof(Elf32_PHdr));
 
     if (rc != sizeof(Elf32_PHdr)) {
-      Info("Kread phdr failed");
+      Error("Kread phdr failed");
       return -EIO;
     }
 
     if (phdr.p_type != PT_LOAD) {
-      Info("Phdr.p_type !- PT_LOAD");
       continue;
     }
     
@@ -410,7 +382,7 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
     sec_prot = 0;
 
     if (sec_mem_sz < sec_file_sz) {
-      Info("sec_mem_sz < file_sz");
+      Error("sec_mem_sz < file_sz");
       return -EIO;
     }
     
@@ -429,7 +401,7 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
       ret_addr = sys_virtualalloc(sec_addr, sec_mem_sz, PROT_READWRITE | PROT_EXEC | MAP_FIXED);
 
       if (ret_addr == NULL) {
-        Info("Failed to alloc fixed mem");
+        Error("Failed to alloc fixed mem");
         return -ENOMEM;
       }
     }
@@ -438,19 +410,21 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
       rc = read_file(fd, sec_offs, (void *)phdr.p_vaddr, sec_file_sz);
 
       if (rc != sec_file_sz) {
-        Info("Failed to read file");
+        Error("Failed to read file");
         return -ENOMEM;
       }
     }
 
-//    sys_virtualprotect(sec_addr, sec_mem_sz, sec_prot);
+    // FIXME: sys_virtualprotect(sec_addr, sec_mem_sz, sec_prot);
   }
 
   return 0;
 }
 
 
-
+/*
+ *
+ */
 ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
@@ -460,11 +434,13 @@ ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz)
   }
 
   nbytes_read = sys_read(fd, vaddr, sz);
-  
   return nbytes_read;
 }
 
 
+/*
+ *
+ */
 ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
@@ -473,8 +449,7 @@ ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz)
     return -1;
   }
 
-  nbytes_read = kread(fd, vaddr, sz);
-  
+  nbytes_read = kread(fd, vaddr, sz);  
   return nbytes_read;
 }
 

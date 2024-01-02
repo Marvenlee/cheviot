@@ -1,0 +1,19 @@
+diff -aurN third_party_original/less-590/os.c third_party/less-590/os.c
+--- third_party_original/less-590/os.c	2021-06-03 18:45:48.000000000 +0100
++++ third_party/less-590/os.c	2024-01-01 21:20:39.920238745 +0000
+@@ -36,11 +36,11 @@
+ #include <values.h>
+ #endif
+ 
+-#if HAVE_POLL && !MSDOS_COMPILER && !defined(__APPLE__)
+-#define USE_POLL 1
+-#else
++//#if HAVE_POLL && !MSDOS_COMPILER && !defined(__APPLE__)
++//#define USE_POLL 1
++//#else
+ #define USE_POLL 0
+-#endif
++//#endif
+ #if USE_POLL
+ #include <poll.h>
+ #endif

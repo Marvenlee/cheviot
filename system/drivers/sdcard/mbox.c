@@ -19,6 +19,7 @@
  * THE SOFTWARE.
  */
 
+#include "sdcard.h"
 #include "mbox.h"
 #include "globals.h"
 #include "mmio.h"
@@ -27,11 +28,12 @@
 #define MBOX_FULL 0x80000000
 #define MBOX_EMPTY 0x40000000
 
-uint32_t mbox_read(uint8_t channel) {
+uint32_t mbox_read(uint8_t channel)
+{
   while (1) {
-    while (mmio_read(mbox_base + MBOX_STATUS) & MBOX_EMPTY)
-      ;
-
+    while (mmio_read(mbox_base + MBOX_STATUS) & MBOX_EMPTY) {
+    }
+    
     uint32_t data = mmio_read(mbox_base + MBOX_READ);
     uint8_t read_channel = (uint8_t)(data & 0xf);
     if (read_channel == channel)
@@ -40,8 +42,9 @@ uint32_t mbox_read(uint8_t channel) {
 }
 
 void mbox_write(uint8_t channel, uint32_t data) {
-  while (mmio_read(mbox_base + MBOX_STATUS) & MBOX_FULL)
-    ;
+  while (mmio_read(mbox_base + MBOX_STATUS) & MBOX_FULL) {
+  }
+  
   mmio_write(mbox_base + MBOX_WRITE,
              (data & 0xfffffff0) | (uint32_t)(channel & 0xf));
 }

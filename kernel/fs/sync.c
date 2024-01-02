@@ -22,11 +22,56 @@
 #include <kernel/vm.h>
 
 
-SYSCALL int sys_sync(void) {
+/* @brief   Write all mounted filesystems to disk
+ *
+ * Send sync message to all mounted filesystems
+ */
+int sys_sync(void)
+{
+/*
+  struct SuperBlock *sb;
+  
+  sb = LIST_HEAD(&mounted_superblock_list);
+  
+  while (sb != NULL) {
+    sc = vfs_syncfs(sb);
+  
+    sb = LIST_NEXT(sb, mounted_superblock_link);
+  }
+*/    
   return -ENOSYS;
 }
 
-SYSCALL int sys_fsync(int fd)
+
+/* @brief   Write all unwritten blocks of a file to disk
+ *
+ */
+int sys_fsync(int fd)
 { 
-  return -ENOSYS;
+  struct Filp *filp;
+  struct VNode *vnode;
+  ssize_t xfered;
+  struct Process *current;
+  int sc;
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
+
+  if (vnode == NULL) {
+    return -EINVAL;
+  }
+
+  if (is_allowed(vnode, W_OK) != 0) {
+    return -EACCES;
+  }
+  
+  vnode_lock(vnode);
+  sc = vfs_fsync(vnode);
+  vnode_unlock(vnode);
+  
+  return sc;  
 }
+
+
+

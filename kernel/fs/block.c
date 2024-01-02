@@ -25,45 +25,67 @@
 #include <sys/fsreq.h>
 #include <sys/mount.h>
 
-// TODO
-// ReadFromBlock
-// WriteToBlock
-//
-// Cache/double buffer 64k-sized blocks.
-// Need to mark which sub-blocks have changed for writing.
-//
-// FIXME: Could we use blocks and block size for block mounted devices ?
-//  blksize_t     st_blksize;
-//  blkcnt_t	st_blocks;
 
-
+/* @brief   Read from a block device
+ * 
+ * TODO: Avoid in-kernel buffer, readmsg/writemsg needs to be able to write
+ * to client process directly.
+ */
 ssize_t read_from_block (struct VNode *vnode, void *dst, size_t sz, off64_t *offset)
 {
-    uint8_t buf[512];
-    ssize_t xfered = 0;
-    size_t xfer = 0;
-    struct Process *current;
+  uint8_t data[512];
+  ssize_t xfered = 0;
+  size_t xfer = 0;
+  size_t remaining = sz;
 
-    current = get_current_process();
+  while (remaining > 0) {
+    xfer = (remaining < sizeof data) ? remaining : sizeof data;
+    xfered = vfs_read(vnode, data, xfer, offset);      
+    
+    if (xfered == 0) {
+      return sz - remaining;
+    }
+    
+    if (xfered < 0) {
+      Error("read_from_block err:%d", xfered);
+      return xfered;
+    }
 
-    Info ("ReadFromBlock(sz:%d, offs:%08x)", sz, *offset);
-      
-    xfer = (sz < sizeof buf) ? sz : sizeof buf;
+    CopyOut(dst, data, xfered);
+    dst += xfered;  
+    remaining -= xfered;
+  }
 
-    xfered = vfs_read(vnode, buf, xfer, offset);
-        
-    CopyOut(dst, buf, xfered);
-       
-    Info ("ReadFromBlock xfered: %d", xfered);
-
-    return xfered;
+  return sz - remaining;
 }
 
-/*
- * TODO: write to block device
+
+/* @brief   Write to a block device
  */
-ssize_t write_to_block (struct VNode *vnode, void *dst, size_t sz, off64_t *offset)
+ssize_t write_to_block (struct VNode *vnode, void *src, size_t sz, off64_t *offset)
 {
-    return -ENOSYS;
+  uint8_t data[512];
+  ssize_t xfered = 0;
+  size_t xfer = 0;
+  size_t remaining = sz;
+  
+  while (remaining > 0) {      
+    xfer = (remaining < sizeof data) ? remaining : sizeof data;
+    CopyIn(data, src, xfer);
+    xfered = vfs_write(vnode, data, xfer, offset);      
+
+    if (xfered == 0) {
+      return sz - remaining;
+    }
+    
+    if (xfered < 0) {
+      return xfered;
+    }
+
+    src += xfered;
+    remaining -= xfered;
+  }
+  
+  return sz - remaining;
 }
 

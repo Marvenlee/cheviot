@@ -18,7 +18,7 @@
  * Scheduling related functions
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/error.h>
@@ -27,13 +27,52 @@
 #include <kernel/proc.h>
 #include <kernel/types.h>
 
+// Static prototypes
+static void TaskTimedSleepCallback(struct Timer *timer);
 
-/*
- * Task Scheduler : Currently implements round-robin scheduling and a stride
- * scheduler which needs work. 
+
+/* @brief   Perform a task switch
+ *
+ * Currently implements round-robin scheduling and a niceness scheduler.
+ * Priorities 16 to 31 are for the round-robin scheduler. Priorities
+ * 0 to 15 are for the niceness scheduler.
+ *
+ * The switching of the task's register context for another task's context
+ * is done by the following magic:
+ *
+ * if (SetContext(&context[0]) == 0) {
+ *   GetContext(next->context);
+ * }
+ * 
+ * When SetContext is called, the current thread's registers are saved in
+ * the context array on its stack. SetContext returns 0 to indicate it should
+ * now get the context of the next stack.
+ *
+ * When SetContext stores the context of the current task it does something
+ * perculiar, as mentioned it returns 0 but in the register state that it
+ * saves it sets it so that a value of 1 would be returned, On ARM CPUs this
+ * will be in register 0.  
+ *
+ * When GetContext is called the next thread's context is reloaded from its
+ * stack into the CPU's registers. These registers are at the point they were saved
+ * when it called SetContext. When the registers are reloaded they are what
+ * was saved by SetContext so when it performs a return it is returning
+ * from SetContext and not GetContext.
+ * 
+ * However, instead of returning 0 and performing the GetContext again
+ * it returns the 1 stored by its original call to SetContext to prevent it
+ * endlessly calling GetContext.
+ *
+ * At this point execution resumes after the "if" statement and the task is
+ * switched.
+ *
+ * FIXME: Can we defer Fair-Share scheduling (e.g. lottery/stride) onto a DPC
+ * scheduler task, like the timer task. Effectively this only schedules RTOS
+ * round-robin tasks.  If no RTOS tasks, run the DPC task to choose a task.
  */
-void Reschedule(void) {
-  uint32_t context[15];
+void Reschedule(void)
+{
+  context_word_t context[N_CONTEXT_WORD];
   struct Process *current, *next, *proc;
   struct CPU *cpu;
   int q;
@@ -42,55 +81,38 @@ void Reschedule(void) {
   current = get_current_process();
 
   if (current != NULL) {
+    current->quanta_used ++;
+  
     if (current->sched_policy == SCHED_RR) {
-      KASSERT(current->rr_priority >= 0 && current->rr_priority < 32);
+      KASSERT(current->priority >= 16 && current->priority < 32);
 
-      if ((CIRCLEQ_HEAD(&realtime_queue[current->rr_priority])) != NULL) {
-        CIRCLEQ_FORWARD(&realtime_queue[current->rr_priority], sched_entry);
+      if ((CIRCLEQ_HEAD(&sched_queue[current->priority])) != NULL) {
+        CIRCLEQ_FORWARD(&sched_queue[current->priority], sched_entry);
         current->quanta_used = 0;
       }
     } else if (current->sched_policy == SCHED_OTHER) {
-      global_stride = STRIDE1 / global_tickets;
-      global_pass += global_stride;
-      current->stride_pass += current->stride;
-
-      LIST_REM_ENTRY(&stride_queue, current, stride_entry);
-      proc = LIST_HEAD(&stride_queue);
-
-      if (proc != NULL && global_pass < proc->stride_pass)
-        global_pass = proc->stride_pass;
-
-      while (proc != NULL) {
-        if (proc->stride_pass > current->stride_pass) {
-          LIST_INSERT_BEFORE(&stride_queue, proc, current, stride_entry);
-          break;
-        }
-
-        proc = LIST_NEXT(proc, stride_entry);
-      }
-
-      if (proc == NULL) {
-        LIST_ADD_TAIL(&stride_queue, current, stride_entry);
-      }
-
-      current->quanta_used = 0;
-    } else if (current->sched_policy == SCHED_IDLE) {
+      if (current->quanta_used == SCHED_QUANTA_JIFFIES) {      
+        if (current->priority > 1) {
+          CIRCLEQ_REM_HEAD(&sched_queue[current->priority], sched_entry);              
+          current->priority--;
+          CIRCLEQ_ADD_TAIL(&sched_queue[current->priority], current, sched_entry);        
+        } else {
+          CIRCLEQ_FORWARD(&sched_queue[current->priority], sched_entry);          
+        }       
+        current->quanta_used = 0;
+      }     
     }
   }
 
   next = NULL;
 
-  if (realtime_queue_bitmap != 0) {
+  if (sched_queue_bitmap != 0) {
     for (q = 31; q >= 0; q--) {
-      if ((realtime_queue_bitmap & (1 << q)) != 0)
+      if ((sched_queue_bitmap & (1 << q)) != 0)
         break;
     }
 
-    next = CIRCLEQ_HEAD(&realtime_queue[q]);
-  }
-
-  if (next == NULL) {
-    next = LIST_HEAD(&stride_queue);
+    next = CIRCLEQ_HEAD(&sched_queue[q]);
   }
 
   if (next == NULL) {
@@ -99,7 +121,7 @@ void Reschedule(void) {
 
   if (next != NULL) {
     next->state = PROC_STATE_RUNNING;
-    PmapSwitch(next, current);
+    pmap_switch(next, current);
   }
 
   if (next != current) {
@@ -112,39 +134,23 @@ void Reschedule(void) {
   }
 }
 
-/*
- * SchedReady();
- *
- * Add process to a ready queue based on its scheduling policy and priority.
+/* @brief   Add process to a ready queue based on its scheduling policy and priority.
  */
-void SchedReady(struct Process *proc) {
+void SchedReady(struct Process *proc)
+{
   struct Process *next;
   struct CPU *cpu;
 
   cpu = get_cpu();
 
   if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO) {
-    CIRCLEQ_ADD_TAIL(&realtime_queue[proc->rr_priority], proc, sched_entry);
-    realtime_queue_bitmap |= (1 << proc->rr_priority);
+    CIRCLEQ_ADD_TAIL(&sched_queue[proc->priority], proc, sched_entry);
+    sched_queue_bitmap |= (1 << proc->priority);
+
   } else if (proc->sched_policy == SCHED_OTHER) {
-    global_tickets += proc->stride_tickets;
-    global_stride = STRIDE1 / global_tickets;
-    proc->stride_pass = global_pass - proc->stride_remaining;
+    CIRCLEQ_ADD_TAIL(&sched_queue[proc->priority], proc, sched_entry);
+    sched_queue_bitmap |= (1 << proc->priority);
 
-    next = LIST_HEAD(&stride_queue);
-
-    while (next != NULL) {
-      if (next->stride_pass > proc->stride_pass) {
-        LIST_INSERT_BEFORE(&stride_queue, next, proc, stride_entry);
-        break;
-      }
-
-      next = LIST_NEXT(next, stride_entry);
-    }
-
-    if (next == NULL) {
-      LIST_ADD_TAIL(&stride_queue, proc, stride_entry);
-    }
   } else {
     Error("Ready: Unknown sched policy %d", proc->sched_policy);
     KernelPanic();
@@ -154,39 +160,45 @@ void SchedReady(struct Process *proc) {
   cpu->reschedule_request = true;
 }
 
-/*
- * SchedUnready();
- *
- * Removes process from the ready queue.  See SchedReady() above.
+
+/* @brief   Removes process from the ready queue.
  */
-void SchedUnready(struct Process *proc) {
+void SchedUnready(struct Process *proc)
+{
   struct CPU *cpu;
 
   cpu = get_cpu();
 
   if (proc->sched_policy == SCHED_RR || proc->sched_policy == SCHED_FIFO) {
-    CIRCLEQ_REM_ENTRY(&realtime_queue[proc->rr_priority], proc, sched_entry);
-    proc->sched_entry.next = NULL;
-    proc->sched_entry.prev = NULL;    
-    if (CIRCLEQ_HEAD(&realtime_queue[proc->rr_priority]) == NULL)
-      realtime_queue_bitmap &= ~(1 << proc->rr_priority);
+    CIRCLEQ_REM_ENTRY(&sched_queue[proc->priority], proc, sched_entry);
+    if (CIRCLEQ_HEAD(&sched_queue[proc->priority]) == NULL) {
+      sched_queue_bitmap &= ~(1 << proc->priority);
+    }
+
+    proc->quanta_used = 0;
+    
   } else if (proc->sched_policy == SCHED_OTHER) {
-    global_tickets -= proc->stride_tickets;
-    proc->stride_remaining = global_pass - proc->stride_pass;
-    LIST_REM_ENTRY(&stride_queue, proc, stride_entry);
+    CIRCLEQ_REM_ENTRY(&sched_queue[proc->priority], proc, sched_entry);
+    if (CIRCLEQ_HEAD(&sched_queue[proc->priority]) == NULL) {
+      sched_queue_bitmap &= ~(1 << proc->priority);
+    }
+
+    proc->priority = proc->desired_priority;
+    proc->quanta_used = 0;
+
   } else {
     Error("Unready: Unknown sched policy *****");
     KernelPanic();
   }
 
-  proc->quanta_used = 0;
   cpu->reschedule_request = true;
 }
 
-/*
- * Sets the scheduling policy, either round-robin or stride scheduler
+
+/* @brief   Set process scheduling policy and priority
  */
-SYSCALL int sys_setschedparams(int policy, int priority) {
+int sys_setschedparams(int policy, int priority)
+{
   struct Process *current;
   current = get_current_process();
 
@@ -195,14 +207,15 @@ SYSCALL int sys_setschedparams(int policy, int priority) {
       return -EPERM;
     }
 
-    if (priority < 0 || priority > 31) {
+    if (priority < 16 || priority > 31) {
       return -EINVAL;
     }
 
     DisableInterrupts();
     SchedUnready(current);
     current->sched_policy = policy;
-    current->rr_priority = priority;
+    current->desired_priority = priority;
+    current->priority = priority;
     SchedReady(current);
     Reschedule();
     EnableInterrupts();
@@ -210,17 +223,15 @@ SYSCALL int sys_setschedparams(int policy, int priority) {
     return 0;
 
   } else if (policy == SCHED_OTHER) {
-    if (priority < 0 || priority > STRIDE_MAX_TICKETS) {
+    if (priority < 0 || priority > 15) {
       return -EINVAL;
     }
 
     DisableInterrupts();
     SchedUnready(current);
     current->sched_policy = policy;
-    current->stride_tickets = priority;
-    current->stride = STRIDE1 / current->stride_tickets;
-    current->stride_remaining = current->stride;
-    current->stride_pass = global_pass;
+    current->desired_priority = priority;
+    current->priority = priority;
     SchedReady(current);
     Reschedule();
     EnableInterrupts();
@@ -232,21 +243,18 @@ SYSCALL int sys_setschedparams(int policy, int priority) {
   }
 }
 
-/*
- * Yield();
- */
-SYSCALL void SysYield(void) {
-}
 
-/*
- * Big kernel lock acquired on kernel entry. Effectively coroutining
+/* @brief   Lock the Big Kernel Lock
+ *
+ * Big Kernel Lock acquired on kernel entry. Effectively coroutining
  * (co-operative multitasking) within the kernel.  Similar to the mutex used in
  * a condition variable construct.  TaskSleep and TaskWakeup are used to sleep
  * and wakeup tasks blocked on a condition variable (rendez).
  * 
  * Interrupts are disabled upon entry to a syscall in the assembly code.
  */
-void KernelLock(void) {
+void KernelLock(void)
+{
   struct Process *current;
 
   current = get_current_process();
@@ -262,10 +270,13 @@ void KernelLock(void) {
   }
 }
 
-/*
+
+/* @brief   Unlock the Big Kernel Lock
  *
+ * See comments above for KernelLock()
  */
-void KernelUnlock(void) {
+void KernelUnlock(void)
+{
   struct Process *proc;
 
   if (bkl_locked == true) {
@@ -289,24 +300,30 @@ void KernelUnlock(void) {
   }
 }
 
-/*
+
+/* @brief   Initialize a Rendez condition variable
  *
+ * @param   rendez, condition variable to initialize
  */
 void InitRendez(struct Rendez *Rendez)
 { 
   LIST_INIT(&Rendez->blocked_list);
 }
 
-/*
+
+/* @brief   Sleep on a Rendez condition variable
  *
+ * @param   rendez, condition variable to sleep on
  */
-void TaskSleep(struct Rendez *rendez) {
+void TaskSleep(struct Rendez *rendez)
+{
   struct Process *proc;
   struct Process *current;
-
+  int_state_t int_state;
+  
   current = get_current_process();
 
-  DisableInterrupts();
+  int_state = DisableInterrupts();
 
   KASSERT(bkl_locked == true);
   KASSERT(bkl_owner == current);
@@ -331,16 +348,112 @@ void TaskSleep(struct Rendez *rendez) {
   KASSERT(bkl_locked == true);
   KASSERT(bkl_owner == current);
 
-  EnableInterrupts();
+  RestoreInterrupts(int_state);
 }
 
-/*
- *
- */
-void TaskWakeup(struct Rendez *rendez) {
-  struct Process *proc;
 
-  DisableInterrupts();
+/* @brief   Sleep on a Rendez condition variable with a timeout.
+ *
+ * @param   rendez, condition variable to sleep on
+ * @param   ts, timeout to wake up after if the rendez was not signalled
+ * @return  0 on success
+ *          -ETIMEDOUT if a timeout occured
+ *          other negative errno on failure
+ */
+int TaskTimedSleep(struct Rendez *rendez, struct timespec *ts)
+{
+  struct Process *proc;
+  struct Process *current;
+  struct Timer *timer;
+  int_state_t int_state;
+  int sc;
+  
+  current = get_current_process();
+
+  int_state = DisableInterrupts();
+
+  KASSERT(bkl_locked == true);
+  KASSERT(bkl_owner == current);
+
+  proc = LIST_HEAD(&bkl_blocked_list);
+
+  if (proc != NULL) {
+    LIST_REM_HEAD(&bkl_blocked_list, blocked_link);
+    proc->state = PROC_STATE_READY;
+    bkl_owner = proc;
+    SchedReady(proc);
+  } else {
+    bkl_locked = false;
+    bkl_owner = (void *)0xdeadbeef;
+  }
+    
+  timer = &current->sleep_timer;  
+  timer->process = current;
+  timer->arg = rendez;
+  timer->armed = true;
+  timer->callback = TaskTimedSleepCallback;
+
+  SpinLock(&timer_slock);
+  timer->expiration_time = hardclock_time + (ts->tv_sec * JIFFIES_PER_SECOND + ts->tv_nsec / NANOSECONDS_PER_JIFFY);
+  SpinUnlock(&timer_slock);
+
+  LIST_ADD_TAIL(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
+  
+  LIST_ADD_TAIL(&rendez->blocked_list, current, blocked_link);
+  current->state = PROC_STATE_RENDEZ_BLOCKED;
+  SchedUnready(current);
+  Reschedule();
+
+  if (timer->armed == true) {
+    LIST_REM_ENTRY(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
+    timer->armed = false;
+    timer->process = NULL;
+    timer->callback = NULL;
+    sc = 0;
+  } else {
+    sc = -ETIMEDOUT;
+  }
+
+  RestoreInterrupts(int_state);
+  return sc;
+}
+
+
+/* @brief   Timeout handler of task blocked by TaskTimedSleep()
+ *
+ * @param   timer, the timeout timer state created by TaskTimedSleep().
+ *
+ * This is called from the timer bottom half thread, so has the BKL
+ * locked until it does a sleep
+ */
+static void TaskTimedSleepCallback(struct Timer *timer)
+{
+  struct Process *proc = timer->process;
+  struct Rendez *rendez = timer->arg;
+  int_state_t int_state;
+  
+  int_state = DisableInterrupts();
+
+  if (proc != NULL && proc->state == PROC_STATE_RENDEZ_BLOCKED) {
+    LIST_REM_ENTRY(&rendez->blocked_list, proc, blocked_link);
+    LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
+    proc->state = PROC_STATE_BKL_BLOCKED;
+  }
+  
+  RestoreInterrupts(int_state);
+}
+
+
+/* @brief   Wakeup a single task waiting on a condition variable
+ *
+ * @param   rendez, the condition variable to wake up a task from
+ */
+void TaskWakeup(struct Rendez *rendez)
+{
+  struct Process *proc;
+  int_state_t int_state;
+  
+  int_state = DisableInterrupts();
 
   proc = LIST_HEAD(&rendez->blocked_list);
 
@@ -350,14 +463,18 @@ void TaskWakeup(struct Rendez *rendez) {
     proc->state = PROC_STATE_BKL_BLOCKED;
   }
 
-  EnableInterrupts();
+  RestoreInterrupts(int_state);
 }
 
-/*
- * 
+
+/* @brief   Wakeup a blocked task from an interrupt handler
+ *
+ * @param   rendez, the condition variable to wake up a task from
  */
-void TaskWakeupFromISR(struct Rendez *rendez) {
+void TaskWakeupFromISR(struct Rendez *rendez)
+{
   struct Process *proc;
+  struct CPU *cpu;
 
   proc = LIST_HEAD(&rendez->blocked_list);
 
@@ -366,16 +483,23 @@ void TaskWakeupFromISR(struct Rendez *rendez) {
     LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
     proc->state = PROC_STATE_BKL_BLOCKED;
   }
+
+//  cpu = get_cpu();  
+//  cpu->reschedule_request = true;
 }
 
-/*
- *
- */
-void  TaskWakeupAll(struct Rendez *rendez) {
-  struct Process *proc;
 
+/* @brief   Wakeup all tasks waiting on a condition variable
+ *
+ * @param   rendez, the condition variable to wake up all tasks from
+ */
+void  TaskWakeupAll(struct Rendez *rendez)
+{
+  struct Process *proc;
+  int_state_t int_state;
+  
   do {
-    DisableInterrupts();
+    int_state = DisableInterrupts();
 
     proc = LIST_HEAD(&rendez->blocked_list);
 
@@ -383,15 +507,12 @@ void  TaskWakeupAll(struct Rendez *rendez) {
       KASSERT(bkl_locked == true);
       
       LIST_REM_HEAD(&rendez->blocked_list, blocked_link);
-
-      KASSERT(bkl_locked == true);
-
       LIST_ADD_TAIL(&bkl_blocked_list, proc, blocked_link);
       proc->state = PROC_STATE_BKL_BLOCKED;
     }
 
     proc = LIST_HEAD(&rendez->blocked_list);
-    EnableInterrupts();
+    RestoreInterrupts(int_state);
 
   } while (proc != NULL);
 }

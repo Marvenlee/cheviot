@@ -16,8 +16,10 @@
  
 /*
  * Signal handling syscalls and functions. Copied from Kielder's sources.
- * TODO: Update to work here.
+ * TODO: Update signal handling to work on ARM processor.  We need the
+ * libc code updating to handle signals too.
  */
+
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/filesystem.h>
@@ -29,12 +31,11 @@
 #include <kernel/vm.h>
 #include <signal.h>
 
-/*
- * Array defining the default actions and properties of each signal.
+
+/* @brief   Define the default actions and properties of each signal.
  */
-const uint32_t sigprop[NSIG] = 
-{
-	0,								              
+const uint32_t sigprop[NSIG] = {
+	0,		                          /* unused            */						              
 	SP_KILL,                        /* 1  [ 0] SIGHUP    */
 	SP_KILL,                        /* 2  [ 1] SIGINT    */
 	SP_KILL|SP_CORE,                /* 3  [ 2] SIGQUIT   */
@@ -62,15 +63,14 @@ const uint32_t sigprop[NSIG] =
 	SP_KILL,                        /* 25 [24] SIGXFSZ   */
 	SP_KILL,                        /* 26 [25] SIGVTALRM */
 	SP_KILL,                        /* 27 [26] SIGPROF   */
-	0,					            /* 28 [27] SIGWINCH  */
-	0,						        /* 29 [28] SIGINFO   */
-	SP_KILL,						/* 30 [29] SIGUSR1   */
-	SP_KILL,						/* 31 [30] SIGUSR2   */
+	0,					                    /* 28 [27] SIGWINCH  */
+	0,						                  /* 29 [28] SIGINFO   */
+	SP_KILL,						            /* 30 [29] SIGUSR1   */
+	SP_KILL,						            /* 31 [30] SIGUSR2   */
 };
 
 
-/*
- *
+/* @brief   Exit a process due to a signal
  */
 void SigExit(int signal)
 {
@@ -78,48 +78,35 @@ void SigExit(int signal)
 }
 
 
-/*
- * SigFork()
+/* @brief   Copy signal handler settings to a new process
  */ 
-void SigFork (struct Process *src, struct Process *dst)
+void SigFork(struct Process *src, struct Process *dst)
 {
-	int t;
-	
-	for (t=0; t<NSIG-1; t++)
-	{
-		dst->signal.handler[t] = src->signal.handler[t];
-		dst->signal.handler_mask[t] = src->signal.handler_mask[t];
-		
-		dst->signal.si_code[t] = 0;
+	for (int t=1; t<NSIG; t++) {
+		dst->signal.handler[t-1] = src->signal.handler[t-1];
+		dst->signal.handler_mask[t-1] = src->signal.handler_mask[t-1];		
+		dst->signal.si_code[t-1] = 0;
 	}
 	
-
 	dst->signal.sig_info      = src->signal.sig_info;
 	dst->signal.sig_mask      = src->signal.sig_mask;
 	dst->signal.sig_pending   = 0;
 	dst->signal.sig_resethand = src->signal.sig_resethand;
 	dst->signal.sig_nodefer   = src->signal.sig_nodefer;
-	dst->signal.trampoline    = src->signal.trampoline;
-	
+	dst->signal.restorer    = src->signal.restorer;	
 	dst->signal.sigsuspend_oldmask = 0;
 	dst->signal.use_sigsuspend_mask = false;
-	
-	/* Clear proc->pending_signal SIGF_USER */
 }
 
-/*
- *
+
+/* @brief   Initialize the signal handlers of a process
  */
-void SigInit (struct Process *dst)
+void SigInit(struct Process *dst)
 {
-	int t;
-	
-	for (t=0; t<NSIG-1; t++)
-	{
-		dst->signal.handler[t] = SIG_DFL;
-		dst->signal.handler_mask[t] = 0x00000000;
-		
-		dst->signal.si_code[t] = 0;
+	for (int t=1; t<NSIG; t++) {
+		dst->signal.handler[t-1] = SIG_DFL;
+		dst->signal.handler_mask[t-1] = 0x00000000;		
+		dst->signal.si_code[t-1] = 0;
 	}
 	
 	dst->signal.sig_info      = 0x00000000;
@@ -127,50 +114,42 @@ void SigInit (struct Process *dst)
 	dst->signal.sig_pending   = 0x00000000;
 	dst->signal.sig_resethand = 0x00000000;
 	dst->signal.sig_nodefer   = 0x00000000;
-	dst->signal.trampoline    = NULL;
-	
-	
-	dst->signal.sigsuspend_oldmask = 0;
-	dst->signal.use_sigsuspend_mask = false;
-	
-	/* Clear proc->pending_signal SIGF_USER */
-}
-
-/*
- *
- */
-void SigExec (struct Process *dst)
-{
-	int t;
-	
-	for (t=0; t<NSIG-1; t++)
-	{
-		if (dst->signal.handler[t] != SIG_IGN)
-			dst->signal.handler[t] = SIG_DFL;
-
-		dst->signal.handler_mask[t] = 0x00000000;
-
-		dst->signal.si_code[t] = 0;		
-	}
-	
-	dst->signal.sig_info      = 0x00000000;
-	dst->signal.sig_resethand = 0x00000000;
-	dst->signal.sig_nodefer   = 0x00000000;
-	dst->signal.trampoline    = NULL;
-
+	dst->signal.restorer    = NULL;
 	dst->signal.sigsuspend_oldmask = 0;
 	dst->signal.use_sigsuspend_mask = false;	
 }
 
 
-
-
-
-
-/*
+/* @brief   Update signal handlers due to a process exec'ing
  *
  */
-SYSCALL int sys_sigaction (int signal, const struct sigaction *act_in, struct sigaction *oact_out)
+void SigExec(struct Process *dst)
+{
+	for (int t=1; t<NSIG; t++) {
+		if (dst->signal.handler[t-1] != SIG_IGN) {
+			dst->signal.handler[t-1] = SIG_DFL;
+    }
+    
+		dst->signal.handler_mask[t-1] = 0x00000000;
+		dst->signal.si_code[t-1] = 0;		
+	}
+	
+	dst->signal.sig_info      = 0x00000000;
+	dst->signal.sig_resethand = 0x00000000;
+	dst->signal.sig_nodefer   = 0x00000000;
+	dst->signal.restorer    = NULL;
+	dst->signal.sigsuspend_oldmask = 0;
+	dst->signal.use_sigsuspend_mask = false;	
+}
+
+
+/* @brief   Configure signal handling of a process
+ *
+ * TODO: Add sa_restorer pointer for trampoline address and
+ * SA_RESTORER flag to initialize it.
+ * current_process->signal.trampoline = act_in->sa_restorer.
+ */
+int sys_sigaction(int signal, const struct sigaction *act_in, struct sigaction *oact_out)
 {
 	struct sigaction act, oact;
 	struct Process *current;
@@ -196,7 +175,7 @@ SYSCALL int sys_sigaction (int signal, const struct sigaction *act_in, struct si
 	if (act_in != NULL) {
 		if (CopyIn(&act, act_in, sizeof (struct sigaction)) != 0) {
 			return -EFAULT;
-        }
+    }
 
 		if (signal == SIGKILL || signal == SIGSTOP) {
 			return -EINVAL;
@@ -214,32 +193,30 @@ SYSCALL int sys_sigaction (int signal, const struct sigaction *act_in, struct si
 			current->signal.sig_resethand |= SIGBIT(signal);
 		}
 
-        if (act.sa_flags & SA_TRAMPOLINE) {
-      	  current->signal.trampoline = (void (*)(void)) act.sa_trampoline;
-        }
+    // FIXME: Ummm, when did we add this?  Rename to sa_restorer
+    if (act.sa_flags & SA_RESTORER) {
+      current->signal.restorer = (void (*)(void)) act.sa_restorer;
+    }
 
-        // Is it still a table of signal handlers in kernel ?		
-	    current->signal.handler[signal-1] = (void *) act._signal_handlers._handler;
-
-
-	    current->signal.handler_mask[signal-1] = act.sa_mask;
-	    current->signal.handler_mask[signal-1] &= ~(SIGBIT(SIGKILL) | SIGBIT(SIGSTOP));
+    current->signal.handler[signal-1] = (void *) act._signal_handlers._handler;
+    current->signal.handler_mask[signal-1] = act.sa_mask;
+    current->signal.handler_mask[signal-1] &= ~(SIGBIT(SIGKILL) | SIGBIT(SIGSTOP));
 	}
 	
 	return 0;
 }
 
 
-
-
-/*
+/* @brief   Send a signal to a process
  *
+ * @param   pid, ID of target process to send signal to 
+ * @param   signal, signal number to send to target process
+ * @return  0 on success, negative errno on failure
  */
-SYSCALL int sys_kill (int pid, int signal)
+int sys_kill(int pid, int signal)
 {
 	struct Process *proc;
 	int rc = 0;	
-	int t;
 
 	if (signal <= 0 || signal >= NSIG || pid == 0) {
 	  return -EINVAL;
@@ -248,7 +225,7 @@ SYSCALL int sys_kill (int pid, int signal)
 	if (pid > 0) {
 		proc = GetProcess (pid);
     
-        if (proc == NULL || proc->state == PROC_STATE_UNALLOC) {
+    if (proc == NULL || proc->state == PROC_STATE_UNALLOC) {
 			return -EINVAL;
 		}
 
@@ -264,35 +241,30 @@ SYSCALL int sys_kill (int pid, int signal)
 				Reschedule();
 			}
 		}
-						
+		
 		EnableInterrupts();
-
-	}
-	else
-	{
+	
+	}	else {
 		pid = -pid;
 		
-		for (t=0;t < max_process; t++)
-		{
+		for (int t=0; t < max_process; t++) {
 			proc = GetProcess(t);
 
-            if (proc == NULL) {
-                continue;
-            }
+      if (proc == NULL) {
+          continue;
+      }
 
 			DisableInterrupts();
 
-			if (proc->state != PROC_STATE_UNALLOC)
-			{
-				if (proc->pgrp == pid) /* FIX: WAS && proc->pid != pid) */
-				{
-					if (proc->signal.handler[signal-1] != SIG_IGN)
-					{
+			if (proc->state != PROC_STATE_UNALLOC) {
+			  /* FIXME: WAS && proc->pid != pid) */ 
+				if (proc->pgrp == pid) {
+					if (proc->signal.handler[signal-1] != SIG_IGN) {
 						proc->signal.sig_pending |= SIGBIT(signal);
       			proc->signal.si_code[signal-1] = SI_USER;
 
-						if (proc->state == PROC_STATE_RENDEZ_BLOCKED && (proc->signal.sig_pending & proc->signal.sig_mask))
-						{	
+						if (proc->state == PROC_STATE_RENDEZ_BLOCKED
+						    && (proc->signal.sig_pending & proc->signal.sig_mask)) {	
 						  // TODO: What else needs to be done to wake up rendez?
 						  // Add a Wakeup(proc) function ?
 							proc->state = PROC_STATE_READY;
@@ -310,21 +282,13 @@ SYSCALL int sys_kill (int pid, int signal)
 	return rc;
 }
 
-/*
- * SigSuspend();
+
+/* @brief   Wait for a signal to occur.
  *
- * Waits for a user-signal to occur,  mask_in controls which signals are to be
- * accepted (0) or ignored (1).  The previous state of the signal mask is stored
- * in signal.sigsuspend_oldmask and a flag, use_sigsuspend_mask is set to indicate
- * that we are returning from USigSuspend().
- *
- * A call to DeliverUserSignals() occurs before all system calls complete.  This
- * checks the use_sigsuspend_mask find out if we are returning from a USigSuspend()
- * system call.  If we are returning from USigSuspend() it restores the the sig_mask
- * to sigsuspend_oldmask _after_ choosing what signal to deliver based on the current
- * mask that was set in USigSuspend().
+ * @param   mask_in, controls which signals are to be accepted (0) or ignored (1).
+ * @return  0 on success, negative errno on failrure
  */
-SYSCALL int sys_sigsuspend (const sigset_t *mask_in)
+int sys_sigsuspend(const sigset_t *mask_in)
 {
 	sigset_t mask;
 	uint32_t intstate;
@@ -332,7 +296,7 @@ SYSCALL int sys_sigsuspend (const sigset_t *mask_in)
 	
 	current = get_current_process();
 	
-	if (CopyIn (&mask, mask_in, sizeof (sigset_t)) != 0) {
+	if (CopyIn(&mask, mask_in, sizeof (sigset_t)) != 0) {
 	  return -EFAULT;
 	}
 	
@@ -343,19 +307,19 @@ SYSCALL int sys_sigsuspend (const sigset_t *mask_in)
 	
 	current->signal.sig_mask = mask;
 
-	if ((current->signal.sig_pending & ~current->signal.sig_mask) == 0)
-	{
-//		KWait (SIGF_USER);
+	if ((current->signal.sig_pending & ~current->signal.sig_mask) == 0) {
+	  TaskSleep(&current->rendez);
 	}
 	
 	EnableInterrupts();	
-	return -1;
+	return 0;
 }
+
 
 /*
  *
  */
-SYSCALL int sys_sigprocmask (int how, const sigset_t *set_in, sigset_t *oset_out)
+int sys_sigprocmask (int how, const sigset_t *set_in, sigset_t *oset_out)
 {
 	sigset_t set;
 	struct Process *current;
@@ -389,10 +353,13 @@ SYSCALL int sys_sigprocmask (int how, const sigset_t *set_in, sigset_t *oset_out
 	return 0;
 }
 
-/*
- *
+
+/* @brief   Return the set of pending signals
+ * 
+ * @param   set_out, Address to store the set of pending signals
+ * @return  0 on success, negative errno on failure
  */
-SYSCALL int sys_sigpending (sigset_t *set_out)
+int sys_sigpending(sigset_t *set_out)
 {
 	sigset_t set;
 	struct Process *current;
@@ -400,23 +367,22 @@ SYSCALL int sys_sigpending (sigset_t *set_out)
 	current = get_current_process();
 	
 	set = current->signal.sig_pending & ~current->signal.sig_mask;	
-	CopyOut (set_out, &set, sizeof (sigset_t));
+
+	if (CopyOut (set_out, &set, sizeof (sigset_t)) != 0) {
+	  return -EFAULT;
+	}
 	
 	return 0;
 }
 
-/*
- * DoUSignalDefault (int sig)
+
+/* @brief   Perform the default action of a received signal
  */ 
 void DoSignalDefault (int sig)
 {
-	if (sigprop[sig] & SP_KILL)
-	{
+	if (sigprop[sig] & SP_KILL) {
 		SigExit (sig);
 	}
 }
-
-
-
 
 

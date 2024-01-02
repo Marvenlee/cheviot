@@ -61,7 +61,7 @@ struct Signal {
   sigset_t sigsuspend_oldmask;
   bool use_sigsuspend_mask;
 
-  void (*trampoline)(void);
+  void (*restorer)(void); /* User-mode signal trampoline, takes care of calling sys_sigreturn */
 };
 
 /*

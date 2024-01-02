@@ -236,6 +236,9 @@ void Recursive(DIR *dir, struct IFSNodeContainer *parent) {
     }
 
     node->node.permissions = st.st_mode;
+    
+    printf ("node->node.permissions = %0o", node->node.permissions);
+    
     node->node.inode_nr = current_inode_nr++;
     node->node.parent_inode_nr = parent->node.inode_nr;
 

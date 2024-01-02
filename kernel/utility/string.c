@@ -17,11 +17,12 @@
 #include <kernel/types.h>
 #include <kernel/utility.h>
 
+
 /*
  * StrLen();
  */
-
-size_t StrLen(const char *s) {
+size_t StrLen(const char *s)
+{
   size_t len;
 
   for (len = 0; *s++ != '\0'; len++)
@@ -29,11 +30,12 @@ size_t StrLen(const char *s) {
   return len;
 }
 
+
 /*
  * StrCmp();
  */
-
-int StrCmp(const char *s, const char *t) {
+int StrCmp(const char *s, const char *t)
+{
   while (*s == *t) {
     /* Should it not return the difference? */
 
@@ -49,11 +51,12 @@ int StrCmp(const char *s, const char *t) {
   return *s - *t;
 }
 
+
 /*
  * StrChr();
  */
-
-char *StrChr(char *str, char ch) {
+char *StrChr(char *str, char ch)
+{
   char *c = str;
 
   while (*c != '\0') {
@@ -66,31 +69,6 @@ char *StrChr(char *str, char ch) {
   return NULL;
 }
 
-/*
- * AtoI();
- *
- * FIXME:  Improve AtoI();
- *
- * Simple ASCII to Integer.  Doesn't handle signs or space
- * around number.
- *
- * Create StrToL/StrToUL ????????
- */
-/*
-int AtoI (const char *str)
-{
-    const char *ch = str;
-    int val = 0;
-
-    while (*ch >= '0' &&  *ch <= '9')
-    {
-        val = (val * 10) + (*ch - '0');
-        ch++;
-    }
-
-    return val;
-}
-*/
 
 /*
  * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
@@ -156,7 +134,8 @@ size_t StrLCat(char *dst, const char *src, size_t siz) {
  * Returns strlen(src); if retval >= siz, truncation occurred.
  */
 
-size_t StrLCpy(char *dst, const char *src, size_t siz) {
+size_t StrLCpy(char *dst, const char *src, size_t siz)
+{
   char *d = dst;
   const char *s = src;
   size_t n = siz;

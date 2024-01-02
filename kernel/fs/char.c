@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     http: *www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/types.h>
 #include <kernel/proc.h>
@@ -22,26 +22,35 @@
 #include <kernel/utility.h>
 #include <kernel/vm.h>
 #include <kernel/dbg.h>
-#include <kernel/arm/boot.h>
+#include <kernel/board/boot.h>
 #include <kernel/globals.h>
 #include <sys/termios.h>
 
 
-
-// TODO: Perhaps normal char/block reads and writes use 512 byte buffer on stack
-// Add Fcntl option to change buffer size, possibly using allocated Buf
-
-// Could server-side readmsg/writemsg access the physical memory map (to avoid double copy).
-
-ssize_t read_from_char (struct VNode *vnode, void *dst, size_t sz) {
+/* @brief   Read data from a character device
+ *
+ * TODO: Currently using a 512 byte buffer on the stack.  We need to eliminate the double
+ * copy from the character driver to this buffer on a vfs_read and then from this buffer
+ * to the client's user-space buffer.
+ *
+ * Could server-side readmsg/writemsg access the physical memory map (to avoid double copy).
+ * Add CopyFromProcess(), CopyToProcess() to do this instead of copyin, copyout.
+ *
+ * Note: There is no use of vnode->busy.  Instead we use vnode->reader_cnt and vnode->writer_cnt
+ * All other commands are assumed to be going to the command type queue.
+ *
+ * This code limits the sending of 1 write, 1 read and 1 command at a time.
+ *
+ * TODO: Need to handle non-blocking reads and writes
+ */
+ssize_t read_from_char(struct VNode *vnode, void *dst, size_t sz)
+{
   uint8_t buf[512];
   ssize_t xfered = 0;
   size_t xfer = 0;
   struct Process *current;
   
   current = get_current_process();
-  
-  Info ("ReadFromChar(sz:%d)", sz);
   
   while (vnode->reader_cnt != 0) {
     TaskSleep(&vnode->rendez);
@@ -54,7 +63,6 @@ ssize_t read_from_char (struct VNode *vnode, void *dst, size_t sz) {
   if (xfer > 0) {
     xfered = vfs_read(vnode, buf, xfer, NULL);
    
-    // TODO: Handle EOF ?   
     if (xfered > 0) {  
       CopyOut (dst, buf, xfered);
     }
@@ -63,21 +71,20 @@ ssize_t read_from_char (struct VNode *vnode, void *dst, size_t sz) {
   vnode->reader_cnt = 0;
   TaskWakeupAll(&vnode->rendez);
 
-  Info ("ReadFromChar xfered: %d", xfered);
-
   return xfered;
 }
 
 
-/*
+/* @brief   Write data to a character device
  *
  */
-ssize_t write_to_char (struct VNode *vnode, void *src, size_t sz) {
+ssize_t write_to_char(struct VNode *vnode, void *src, size_t sz)
+{
   uint8_t buf[512];
   ssize_t xfered = 0;
   size_t xfer = 0;
   struct Process *current;
-  
+
   current = get_current_process();
 
   while (vnode->writer_cnt != 0) {
@@ -90,8 +97,6 @@ ssize_t write_to_char (struct VNode *vnode, void *src, size_t sz) {
 
   if (xfer > 0) {      
 
-    // TODO: Handle EOF ?   
-
     CopyIn (buf, src, xfer);
     xfered = vfs_write(vnode, buf, xfer, NULL);
   }
@@ -103,40 +108,32 @@ ssize_t write_to_char (struct VNode *vnode, void *src, size_t sz) {
 }
 
 
-
-/*
+/* @brief   Set attributes of terminal device
  *
  */
-SYSCALL int sys_tcsetattr (int fd, struct termios *_termios)
-{
-  // Allow only a single command at a time for this vnode
-  return -ENOSYS;
-}
-
-
-/*
- *
- */
-SYSCALL int sys_tcgetattr (int fd, struct termios *_termios)
+int sys_tcsetattr (int fd, struct termios *_termios)
 {
   return -ENOSYS;
 }
 
 
-/*
- * Add IsATTY here
+/* @brief   Get attributes of terminal device
+ *
  */
-
-SYSCALL int sys_isatty(int fd)
+int sys_tcgetattr (int fd, struct termios *_termios)
 {
-  Info ("IsATTY always true, fd: %d", fd);
+  return -ENOSYS;
+}
+
+
+/*
+ * @brief   Indicate if a file handle points to a TTY
+ */
+int sys_isatty(int fd)
+{
+  // TODO: determine if handle is to a TTY instead of always true
   return 1;
-} 
- 
-/*
- * TODO: Drain functions
- */
- 
+}
  
  
  

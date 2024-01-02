@@ -22,6 +22,7 @@
 #ifndef MBOX_H
 #define MBOX_H
 
+#include "sdcard.h"
 #include "globals.h"
 #include <stdint.h>
 

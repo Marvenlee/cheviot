@@ -25,21 +25,22 @@
 #include <poll.h>
 #include <string.h>
 
-/*
+/* @brief   Resize an open file
  *
  */
-SYSCALL int sys_truncate(int fd, size_t sz) {
+int sys_truncate(int fd, size_t sz) {
+  struct Process *current;
   struct Filp *filp = NULL;
   struct VNode *vnode = NULL;
   int err = 0;
 
-  filp = get_filp(fd);
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
 
-  if (filp == NULL) {
+  if (vnode == NULL) {
     return -EINVAL;
   }
-
-  vnode = filp->vnode;
 
   vnode_lock(vnode);
 
@@ -52,7 +53,8 @@ SYSCALL int sys_truncate(int fd, size_t sz) {
     goto exit;
   }
 
-  wakeup_polls(vnode, POLLPRI, POLLPRI);
+  // TODO: Check if size has gone up or down.
+  knote(&vnode->knote_list, NOTE_EXTEND | NOTE_ATTRIB);
   vnode_unlock(vnode);
   return 0;
 

@@ -1,0 +1,406 @@
+/*
+ * Copyright 2014  Marven Gilhespie
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+//#define KDEBUG
+
+#include <kernel/dbg.h>
+#include <kernel/filesystem.h>
+#include <kernel/globals.h>
+#include <kernel/proc.h>
+#include <kernel/types.h>
+#include <string.h>
+
+
+/* @brief   Read from a file through the VFS file cache
+ *
+ * @param   vnode, file to read from
+ * @param   dst, destination address to copy file data to (kernel or user)
+ * @param   sz, number of bytes to read
+ * @param   inkernel, set to true if the destination address is in the kernel (for kread)
+ * @return  number of bytes read or negative errno on failure  
+ */
+ssize_t read_from_cache(struct VNode *vnode, void *dst, size_t sz, off64_t *offset, bool inkernel)
+{
+  struct Buf *buf;
+  off_t cluster_base;
+  off_t cluster_offset;
+  size_t nbytes_xfered;
+  size_t nbytes_remaining;
+  struct Process *current;
+  
+  current = get_current_process();
+
+  if (*offset >= vnode->size) {
+    return 0;
+  }
+
+  nbytes_remaining =
+      (vnode->size - *offset < sz) ? vnode->size - *offset : sz;
+
+  while (nbytes_remaining > 0) {  
+    cluster_base = ALIGN_DOWN(*offset, CLUSTER_SZ);
+    cluster_offset = *offset % CLUSTER_SZ;
+
+    nbytes_xfered = (CLUSTER_SZ - cluster_offset < nbytes_remaining)
+                        ? CLUSTER_SZ - cluster_offset
+                        : nbytes_remaining;
+
+    // Need locks for buffer (only single buffer of given offset, additional requests
+    // must block on buffer->busy.
+    
+    buf = bread(vnode, cluster_base);
+
+    if (buf == NULL) {
+      break;
+    }
+
+    if (inkernel == true) {
+        memcpy(dst, buf->data + cluster_offset, nbytes_xfered);
+    } else {    
+        CopyOut(dst, buf->data + cluster_offset, nbytes_xfered);
+    }
+    
+    brelse(buf);
+
+    dst += nbytes_xfered;
+    *offset += nbytes_xfered;
+    nbytes_remaining -= nbytes_xfered;
+  }
+
+  return sz - nbytes_remaining;
+}
+
+
+/* @brief   Write to a file through the VFS file cache
+ *
+ * @param   vnode, file to write to
+ * @param   src, user-space source address of the data to be written to the file
+ * @param   sz, number of bytes to write
+ * @return  number of bytes written or negative errno on failure  
+ *
+ */
+ssize_t write_to_cache(struct VNode *vnode, void *src, size_t sz, off64_t *offset)
+{
+  struct Buf *buf;
+  off_t cluster_base;
+  off_t offset_in_cluster;
+  size_t nbytes_xfered;
+  size_t nbytes_remaining;
+  struct Process *current;
+  
+  current = get_current_process();
+
+  nbytes_remaining = sz;
+
+  while (nbytes_remaining > 0) {
+    cluster_base = ALIGN_DOWN(*offset, CLUSTER_SZ);
+    offset_in_cluster = *offset % CLUSTER_SZ;
+
+    nbytes_xfered = (CLUSTER_SZ - offset_in_cluster < nbytes_remaining)
+                        ? CLUSTER_SZ - offset_in_cluster
+                        : nbytes_remaining;
+                        
+    // FIXME: If we are writing a full block, can we avoid reading it in?
+    // if block doesn't exist, does bread create it and clear it?
+    // Does it get created by the FS Handler?
+
+    buf = bread(vnode, cluster_base);
+
+    if (buf == NULL) {
+      break;
+    }
+
+    CopyIn(buf->data + offset_in_cluster, src, nbytes_xfered);    
+
+    src += nbytes_xfered;
+    *offset += nbytes_xfered;
+    nbytes_remaining -= nbytes_xfered;
+
+    if (*offset > vnode->size) {
+      vnode->size = *offset;
+    }
+
+    bwrite(buf, offset_in_cluster, nbytes_xfered); 
+  }
+
+  return sz - nbytes_remaining;
+}
+
+
+/* @brief   Read a block from a file
+ *
+ * @param   vnode, vnode of file to read
+ * @param   cluster_offset, reads a block from disk into the cache
+ * @return  Pointer to a Buf that represents a cached block or NULL on failure
+ *
+ * This searches for the block in the cache. if a block is not present
+ * then a new block is allocated in the cache and if needed it's contents
+ * read from disk.
+ *
+ * In the current implementation the cache's block size is 4 Kb.
+ * A block read will be of this size. If the block is at the end of the
+ * file the remaining bytes after the end will be zero.
+ *
+ */
+struct Buf *bread(struct VNode *vnode, uint64_t cluster_offset)
+{
+  struct Buf *buf;
+  ssize_t xfered;
+  
+  buf = getblk(vnode, cluster_offset);
+
+  if (buf->flags & B_VALID) {
+    return buf;
+  }
+
+  xfered = vfs_strategy(buf->vnode, B_READ, buf->data, CLUSTER_SZ, buf->cluster_offset);
+
+  // FS Handler must pad data returned to CLUSTER_SZ when at end of file
+
+  if (xfered != CLUSTER_SZ) {
+    buf->flags |= B_ERROR;
+    buf->flags &= ~B_VALID;
+    brelse(buf);
+    return NULL;
+  }
+
+  buf->flags |= B_VALID;
+  return buf;
+}
+
+
+/* @brief   Writes a block to disk and releases it. Waits for IO to complete.
+ * 
+ * @param   buf, buffer to write
+ * @return  0 on success, negative errno on failure
+ *
+ * TODO: Can we specify only part of block to write (the part that's changed).
+ * Allow for 16K cache bufs, but indicate to FS Handler that only part of it
+ * has changed?
+ *
+ * TODO: Perhaps also send B_ASYNC flags to FS Handler, to hint that it should
+ * either write block immediately or delay the write?  Think FS handler can
+ * determine this itself.
+ *
+ * Could allow a single bwrite to be asynchronous for large write than span
+ * multiple clusters.  For overlapping IO.  Write current block asynchronously,
+ * then copy in and write out next block once previous block has replied..  
+ *
+ * copyin(blk1) -> write_block_async -> copyin(blk2) >wait for IODONE -> write_block_async
+ *
+ * Note: The filesystem can reply to this command as soon as it's copied the data
+ * into it's buffers. It can write the data later.
+ *
+ * FS handler can determine whether this is B_ASYNC (not needed again soon) or
+ * B_DELWRI (possibly written again soon).
+ */
+int bwrite(struct Buf *buf, off_t offset_in_cluster, size_t size)
+{
+  ssize_t xfered;
+  
+  KASSERT(offset_in_cluster < CLUSTER_SZ);
+  KASSERT(offset_in_cluster + size <= CLUSTER_SZ);
+  
+  xfered = vfs_strategy(buf->vnode, B_WRITE, buf->data, size, buf->cluster_offset + offset_in_cluster);
+
+  if (xfered != size) {
+    buf->flags |= B_ERROR;
+    brelse(buf);
+    return -1;
+  }
+
+  buf->flags |= B_VALID;
+  brelse(buf);
+  return 0;
+}
+
+
+/* @Brief   Get a cached block
+ *
+ * @param   vnode, file to get cached block of
+ * @param   cluster_offset, offset within file to read
+ * @return  buf on success, NULL if it cannot find or create a buf
+ *
+ * This cache operates at the file level and not the block level. As such it
+ * has no understanding of the on disk formatting of a file system. User space
+ * servers implementing file system handlers are free to implement block level
+ * caching if needed.
+ *
+ * See Maurice Bach's 'The Design of the UNIX Operating System' for notes on
+ * getblk, bread, bwrite, bawrite and brelse operations (though they applied to
+ * the block level in the book).
+ *
+ * If cache is now single page blocks instead of larger 16k or 64k clusters
+ * can we use the phys mem mapping to access pages?
+ * Do we need to map cached blocks into a certain area of the kernel?
+ */
+struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset)
+{
+  struct Buf *buf;
+  struct Pageframe *pf;
+  vm_addr pa;
+
+  while (1) {
+    if ((buf = findblk(vnode, cluster_offset)) != NULL) {
+      if (buf->flags & B_BUSY) {
+        TaskSleep(&buf->rendez);
+        continue;
+      }
+
+      buf->flags |= B_BUSY;
+      LIST_REM_ENTRY(&buf_avail_list, buf, free_link);
+
+      return buf;
+    } else {
+      if ((buf = LIST_HEAD(&buf_avail_list)) == NULL) {
+        TaskSleep(&buf_list_rendez);
+        continue;
+      }
+
+      LIST_REM_HEAD(&buf_avail_list, free_link);
+      buf->flags |= B_BUSY;
+
+      if (buf->flags & B_VALID) {
+        LIST_REM_ENTRY(&buf_hash[buf->cluster_offset % BUF_HASH], buf, lookup_link);
+
+        PmapCacheExtract((vm_addr)buf->data, &pa);
+        pf = PmapPaToPf(pa);
+        PmapCacheRemove((vm_addr)buf->data);
+        FreePageframe(pf);
+      }
+
+      pf = AllocPageframe(PAGE_SIZE);
+      PmapCacheEnter((vm_addr)buf->data, pf->physical_addr);
+
+      PmapFlushTLBs();
+      buf->flags &= ~B_VALID;
+      buf->vnode = vnode;
+
+      buf->cluster_offset = cluster_offset;
+      LIST_ADD_HEAD(&buf_hash[buf->cluster_offset % BUF_HASH], buf,
+                    lookup_link);
+
+      return buf;
+    }
+  }
+}
+
+
+/* @brief   Release a cache block
+ *
+ * @param   buf, buf to be be released
+ */
+void brelse(struct Buf *buf)
+{
+  if (buf->flags & B_ERROR) {
+    LIST_REM_ENTRY(&buf_hash[buf->cluster_offset % BUF_HASH], buf, lookup_link);
+    buf->flags &= ~(B_VALID | B_ERROR);
+    buf->cluster_offset = -1;
+    buf->vnode = NULL;
+
+    if (buf->data != NULL) {
+      LIST_ADD_HEAD(&buf_avail_list, buf, free_link);
+    }
+  } else if (buf->data != NULL) {
+    LIST_ADD_TAIL(&buf_avail_list, buf, free_link);
+  }
+
+  buf->flags &= ~B_BUSY;
+  TaskWakeupAll(&buf_list_rendez);
+  TaskWakeupAll(&buf->rendez);
+}
+
+
+/* @brief   Find a specific file's block in the cache
+ *
+ * @param   vnode, file to find block of
+ * @param   cluster_offset, offset within the file (aligned to cluster size)
+ * @return  buf on success, null if not present
+ */
+struct Buf *findblk(struct VNode *vnode, uint64_t cluster_offset)
+{
+  struct Buf *buf;
+
+  buf = LIST_HEAD(&buf_hash[cluster_offset % BUF_HASH]);
+
+  while (buf != NULL) {
+    if (buf->vnode == vnode && buf->cluster_offset == cluster_offset)
+      return buf;
+
+    buf = LIST_NEXT(buf, lookup_link);
+  }
+
+  return NULL;
+}
+
+
+/* @brief   Resize contents of file in cache.
+ * 
+ * @param   vnode, file to resize
+ * @returns 0 on success, negative errno on failure
+ *
+ * The new size must already be set within the vnode structure
+ * Delete bufs if needed. Erase partial buf of last block to avoid
+ * leakage of past data.  
+ *
+ * Also used to delete all blocks prior to deleting file
+ */
+int btruncate(struct VNode *vnode)
+{
+  struct Buf *buf, *next;
+  off_t offset_to_clear;
+  
+  // Find each block above the size and free it.
+  // Clear remainder of last block.
+
+  buf = LIST_HEAD(&vnode->buf_list);
+  
+  while (buf != NULL) {
+    next = LIST_NEXT(buf, vnode_link);
+     
+    if (buf->cluster_offset >= vnode->size) {
+      buf->flags = 0;
+      buf->vnode = NULL;
+      buf->cluster_offset = 0;      
+      LIST_REM_ENTRY(&vnode->buf_list, buf, vnode_link);
+      LIST_ADD_HEAD(&buf_avail_list, buf, free_link);
+
+    } else if (buf->cluster_offset < vnode->size && vnode->size - buf->cluster_offset < CLUSTER_SZ) {
+      offset_to_clear = vnode->size - buf->cluster_offset;
+      memset(buf->data + offset_to_clear, 0, CLUSTER_SZ - offset_to_clear);      
+
+      // TODO: May need to write out last block if shrinking file.
+    }
+
+    buf = next;
+  }
+    
+  return -ENOSYS;
+}
+
+
+/* @brief   Dynamically change the size of the filesystem cache
+ *
+ * Sets the amount of memory to be used for caching files. On shrinking
+ * the cache the remaining pages are returned to the free page list and
+ * any task waiting for free pages is awakened.
+ */
+int resize_cache(size_t free)
+{    
+  return -ENOSYS;
+}
+
+

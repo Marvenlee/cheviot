@@ -1,11 +1,18 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include "elf.h"
 #include "dbg.h"
 #include "globals.h"
 #include "memory.h"
 #include "sys/syscalls.h"
 #include "types.h"
-#include <stdint.h>
-#include <string.h>
+
+void *	 memchr (const void *, int, size_t);
+int 	 memcmp (const void *, const void *, size_t);
+void *	 memcpy (void *__restrict, const void *__restrict, size_t);
+void *	 memmove (void *, const void *, size_t);
+void *	 memset (void *, int, size_t);
 
 
 struct IFSHeader {

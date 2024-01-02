@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include "sdcard.h"
 
 // typedef int useconds_t;
 
@@ -33,7 +34,7 @@ struct timer_wait {
   int rollover;
 };
 
-int usleep(useconds_t usec);
+int delay_microsecs(useconds_t usec);
 struct timer_wait register_timer(useconds_t usec);
 int compare_timer(struct timer_wait tw);
 
