@@ -1,0 +1,4 @@
+core_freq_min=500
+arm_64bit=0
+enable_gic=1
+
