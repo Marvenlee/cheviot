@@ -22,23 +22,32 @@
 #include <sys/debug.h>
 #include "timer.h"
 #include "globals.h"
-#include "mmio.h"
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include "sdcard.h"
+#include <time.h>
+#include <sys/time.h>
 
-int delay_microsecs(useconds_t usec) {
 
-  struct timer_wait tw = register_timer(usec);
-  while (!compare_timer(tw)) {
-    ;
+int delay_microsecs(int usec)
+{
+  struct timespec req, rem; 
+  req.tv_sec = 0;
+  req.tv_nsec = usec * 1000;
+  
+  while (nanosleep(&req, &rem) != 0) {
+    req = rem;
   }
   
   return 0;
 }
 
-struct timer_wait register_timer(useconds_t usec) {
+
+
+struct timer_wait register_timer(useconds_t usec)
+{
+  struct timeval now;
   struct timer_wait tw;
   tw.rollover = 0;
   tw.trigger_value = 0;
@@ -47,7 +56,10 @@ struct timer_wait register_timer(useconds_t usec) {
     errno = EINVAL;
     return tw;
   }
-  uint32_t cur_timer = mmio_read(timer_clo);
+  
+  gettimeofday(&now, NULL);
+  
+  uint32_t cur_timer = now.tv_usec;
   uint32_t trig = cur_timer + (uint32_t)usec;
 
   tw.trigger_value = trig;
@@ -59,8 +71,11 @@ struct timer_wait register_timer(useconds_t usec) {
 }
 
 int compare_timer(struct timer_wait tw) {
-  uint32_t cur_timer = mmio_read(timer_clo);
-
+  struct timeval now;
+ 
+  gettimeofday(&now, NULL); 
+  uint32_t cur_timer = now.tv_usec;
+  
   if (cur_timer < tw.trigger_value) {
     if (tw.rollover)
       tw.rollover = 0;

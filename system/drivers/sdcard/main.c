@@ -1,8 +1,6 @@
 
 #define LOG_LEVEL_INFO
 
-#include "sdcard.h"
-#include "globals.h"
 #include "sys/debug.h"
 #include <dirent.h>
 #include <errno.h>
@@ -18,6 +16,8 @@
 #include <poll.h>
 #include <unistd.h>
 #include <sys/event.h>
+#include "sdcard.h"
+#include "globals.h"
 
 
 /* @brief   The SDCard block device driver

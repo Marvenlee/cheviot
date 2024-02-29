@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KERNEL_ARM_TASK_H
-#define KERNEL_ARM_TASK_H
+#ifndef MACHINE_BOARD_RASPBERRY_PI_1_TASK_H
+#define MACHINE_BOARD_RASPBERRY_PI_1_TASK_H
 
 #include <kernel/board/arm.h>
 #include <kernel/error.h>
@@ -29,8 +29,8 @@
  * Placed at beginning of Process structure so that it's easier to convert
  * between Process and TaskState in assembler routines.
  */
-
-struct UserContext {
+struct UserContext
+{
   uint32_t sp;
   uint32_t lr;
   uint32_t cpsr; // Should be svc_mode spsr
@@ -51,43 +51,49 @@ struct UserContext {
   uint32_t pad;
 } __attribute__((packed));
 
-struct TaskCatch {
+
+/*
+ */
+struct TaskCatch
+{
   uint32_t pc;
 } __attribute__((packed));
 
-struct ExceptionState {
+
+/*
+ */
+struct ExceptionState
+{
   bits32_t flags;
-  //    struct CPU *cpu;
   int exception;
   vm_addr fault_addr;
   vm_addr fault_access;
   bits32_t dfsr;
 };
 
-/*
- * Exception types
- */
-
-#define EI_PAGEFAULT 0
-#define EI_UNDEFSYSCALL 1
-#define EI_UNDEFINSTR 2
-
-#define MAX_CPU 1
+#define N_CONTEXT_WORD    15      /* Array size on stack for saving and restoring a process's
+                                   * register context when switching tasks with SetContext
+                                   * and GetContext */
+                                   
+#define MAX_CPU           1
 #define USER_STACK_SZ     0x20000
-#define PROCESS_SZ 8192
+#define PROCESS_SZ        8192
+
+/* Exception types */
+#define EI_PAGEFAULT      0
+#define EI_UNDEFSYSCALL   1
+#define EI_UNDEFINSTR     2
 
 /* task_state.flags */
-
-#define TSF_EXIT (1 << 0)
-#define TSF_KILL (1 << 1)
+#define TSF_EXIT      (1 << 0)
+#define TSF_KILL      (1 << 1)
 #define TSF_PAGEFAULT (1 << 2)
 #define TSF_EXCEPTION (1 << 3)
 
-/*
- * struct CPU
+/* struct CPU
  */
-
-struct CPU {
+struct CPU
+{
   struct Process *current_process;
   struct Process *idle_process;
   int reschedule_request;
@@ -96,10 +102,10 @@ struct CPU {
   vm_addr exception_stack;
 } __attribute__((packed));
 
+
 /*
  * Globals
  */
-
 extern struct CPU cpu_table[MAX_CPU];
 
 /*

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/types.h>
 #include <kernel/proc.h>
@@ -49,6 +49,8 @@ ssize_t read_from_char(struct VNode *vnode, void *dst, size_t sz)
   ssize_t xfered = 0;
   size_t xfer = 0;
   struct Process *current;
+  
+  Info("read_from_char(dst:%08x, sz:%d", (uint32_t)dst, sz);
   
   current = get_current_process();
   
@@ -126,8 +128,8 @@ int sys_tcgetattr (int fd, struct termios *_termios)
 }
 
 
-/*
- * @brief   Indicate if a file handle points to a TTY
+/* @brief   Indicate if a file handle points to a TTY
+ *
  */
 int sys_isatty(int fd)
 {
@@ -136,4 +138,11 @@ int sys_isatty(int fd)
 }
  
  
- 
+/* @brief   Set the file handle to be used to receive kernel debug logs
+ *
+ */
+int sys_set_syslog_file(int fd)
+{
+  return -ENOSYS;
+}
+

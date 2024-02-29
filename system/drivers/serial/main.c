@@ -32,11 +32,11 @@
 #include <sys/lists.h>
 #include <task.h>
 #include <sys/event.h>
-#include "serial.h"
+#include "pl011.h"
 #include "globals.h"
 
 
-/* @brief   Main task of the serial driver for Pi's mini-uart
+/* @brief   Main task of the serial driver for Pi's PL011 mini-uart
  *
  * Libtask coroutines are used for concurrency in the serial driver
  * We follow Djikstra's Secretaries and Directors pattern of 
@@ -115,12 +115,12 @@ void taskmain(int argc, char *argv[])
     }
 
     // Read interrupt status register and wakeup appropriate rx and tx tasks
-#if 0  
+#ifdef USE_INTERRUPTS  
     if (nevents == 1 && ev.ident == interrupt_fd && ev.filter == EVFILT_IRQ) {      
-      uart_process_interrupts();
+      pl011_uart_interrupt_bottom_half();
     }
 #else  
-    uart_process_interrupts();  
+    pl011_uart_interrupt_bottom_half();  
 #endif
     
     //  Yield until no other task is running.            
@@ -130,6 +130,7 @@ void taskmain(int argc, char *argv[])
   exit(0);
 }
 
+
 /*
  *
  */
@@ -137,6 +138,7 @@ void cmd_isatty (msgid_t msgid, struct fsreq *fsreq)
 {
   replymsg(portid, msgid, 0, NULL, 0);
 }
+
 
 /*
  *
@@ -158,30 +160,33 @@ void cmd_tcsetattr(msgid_t msgid, struct fsreq *fsreq)
 	replymsg(portid, msgid, 0, NULL, 0);
 }
 
+
 /*
  * UID belongs to sending thread (for char devices)
  * Can only be 1 thread doing read at a time.
  *
  * Only 1 reader and only 1 writer and only 1 tc/isatty cmd
  */
-void cmd_read(msgid_t msgid, struct fsreq *req) {
-
+void cmd_read(msgid_t msgid, struct fsreq *req)
+{
   read_pending = true;
   read_msgid = msgid;
   memcpy (&read_fsreq, req, sizeof read_fsreq);
   taskwakeup (&read_cmd_rendez);
 }
 
+
 /*
  * 
  */
-void cmd_write(msgid_t msgid, struct fsreq *req) {
-
+void cmd_write(msgid_t msgid, struct fsreq *req)
+{
   write_pending = true;
   write_msgid = msgid;
   memcpy (&write_fsreq, req, sizeof write_fsreq);
   taskwakeup(&write_cmd_rendez);
 }
+
 
 /*
  *
@@ -193,14 +198,16 @@ void reader_task (void *arg)
   size_t remaining;
   uint8_t *buf;
   size_t sz;
-  
-  while (1) {
 
+  while (1) {
     while (read_pending == false) {
       tasksleep (&read_cmd_rendez);
     }
 
-    read_pending = true;
+    sz = 0;
+    remaining = 0;
+    buf = NULL;
+    nbytes_read = 0;
     
     while (rx_sz == 0) {
       tasksleep(&rx_data_rendez);
@@ -214,6 +221,8 @@ void reader_task (void *arg)
       // Could we remove line_length calculation each time ?
       line_length = get_line_length();
       remaining = (line_length < read_fsreq.args.read.sz) ? line_length : read_fsreq.args.read.sz;
+    } else {
+      remaining = (rx_sz < read_fsreq.args.read.sz) ? rx_sz : read_fsreq.args.read.sz;
     }
          
     nbytes_read = 0;
@@ -241,8 +250,6 @@ void reader_task (void *arg)
     rx_free_sz += nbytes_read;
     rx_sz -= nbytes_read;
     
-    taskwakeupall(&tx_rendez);
-
     if (termios.c_lflag & ICANON) {
       if (nbytes_read == line_length) {
         line_cnt--;
@@ -258,6 +265,7 @@ void reader_task (void *arg)
   }
 }
 
+
 /*
  *
  */
@@ -265,7 +273,7 @@ void writer_task (void *arg)
 {
   ssize_t nbytes_written;
   size_t remaining;
-  uint8_t *buf;
+  uint8_t *buf = NULL;
   size_t sz;
   
   while (1) {
@@ -273,11 +281,13 @@ void writer_task (void *arg)
       tasksleep (&write_cmd_rendez);
     }
     
-//    KLog ("write pending awakened");
+    sz = 0;
+    remaining = 0;
+    buf = NULL;
+    nbytes_written = 0;
     
-    write_pending = true;
-
     if (tx_free_sz < 0) {
+      log_error("tx_free_sz = %d, < 0", tx_free_sz);
       exit(7);
     }
     
@@ -291,7 +301,7 @@ void writer_task (void *arg)
     if (tx_free_head + remaining > sizeof tx_buf) {
       sz = sizeof tx_buf - tx_free_head;
       buf = &tx_buf[tx_free_head]; 
-      
+
       readmsg(portid, write_msgid, buf, sz, sizeof (struct fsreq));
 
       nbytes_written += sz;      
@@ -303,6 +313,12 @@ void writer_task (void *arg)
     }
 
     if (sz > sizeof tx_buf) {
+      log_error("write sz > tx_buf");
+      exit (8);
+    }
+    
+    if (sz == 0) {
+      log_error("write sz == 0");
       exit (8);
     }
     
@@ -312,7 +328,7 @@ void writer_task (void *arg)
     tx_free_head = (tx_free_head + nbytes_written) % sizeof tx_buf;
     tx_free_sz -= nbytes_written;
     tx_sz += nbytes_written;
-        
+
     replymsg(portid, write_msgid, nbytes_written, NULL, 0);
     
     write_msgid = -1;
@@ -327,36 +343,34 @@ void writer_task (void *arg)
  */
 void uart_tx_task(void *arg)
 {
-  
-  while (1) {  
-    dmb();
-
-    while (tx_sz == 0 || uart_tx_ready() == false) {
+  while (1) {
+    while (tx_sz == 0 || pl011_uart_tx_ready() == false) {
       tasksleep(&tx_rendez);
     }
   
-    dmb();
-
     if (tx_sz + tx_free_sz > sizeof tx_buf) {
-      exit(8);
+      exit(EXIT_FAILURE);
     }
     
-    while (tx_sz > 0 /* && uart_tx_ready() == true */) {        
+    while (tx_sz > 0 /* && pl011_uart_tx_ready() == true */) {
+        
+        if (tx_head >= sizeof tx_buf) {
+          exit(-1);
+        }
 
-        uart_write_byte(tx_buf[tx_head]);
+        pl011_uart_write_byte(tx_buf[tx_head]);
         tx_head = (tx_head + 1) % sizeof tx_buf;
         tx_sz--;
         tx_free_sz++;
     }
-    
-    dmb();    
-  
+
     if (tx_free_sz > 0) {
-      // PollNotify(fd, INO_NR, POLLIN, POLLIN);
+      // TODO: PollNotify(fd, INO_NR, POLLIN, POLLIN);
       taskwakeupall(&tx_free_rendez);
     }   
   }
 }
+
 
 /*
  * Effectively a deferred procedure call for interrupts running on task state
@@ -368,21 +382,15 @@ void uart_rx_task(void *arg)
   
   while(1)
   {
-    dmb();
-
-    while (rx_free_sz == 0 || uart_rx_ready() == false) {
+    while (rx_free_sz == 0 || pl011_uart_rx_ready() == false) {
       tasksleep (&rx_rendez);
     }
 
-    dmb();
-    
-    while(rx_free_sz > 0 && uart_rx_ready() == true) {      
-      ch = uart_read_byte();
+    while(rx_free_sz > 0 && pl011_uart_rx_ready() == true) {      
+      ch = pl011_uart_read_byte();
       line_discipline(ch);         
     }  
 
-    dmb();
-    
     if (termios.c_lflag & ICANON) {
       if (line_cnt > 0) {
         taskwakeupall(&rx_data_rendez);
@@ -390,10 +398,11 @@ void uart_rx_task(void *arg)
     }
     else if (rx_sz > 0) {
         taskwakeupall(&rx_data_rendez);
-        // PollNotify(fd, INO_NR, POLLIN, ~POLLIN);
+        // TODO: PollNotify(fd, INO_NR, POLLIN, ~POLLIN);
     }
   }
 }
+
 
 /*
  *
@@ -409,6 +418,7 @@ int add_to_rx_queue(uint8_t ch)
   
   return 0;
 }
+
 
 /*
  *
@@ -441,17 +451,16 @@ void line_discipline(uint8_t ch)
           rx_free_sz++;
         }
       }
-    } else {
-      
-      if (rx_free_sz > 2) {
+    } else {      
+      if (rx_free_sz > 2) {  // leave space for '\n'
         add_to_rx_queue(ch);
-      }
-    
+      }    
     }
   } else { 
     add_to_rx_queue(ch);
   }  
 }
+
 
 /*
  *
@@ -469,6 +478,7 @@ int get_line_length(void)
   return rx_sz;
 }
 
+
 /*
  *
  */
@@ -479,7 +489,7 @@ void echo(uint8_t ch)
     }
 
     tx_buf[tx_free_head] = ch;
-    tx_free_head = (tx_free_head + 1) % sizeof rx_buf;
+    tx_free_head = (tx_free_head + 1) % sizeof tx_buf;
     tx_free_sz--;
     tx_sz++;
     

@@ -27,7 +27,7 @@
 #include <sys/fsreq.h>
 #include <sys/syslimits.h>
 #include <sys/syscalls.h>
-#include "sdcard_hw_defs.h"
+#include "peripheral_base.h"
 
 
 #define BUF_SZ    (4096)      // Buffer size used to read and write
@@ -109,6 +109,7 @@ int create_partition_mounts(void);
 void sdcard_read(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req);
 void sdcard_write(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req);
 
-
+// timer.c
+int delay_microsecs(int usec);
 
 #endif

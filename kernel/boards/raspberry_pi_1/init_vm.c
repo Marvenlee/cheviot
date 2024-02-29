@@ -15,9 +15,14 @@
  */
 
 #include <kernel/arch.h>
+#include <kernel/board/peripheral_base.h>
 #include <kernel/board/boot.h>
 #include <kernel/board/globals.h>
 #include <kernel/board/init.h>
+#include <kernel/board/aux_uart.h>
+#include <kernel/board/interrupt.h>
+#include <kernel/board/gpio.h>
+#include <kernel/board/timer.h>
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
 #include <kernel/globals.h>
@@ -26,7 +31,7 @@
 #include <kernel/types.h>
 #include <kernel/utility.h>
 #include <kernel/vm.h>
-
+//#include <machine/cheviot_hal.h>
 
 // FIXME: Move elsewhere?   Needed for interrupt, timer, gpio and uart.
 // Can remove UART once sure of booting
@@ -213,14 +218,17 @@ void init_io_pagetables(void)
     io_pagetable[t] = L2_TYPE_INV;
   }
 
-  timer_regs = io_map(ST_BASE, sizeof(struct bcm2835_system_timer_registers), false);
-  interrupt_regs = io_map(ARMCTRL_IC_BASE, sizeof(struct bcm2835_interrupt_registers), false);
-  gpio_regs = io_map(GPIO_BASE, sizeof(struct bcm2835_gpio_registers), false);
-  uart_regs = io_map(UART_BASE, sizeof(struct bcm2835_uart_registers), false);
+  timer_regs     = io_map(TIMER_BASE, sizeof(struct bcm2835_timer_registers), false);
+  interrupt_regs = io_map(ARMCTRL_BASE, sizeof(struct bcm2835_interrupt_registers), false);
+  gpio_regs      = io_map(GPIO_BASE, sizeof(struct bcm2835_gpio_registers), false);
+  aux_regs       = io_map(AUX_BASE, sizeof(struct bcm2835_aux_registers), false);
 
-  SetPageDirectory((void *)(pmap_va_to_pa((vm_addr)root_pagedir)));
-  InvalidateTLB();
-  FlushAllCaches();
+  // Interrupt registers are 0x200 above page aligned base */
+  interrupt_regs = (struct bcm2835_interrupt_registers *)((uint8_t*)interrupt_regs + ARMCTRL_INTC_BASE);
+
+  hal_set_page_directory((void *)(pmap_va_to_pa((vm_addr)root_pagedir)));
+  hal_invalidate_tlb();
+  hal_flush_all_caches();
 }
 
 
@@ -294,7 +302,9 @@ void init_buffer_cache_pagetables(void)
     }
   }
 
-  SetPageDirectory((void *)(pmap_va_to_pa((vm_addr)root_pagedir)));
-  InvalidateTLB();
-  FlushAllCaches();
+  // FIXME: Why are we changing page directory and flushing caches here?
+  hal_set_page_directory((void *)(pmap_va_to_pa((vm_addr)root_pagedir)));
+  hal_invalidate_tlb();
+  hal_flush_all_caches();
 }
+

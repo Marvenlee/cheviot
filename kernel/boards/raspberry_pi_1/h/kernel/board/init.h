@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KERNEL_ARM_INIT_H
-#define KERNEL_ARM_INIT_H
+#ifndef MACHINE_BOARD_RASPBERRY_PI_1_INIT_H
+#define MACHINE_BOARD_RASPBERRY_PI_1_INIT_H
 
 #include <kernel/types.h>
 

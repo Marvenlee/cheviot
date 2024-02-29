@@ -35,6 +35,10 @@
 /* @brief   Allocate a page in kernel memory
  *
  * @return  Virtual address of an allocated, page-sized area of memory
+ *
+ * TODO: Rename to kmalloc_slab(slab_manager_t *slab_manager, size_t size)
+ * slabs can be 4k, 16k or 64k.  Can belong to a slab manager group of pages
+ * or global.
  */ 
 void *kmalloc_page(void)
 {
@@ -59,6 +63,8 @@ void kfree_page(void *vaddr)
 {
   struct Pageframe *pf;
   
+  Info("kfree_page(%08x)", (uint32_t)vaddr);
+  
   pf = pmap_va_to_pf((vm_addr)vaddr);
   
   if (pf != NULL) {
@@ -66,9 +72,10 @@ void kfree_page(void *vaddr)
   }
 }
 
-/*
- * Allocate a 4k, 16k or 64k page, splitting larger slabs into smaller sizes if
- * needed. Could eventually do some page movement to make contiguous memory.
+
+/* @brief   Allocate a 4k, 16k or 64k page and return a Pageframe struct
+ *
+ * Splitting larger slabs into smaller sizes if needed.
  */
 struct Pageframe *alloc_pageframe(vm_size size)
 {
@@ -81,9 +88,7 @@ struct Pageframe *alloc_pageframe(vm_size size)
     if (head != NULL) {
       LIST_REM_HEAD(&free_4k_pf_list, link);
     }
-  }
-
-  if (head == NULL && size == 16384) {
+  } else if (size == 16384) {
     head = LIST_HEAD(&free_16k_pf_list);
 
     if (head != NULL) {
@@ -91,7 +96,7 @@ struct Pageframe *alloc_pageframe(vm_size size)
     }
   }
 
-  if (head == NULL && size <= 65536) {
+  if (head == NULL || size == 65536) {
     head = LIST_HEAD(&free_64k_pf_list);
 
     if (head != NULL) {
@@ -100,38 +105,43 @@ struct Pageframe *alloc_pageframe(vm_size size)
   }
 
   if (head == NULL) {
+    Warn("no pageframe available");
     return NULL;
   }
 
   KASSERT ((head->flags & PGF_INUSE) == 0);
 
   // Split 64k slabs if needed into 4k or 16k allocations.
-
   if (head->size == 65536 && size == 16384) {
-    for (t = 3; t > 0; t--) {
-      head[(t * 16384) / PAGE_SIZE].size = 16384;
-      head[(t * 16384) / PAGE_SIZE].flags = 0;
-      LIST_ADD_HEAD(&free_16k_pf_list, head + t * (16384 / PAGE_SIZE), link);
+    for (t = 0; t < 4; t++) {
+    
+      head[t*4].size = 16384;
+      head[t*4].flags = 0;
+      
+      if (t>0) {
+        LIST_ADD_HEAD(&free_16k_pf_list, &head[t*4], link);
+      }
     }
+    
   } else if (head->size == 65536 && size == 4096) {
-    for (t = 15; t > 0; t--) {
-      head[(t * 4096) / PAGE_SIZE].size = 4096;
-      head[(t * 4096) / PAGE_SIZE].flags = 0;
-      LIST_ADD_HEAD(&free_4k_pf_list, head + t * (4096 / PAGE_SIZE), link);
+    for (t = 0; t < 16; t++) {
+      head[t].size = 4096;
+      head[t].flags = 0;
+
+      if (t>0) {
+        LIST_ADD_HEAD(&free_4k_pf_list, &head[t], link);
+      }
     }
   }
-
-  head->size = size;
+  
   head->flags = PGF_INUSE;
   head->reference_cnt = 0;
-
-  KASSERT(head->physical_addr < (128 * 1024 * 1024));
 
   pmap_pageframe_init(&head->pmap_pageframe);
 
   vm_addr va = pmap_pa_to_va(head->physical_addr);
 
-  // Ahh, this might be because root pages aren't all reserved?
+  // TODO: Add flag to clear page
   memset((void *)va, 0, size);
 
   return head;
@@ -192,6 +202,11 @@ void coalesce_slab(struct Pageframe *pf)
   vm_size stride;
   int t;
 
+#if 1   // FIXME: coalesce_slab
+  Info("coalesce_slab");
+  return;
+#endif  
+
   KASSERT(pf != NULL);
   KASSERT((pf - pageframe_table) < max_pageframe);
 
@@ -211,6 +226,7 @@ void coalesce_slab(struct Pageframe *pf)
     } else if (pf->size == 4096) {
       LIST_REM_ENTRY(&free_4k_pf_list, &pageframe_table[t], link);
     } else {
+      Error("unknown page size coalescing");
       KernelPanic();
     }
   }

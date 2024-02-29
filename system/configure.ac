@@ -15,6 +15,9 @@ AC_CONFIG_FILES([
   etc/Makefile
   boot/Makefile
   drivers/Makefile
+  drivers/aux/Makefile
+  drivers/null/Makefile
+  drivers/random/Makefile
   drivers/sdcard/Makefile
   drivers/serial/Makefile
   filesystems/Makefile

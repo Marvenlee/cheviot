@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 include(ExternalProject)
 
+set(COREUTILS_LIBS "-lc -ldb -lutil -lc")
 
 ExternalProject_Add (
   coreutils
@@ -12,9 +13,12 @@ ExternalProject_Add (
   CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/third_party/coreutils-5.2.1/configure --host=arm-none-eabi
 	                    --prefix=${CMAKE_CURRENT_BINARY_DIR}/build/host
                         CFLAGS=-D_POSIX_VERSION host_alias=arm-none-eabi
+                        LDFLAGS=-L${CMAKE_CURRENT_BINARY_DIR}/build/native/arm-none-eabi/lib
+                        LIBS=${COREUTILS_LIBS}
   DEPENDS           newlib
   BUILD_ALWAYS      OFF
   INSTALL_DIR       ${CMAKE_CURRENT_BINARY_DIR}/build/host/
   BUILD_COMMAND     make
+	INSTALL_COMMAND   pseudo make install
 )
 

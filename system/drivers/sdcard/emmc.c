@@ -34,7 +34,7 @@
 
 #include "sdcard.h"
 #include "globals.h"
-#include "mmio.h"
+#include <machine/cheviot_hal.h>
 #include "timer.h"
 #include "util.h"
 #include <stdint.h>
@@ -93,9 +93,9 @@
 #define SD_WRITE_SUPPORT
 
 // The particular SDHCI implementation
-#define SDHCI_IMPLEMENTATION_GENERIC 0
-#define SDHCI_IMPLEMENTATION_BCM_2708 1
-#define SDHCI_IMPLEMENTATION SDHCI_IMPLEMENTATION_BCM_2708
+#define SDHCI_IMPLEMENTATION_GENERIC    0
+#define SDHCI_IMPLEMENTATION_BCM_2708   1
+#define SDHCI_IMPLEMENTATION            SDHCI_IMPLEMENTATION_GENERIC
 
 static char driver_name[] = "emmc";
 static char device_name[] =
@@ -431,11 +431,6 @@ static uint32_t sd_acommands[] = {SD_CMD_RESERVED(0),
 
 #define SD_GET_CLOCK_DIVIDER_FAIL 0xffffffff
 
-// Get the current base clock rate in Hz
-#if SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
-#include "mbox.h"
-#endif
-
 
 /* @brief   Power off the SD card 
  *
@@ -456,7 +451,7 @@ static uint32_t sd_get_base_clock_hz() {
   capabilities_0 = mmio_read(emmc_base + EMMC_CAPABILITIES_0);
   base_clock = ((capabilities_0 >> 8) & 0xff) * 1000000;
 #elif SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
-  volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
+  volatile uint32_t *mailbuffer = (uint32_t *)mailbuffer_virt_addr;
 
   // set up the buffer
   mailbuffer[0] = 8 * 4; // size of this message
@@ -473,7 +468,7 @@ static uint32_t sd_get_base_clock_hz() {
   mailbuffer[7] = 0;
 
   // send the message
-  mbox_write(MBOX_PROP, MB_ADDR_PA);
+  mbox_write(MBOX_PROP, mailbuffer_phys_addr);
 
   // read the response
   mbox_read(MBOX_PROP);
@@ -507,7 +502,7 @@ static uint32_t sd_get_base_clock_hz() {
  */
 static int bcm_2708_power_off()
 {
-  volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
+  volatile uint32_t *mailbuffer = (uint32_t *)mailbuffer_virt_addr;
 
   // set up the buffer
   mailbuffer[0] = 8 * 4; // size of this message
@@ -524,7 +519,7 @@ static int bcm_2708_power_off()
   mailbuffer[7] = 0;
 
   // send the message
-  mbox_write(MBOX_PROP, MB_ADDR_PA);
+  mbox_write(MBOX_PROP, mailbuffer_phys_addr);
 
   // read the response
   mbox_read(MBOX_PROP);
@@ -558,7 +553,7 @@ static int bcm_2708_power_off()
  *
  */
 static int bcm_2708_power_on() {
-  volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
+  volatile uint32_t *mailbuffer = (uint32_t *)mailbuffer_virt_addr;
 
   // set up the buffer
   mailbuffer[0] = 8 * 4; // size of this message
@@ -575,7 +570,7 @@ static int bcm_2708_power_on() {
   mailbuffer[7] = 0;
 
   // send the message
-  mbox_write(MBOX_PROP, MB_ADDR_PA);
+  mbox_write(MBOX_PROP, mailbuffer_phys_addr);
 
   // read the response
   mbox_read(MBOX_PROP);

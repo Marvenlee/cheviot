@@ -54,7 +54,7 @@ echo "creating partition, sz= $partition_size_1"
 
 rm -f "$partition_file_1"
 dd if=/dev/zero of="$partition_file_1" bs=1M count=$partition_size_1_megs
-mkfs.vfat -I -v "$partition_file_1"
+mkfs.vfat -I -n "boot" -v "$partition_file_1"
 
 # Use mcopy to copy files to this partition
 
@@ -73,16 +73,16 @@ rm -f "$partition_file_2"
 mke2fs \
   -t ext2 \
   -b 1024 \
-  -d "$root_dir" \
   -r 1 \
   -m 5 \
-  -L 'cheviot' \
+  -L 'root' \
+  -E no_copy_xattrs \
+  -d "$root_dir" \
   "$partition_file_2" \
   "$((${partition_size_2_megs} * 1024))" \
 ;
 
 echo "second partition created"
-exit
 
 # sfdisk defaults to aligning the first parition on a 1MB boundary
 # If this changes add "start_" fields to specify partition start offsets

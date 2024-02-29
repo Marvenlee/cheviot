@@ -7,16 +7,16 @@
 
 
 
-extern uint32_t timer_clo;
 extern uint32_t mbox_base;
-extern uint32_t mb_addr;
 extern uint32_t emmc_base;
+
+//extern uint32_t mailbuffer_virt_addr;
+//extern uint32_t mailbuffer_phys_addr;
 
 extern struct block_device actual_device;
 extern struct block_device *bdev;
 
 extern uint8_t bootsector[512];
-
 extern uint8_t *buf;
 
 extern int kq;

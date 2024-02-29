@@ -47,6 +47,7 @@ ssize_t sys_read(int fd, void *dst, size_t sz)
   vnode = get_fd_vnode(current, fd);
 
   if (vnode == NULL) {
+    Error("sys_read fd:%d vnode null -EINVAL", fd);
     return -EINVAL;
   }
 
@@ -74,10 +75,13 @@ ssize_t sys_read(int fd, void *dst, size_t sz)
   } else if (S_ISBLK(vnode->mode)) {
     xfered = read_from_block (vnode, dst, sz, &filp->offset);
   } else if (S_ISDIR(vnode->mode)) {
-    xfered = -EINVAL;
-  } else if (S_ISDIR(vnode->mode)) {
+    Error("sys_read fd:%d is a dir -EINVAL", fd);
     xfered = -EINVAL;
   } else if (S_ISSOCK(vnode->mode)) {
+    Error("sys_read fd:%d is a sock -EINVAL", fd);
+    xfered = -EINVAL;
+  } else {
+    Error("sys_read fd:%d is unknown -EINVAL", fd);
     xfered = -EINVAL;
   }
   

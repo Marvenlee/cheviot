@@ -1,21 +1,10 @@
-/*
- * Copyright 2023  Marven Gilhespie
+/* This code handles the reading of directorys.
  *
- * Licensed under the Apache License, segment_id 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This is partially based on the fs_getdents in Minix's
+ * ext2/read.c file.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/* @brief   Directory related functions
- * This is partially based on the Minix Ext2 FS dir.c sources
+ * Created (CheviotOS Filesystem Handler based)
+ *   December 2023 (Marven Gilhespie) 
  */
 
 #define LOG_LEVEL_INFO
@@ -39,7 +28,6 @@ ssize_t get_dirents(struct inode *dir_inode, off64_t *cookie, char *data, ssize_
   off_t pos, block_pos;
   struct buf *bp;
   struct dir_entry *d_desc;
-  
   
   pos = (off_t) *cookie;
   

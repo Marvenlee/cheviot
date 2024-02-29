@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ARM_ELF_H
-#define ARM_ELF_H
+#ifndef MACHINE_BOARD_RASPBERRY_PI_1_ELF_H
+#define MACHINE_BOARD_RASPBERRY_PI_1_ELF_H
 
 #include <kernel/types.h>
 

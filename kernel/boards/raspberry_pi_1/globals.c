@@ -20,7 +20,8 @@
 
 #include <kernel/board/arm.h>
 #include <kernel/board/boot.h>
-#include <kernel/board/raspberry.h>
+#include <kernel/board/interrupt.h>
+#include <kernel/board/timer.h>
 #include <kernel/filesystem.h>
 #include <kernel/lists.h>
 #include <kernel/proc.h>
@@ -32,63 +33,48 @@
 /*
  * Boot args
  */
-
 struct BootInfo *bootinfo;
 struct BootInfo bootinfo_kernel;
-
 char *cfg_boot_prefix;
 int cfg_boot_verbose;
+
 
 /*
  * ARM default state of registers
  */
-
 bits32_t cpsr_dnm_state;
 
-/*
- * Debugger
- */
-
-uint32_t screen_width;
-uint32_t screen_height;
-void *screen_buf;
-uint32_t screen_pitch;
 
 /*
  * Interrupts
  */
-
-int irq_mask_cnt[NIRQ];
-int irq_handler_cnt[NIRQ];
-isr_handler_list_t isr_handler_list[NIRQ];
-
 bits32_t mask_interrupts[3];
 bits32_t pending_interrupts[3];
 uint32_t *vector_table;
 
 struct InterruptAPI interrupt_api = 
 {
-  .EventNotifyFromISR = knote_from_isr,
-  .MaskInterrupt = MaskInterruptFromISR,            // increment mask count (so on return to user it remains masked).
-  .UnmaskInterrupt = UnmaskInterruptFromISR,
+  .EventNotifyFromISR = interruptapi_knotei,
+  .MaskInterrupt = interruptapi_mask_interrupt,
+  .UnmaskInterrupt = interruptapi_unmask_interrupt,
   .context = NULL
 };
 
 
-volatile struct bcm2835_system_timer_registers *timer_regs;
-volatile struct bcm2835_gpio_registers *gpio_regs;
-volatile struct bcm2835_interrupt_registers *interrupt_regs;
-volatile struct bcm2835_uart_registers *uart_regs;
+/*
+ * Peripheral addresses
+ */
+struct bcm2835_timer_registers *timer_regs;
+struct bcm2835_gpio_registers *gpio_regs;
+struct bcm2835_interrupt_registers *interrupt_regs;
+struct bcm2835_aux_registers *aux_regs;
+
 
 /*
  *
  */
-
 vm_addr _heap_base;
 vm_addr _heap_current;
-
-vm_addr debug_base;
-vm_addr debug_ceiling;
 
 vm_addr boot_base;
 vm_addr boot_ceiling;

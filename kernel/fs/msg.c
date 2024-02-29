@@ -97,8 +97,6 @@ int sys_getmsg(int fd, msgid_t *msgid, void *addr, size_t buf_sz)
   int i;
   struct Process *current;
 
-  Info("sys_getmsg (addr:%08x, sz:%d", addr, buf_sz);
-
   current = get_current_process();  
   sb = get_superblock(current, fd);
   
@@ -116,20 +114,23 @@ int sys_getmsg(int fd, msgid_t *msgid, void *addr, size_t buf_sz)
   
   CopyOut (msgid, &msg->msgid, sizeof *msgid);
 
-  i = 0;
   nbytes_read = 0;
-  offset = 0;
   
-  while (i < msg->siov_cnt && nbytes_read < buf_sz) {
-    remaining = buf_sz - offset;
-    nbytes_to_xfer = (msg->siov[i].size < remaining) ? msg->siov[i].size : remaining;
+  if (msg->siov_cnt > 0) {  
+    i = 0;
+    offset = 0;
 
-    CopyOut(addr + nbytes_read, msg->siov[i].addr, nbytes_to_xfer);
-    nbytes_read += nbytes_to_xfer;
-    offset += nbytes_to_xfer;
-    i++;
+    while (i < msg->siov_cnt && nbytes_read < buf_sz) {
+      remaining = buf_sz - offset;
+      nbytes_to_xfer = (msg->siov[i].size < remaining) ? msg->siov[i].size : remaining;
+
+      CopyOut(addr + nbytes_read, msg->siov[i].addr, nbytes_to_xfer);
+      nbytes_read += nbytes_to_xfer;
+      offset += nbytes_to_xfer;
+      i++;
+    }
   }
-
+  
   return nbytes_read;
 }
 
@@ -145,20 +146,17 @@ int sys_getmsg(int fd, msgid_t *msgid, void *addr, size_t buf_sz)
  */
 int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
 {
-  msgid_t msgid;
+  struct Process *current;
   struct SuperBlock *sb;
   struct MsgPort *msgport;
   struct Msg *msg;
+  msgid_t msgid;
   int nbytes_to_write;
   int nbytes_written;
   int remaining;
   int iov_remaining;
   int i;
   int sc;
-  off_t offset = 0;
-  struct Process *current;
-
-  Info("sys_replymsg (msgid %d, addr:%08x, sz:%d", msgid, addr, buf_sz);
 
   if (CopyIn(&msgid, _msgid, sizeof msgid) != 0) {
     return -EFAULT;
@@ -179,27 +177,30 @@ int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
 
   msg->reply_status = status;
 
-  iov_remaining = msg->riov[0].size;
+	// FIXME: We may not have an riov (riov) can be null
 
-  while (i < msg->riov_cnt && nbytes_written < buf_sz) {
-    remaining = buf_sz - nbytes_written;
-    nbytes_to_write = (msg->riov[i].size < remaining) ? msg->riov[i].size : remaining;
+  if (msg->riov_cnt > 0) {
+    iov_remaining = msg->riov[0].size;
+    i = 0;
+    nbytes_written = 0;
 
-    sc = CopyIn(msg->riov[i].addr + msg->riov[i].size - iov_remaining,
-           addr + nbytes_written, nbytes_to_write);
-     
-    if (sc != 0) {
+    while (i < msg->riov_cnt && nbytes_written < buf_sz) {
+      remaining = buf_sz - nbytes_written;
+      nbytes_to_write = (msg->riov[i].size < remaining) ? msg->riov[i].size : remaining;
+
+      sc = CopyIn(msg->riov[i].addr + msg->riov[i].size - iov_remaining,
+             addr + nbytes_written, nbytes_to_write);
+       
+      if (sc != 0) {
         break;
+      }
+          
+      nbytes_written += nbytes_to_write;
+      i++;
+      iov_remaining = msg->riov[i].size;
     }
-    
-    nbytes_written += nbytes_to_write;
-
-    offset += nbytes_to_write;
-
-    i++;
-    iov_remaining = msg->riov[i].size;
   }
-
+  
   kreplymsg(msg);
 
   return 0;
@@ -217,16 +218,16 @@ int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
  */
 int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset)
 {
-  msgid_t msgid;
+  struct Process *current;
   struct SuperBlock *sb;
   struct MsgPort *msgport;
   struct Msg *msg;
+  msgid_t msgid;
   int nbytes_to_read;
   int nbytes_read;
   int remaining;
   int iov_remaining;
   int i;
-  struct Process *current;
 
   if (CopyIn(&msgid, _msgid, sizeof msgid) != 0) {
     return -EFAULT;
@@ -245,26 +246,27 @@ int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset
     return -EINVAL;
   }
   
-  if (seekiov(msg->siov_cnt, msg->siov, offset, &i, &iov_remaining) != 0) {
-    return -EINVAL;
-  }
-
   nbytes_read = 0;
-
-  while (i < msg->siov_cnt && nbytes_read < buf_sz) {
-    remaining = buf_sz - nbytes_read;
-    nbytes_to_read = (remaining < iov_remaining) ? remaining : iov_remaining;
-
-    CopyOut(addr + nbytes_read,
-            msg->siov[i].addr + msg->siov[i].size - iov_remaining,
-            nbytes_to_read);
-
-    nbytes_read += nbytes_to_read;
-    offset += nbytes_to_read;
-    i++;
-    iov_remaining = msg->siov[i].size;
-  }
   
+  if (msg->siov_cnt > 0) {
+    if (seekiov(msg->siov_cnt, msg->siov, offset, &i, &iov_remaining) != 0) {
+      return -EINVAL;
+    }
+
+    while (i < msg->siov_cnt && nbytes_read < buf_sz) {
+      remaining = buf_sz - nbytes_read;
+      nbytes_to_read = (remaining < iov_remaining) ? remaining : iov_remaining;
+
+      CopyOut(addr + nbytes_read,
+              msg->siov[i].addr + msg->siov[i].size - iov_remaining,
+              nbytes_to_read);
+
+      nbytes_read += nbytes_to_read;
+      i++;
+      iov_remaining = msg->siov[i].size;
+    }
+  }
+    
   return nbytes_read;
 }
 
@@ -280,17 +282,17 @@ int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset
  */
 int sys_writemsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset)
 {
-  msgid_t msgid;
+  struct Process *current;
   struct SuperBlock *sb;
   struct MsgPort *msgport;
   struct Msg *msg;
+  msgid_t msgid;
   int nbytes_to_write;
   int nbytes_written;
   int remaining;
   int iov_remaining;
   int i;
   int sc;
-  struct Process *current;
 
   if (CopyIn(&msgid, _msgid, sizeof msgid) != 0) {
     return -EFAULT;
@@ -312,32 +314,32 @@ int sys_writemsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offse
   if (msg->port != msgport) {
     return -EINVAL;
   }
-  
-  if (seekiov(msg->riov_cnt, msg->riov, offset, &i, &iov_remaining) != 0) {
-    return -EINVAL;
-  }
 
+	// FIXME: Check we have a valid riov (it can be null or zero length
   nbytes_written = 0;
-  
-  while (i < msg->riov_cnt && nbytes_written < buf_sz) {
-    remaining = buf_sz - nbytes_written;
-    nbytes_to_write = (remaining < iov_remaining) ? remaining : iov_remaining;
 
-    sc = CopyIn(msg->riov[i].addr + msg->riov[i].size - iov_remaining,
-           addr + nbytes_written, nbytes_to_write);
-     
-    if (sc != 0) {
-        break;
+  if (msg->riov_cnt > 0) {
+    if (seekiov(msg->riov_cnt, msg->riov, offset, &i, &iov_remaining) != 0) {
+      return -EINVAL;
     }
-    
-    nbytes_written += nbytes_to_write;
 
-    offset += nbytes_to_write;
+    while (i < msg->riov_cnt && nbytes_written < buf_sz) {
+      remaining = buf_sz - nbytes_written;
+      nbytes_to_write = (iov_remaining < remaining) ? iov_remaining : remaining;
 
-    i++;
-    iov_remaining = msg->riov[i].size;
+      sc = CopyIn(msg->riov[i].addr + msg->riov[i].size - iov_remaining,
+             addr + nbytes_written, nbytes_to_write);
+       
+      if (sc != 0) {
+        break;
+      }
+      
+      nbytes_written += nbytes_to_write;
+      i++;
+      iov_remaining = msg->riov[i].size;
+    }
   }
-
+  
   return nbytes_written;
 }
 
@@ -434,6 +436,15 @@ struct Msg *kgetmsg(struct MsgPort *msgport)
   }
   
   return msg;
+}
+
+
+/*
+ *
+ */
+struct Msg *kpeekmsg(struct MsgPort *msgport)
+{   
+  return LIST_HEAD(&msgport->pending_msg_list);
 }
 
 
@@ -561,6 +572,9 @@ int seekiov(int iov_cnt, struct IOV *iov, off_t offset, int *i, size_t *iov_rema
   off_t base_offset;
 
   base_offset = 0;
+  
+  // FIXME: We may not have an riov (riov) can be null
+
   
   for (*i = 0; *i < iov_cnt; (*i)++) {
     if (offset >= base_offset &&

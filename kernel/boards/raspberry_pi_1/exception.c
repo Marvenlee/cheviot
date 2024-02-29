@@ -31,23 +31,29 @@
 #include <ucontext.h>
 
 
-
-void PrintUserContext(struct UserContext *uc) {
-  Error("pc = %08x,   sp = %08x", uc->pc, uc->sp);
-  Error("lr = %08x, cpsr = %08x", uc->lr, uc->cpsr);
-  Error("r0 = %08x,   r1 = %08x", uc->r0, uc->r1);
-  Error("r2 = %08x,   r3 = %08x", uc->r2, uc->r3);
-  Error("r4 = %08x,   r5 = %08x", uc->r4, uc->r5);
-  Error("r6 = %08x,   r7 = %08x", uc->r6, uc->r7);
-  Error("r8 = %08x,   r9 = %08x", uc->r8, uc->r9);
-  Error("r10 = %08x,  r11 = %08x   r12 = %08x", uc->r10, uc->r11, uc->r12);
+/*
+ *
+ */
+void reset_handler(void)
+{
+  KernelPanic();
 }
+
 
 /*
  *
  */
+void reserved_handler(void)
+{
+  KernelPanic();
+}
 
-void ResetHandler(void) {
+
+/*
+ *
+ */
+void fiq_handler(void)
+{
   KernelPanic();
 }
 
@@ -55,23 +61,8 @@ void ResetHandler(void) {
  *
  */
 
-void ReservedHandler(void) {
-  KernelPanic();
-}
-
-/*
- *
- */
-
-void FiqHandler(void) {
-  KernelPanic();
-}
-
-/*
- *
- */
-
-void sys_unknownsyscallhandler(struct UserContext *context) {
+void sys_unknownsyscallhandler(struct UserContext *context)
+{
   struct Process *current;
   
   current = get_current_process();
@@ -83,7 +74,8 @@ void sys_unknownsyscallhandler(struct UserContext *context) {
  *
  */
 
-void UndefInstrHandler(struct UserContext *context) {
+void undef_instr_handler(struct UserContext *context)
+{
   struct Process *current;
   
   current = get_current_process();
@@ -102,7 +94,8 @@ void UndefInstrHandler(struct UserContext *context) {
  *
  */
 
-void PrefetchAbortHandler(struct UserContext *context) {
+void prefetch_abort_handler(struct UserContext *context)
+{
   vm_addr fault_addr;
   uint32_t mode;
   struct Process *current;
@@ -117,27 +110,24 @@ void PrefetchAbortHandler(struct UserContext *context) {
   } else if (bkl_owner != current) {
     DisableInterrupts();
     PrintUserContext(context);
-    Info("Prefetch Abort bkl not owner, fault addr = %08x", fault_addr);
+    Error("Prefetch Abort bkl not owner, fault addr = %08x", fault_addr);
     KernelPanic();
   } else {
     DisableInterrupts();
     PrintUserContext(context);
-    Info("Prefetch Abort in kernel, fault addr = %08x", fault_addr);
+    Error("Prefetch Abort in kernel, fault addr = %08x", fault_addr);
     KernelPanic();
   }
 
   if (page_fault(fault_addr, PROT_EXEC) != 0) {
     if (mode == USR_MODE || mode == SYS_MODE) {
-      PrintUserContext(context);
-      Info("fault addr = %08x", fault_addr);
-
       current->signal.si_code[SIGSEGV-1] = 0;    // TODO: Could be access bit?
       current->signal.sigsegv_ptr = fault_addr;
       sys_kill(current->pid, SIGSEGV);
       
     } else {
       PrintUserContext(context);
-      Info("fault addr = %08x", fault_addr);
+      Error("In unexpected processor mode, fault addr = %08x", fault_addr);
       KernelPanic();
     }
   }
@@ -150,6 +140,7 @@ void PrefetchAbortHandler(struct UserContext *context) {
     if (bkl_locked == false) {
       DisableInterrupts();
       PrintUserContext(context);
+      Error("BKL is not locked when returning from prefetch page fault");
       KernelPanic();
     }
     KernelUnlock();
@@ -164,7 +155,8 @@ void PrefetchAbortHandler(struct UserContext *context) {
  * Other modes and times it is a kernel panic.
  */
 
-void DataAbortHandler(struct UserContext *context) {
+void data_abort_handler(struct UserContext *context)
+{
   bits32_t dfsr;
   bits32_t access;
   vm_addr fault_addr;
@@ -173,8 +165,8 @@ void DataAbortHandler(struct UserContext *context) {
   
   current = get_current_process();
 
-  dfsr = GetDFSR();
-  fault_addr = GetFAR();
+  dfsr = hal_get_dfsr();
+  fault_addr = hal_get_far();
 
   // FIXME: Must not enable interrupts before getting above registers?
 

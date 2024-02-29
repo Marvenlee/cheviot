@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -68,12 +68,15 @@ int sys_kevent(int fd, const struct kevent *changelist, int nchanges,
   bool timeout_valid = false;
   bool timedout = false;
   int sc;
-    
+  
+  Info("sys_kevent(%d, nchanges:%d, nevents:%d", fd, nchanges, nevents);
+  
   current = get_current_process();
 
   if (_timeout != NULL) {
     CopyIn(&timeout, _timeout, sizeof timeout);
     timeout_valid = true;
+    _timeout = NULL;
   }
   
   kqueue = get_kqueue(current, fd);
@@ -81,14 +84,16 @@ int sys_kevent(int fd, const struct kevent *changelist, int nchanges,
   while (kqueue->busy == true) {
     TaskSleep(&kqueue->busy_rendez);
   }
-
   kqueue->busy = true;
   
+  // Processing of adding/removing/enabling and disabling events.  
   if (nchanges > 0 && changelist != NULL) {
     for (int t = 0; t < nchanges; t++) {      
       CopyIn(&ev, &changelist[t], sizeof ev);
       
-      if (ev.filter < 0 || ev.filter >= EVFILT_SYSCOUNT) {
+      if (ev.filter < 0 || ev.filter >= EVFILT_SYSCOUNT
+          || ((ev.flags & (EV_ADD | EV_DELETE)) == (EV_ADD | EV_DELETE)) 
+          || ((ev.flags & (EV_ENABLE | EV_DISABLE)) == (EV_ENABLE | EV_DISABLE))) {
         sc = -EINVAL;
         goto exit;      
       }
@@ -97,65 +102,49 @@ int sys_kevent(int fd, const struct kevent *changelist, int nchanges,
 
       if (ev.flags & EV_ADD) {
         if (knote == NULL) {
-        
-          // FIXME: Currently automatically enabling this event on EV_ADD.
-          // TODO: Handle enabling/disabling separately with EV_ENABLE, EV_DISABLE
-          
-          // Allow EV_ADD and EV_DISABLE (filters events but won't return them).
-          // Allow EV_ADD on its own to enable it.
-          
-          // EV_DELETE and any other flags are ignored.
-          
-          // FIXME: IMPORTANT : To avoid a race condition which would cause us to wait
-          // for an event that has already happened we need to check the state of objects
-          // that the newly added events point to in order to add events to the pending
-          // queue.
-          //
-          // e.g.
-          // kq = kqueue()
-          // fd = mount("/path/to/mount", 0, mode)/
-          //
-          // A message could immediately arrive here, but wouldn't be picked up
-          // by current kqueue code, causing kevent to block until a timeout or
-          // other event occurs.
-          // 
-          // EV_SET(&ev, portid, EVFILT_MSGPORT, EV_ADD | EV_ENABLE, 0, 0, 0); 
-          // kevent(kq, &ev, 1,  &ret_ev, 1, NULL);
-          //
-          // Handle above in EV_ENABLE
-          
+          if((ev.flags & EV_DISABLE) == 0) {
+            ev.flags |= EV_ENABLE;
+          }
+                    
           knote = alloc_knote(kqueue, &ev);
     
           if (knote == NULL) {
             sc = -ENOMEM;
             goto exit;
-          }
-          
-          
-          
+          }          
         } else {
           sc = -EEXIST;
           goto exit;
-        }        
-      } else if (ev.flags & EV_DELETE) {
+        }
+     }
+              
+     if (ev.flags & EV_DELETE) {
         if (knote != NULL) {
-          free_knote(kqueue, knote);        
+          disable_knote(kqueue, knote);
+          free_knote(kqueue, knote);
+          knote = NULL;
+          continue;        
         } else {
-          sc = -EINVAL;
+          sc = -ENOENT;
           goto exit;
         }
-      } else {
-        if (knote != NULL) {
-          // Modify existing knote enable/disable/oneshot flags
-          // update fflags   
-        } else {
-          sc = -EINVAL;
-          goto exit;
-        }    
+      }
+            
+      if (knote != NULL) {
+        if (ev.flags & EV_ENABLE) {
+          enable_knote(kqueue, knote);
+        }
+        
+        if (ev.flags & EV_DISABLE) {
+          disable_knote(kqueue, knote);
+        }
       }
     }
   }
+
+  changelist = NULL;
   
+  // Processing of returned events.  
   nevents_returned = 0;
 
   if (nevents > 0 && eventlist != NULL) {
@@ -188,7 +177,6 @@ int sys_kevent(int fd, const struct kevent *changelist, int nchanges,
         CopyOut(&eventlist[nevents_returned], &ev, sizeof ev);
         nevents_returned++;
         
-
         LIST_REM_HEAD(&kqueue->pending_list, pending_link);
         knote->pending = false;
         knote->on_pending_list = false;
@@ -200,6 +188,8 @@ int sys_kevent(int fd, const struct kevent *changelist, int nchanges,
     }
   }
 
+  eventlist = NULL;
+
   kqueue->busy = false;
   TaskWakeup(&kqueue->busy_rendez);  
   
@@ -207,10 +197,15 @@ int sys_kevent(int fd, const struct kevent *changelist, int nchanges,
     return -ETIMEDOUT;
   }
   
+  Info("..sys_event ret:%d", nevents_returned);
+  
   return nevents_returned;
 
 exit:
   // TODO: Any kevent cleanup
+  
+  Info("..sys_event error:%d", sc);
+
   return sc;
 }
 
@@ -247,9 +242,8 @@ int knote(knote_list_t *knote_list, int hint)
     knote->pending = true;
     knote->hint = hint;
 
-    if ((knote->flags & EV_ENABLE) && knote->on_pending_list == false) {        
-      kqueue = knote->kqueue;
-      
+    if (knote->enabled == true && knote->on_pending_list == false) {        
+      kqueue = knote->kqueue;      
       LIST_ADD_TAIL(&kqueue->pending_list, knote, pending_link);
       knote->on_pending_list = true;
       
@@ -415,15 +409,15 @@ struct KNote *alloc_knote(struct KQueue *kqueue, struct kevent *ev)
   
   current = get_current_process();
   
+  Info ("alloc_knote(kq:%08x, ev:%08x)", (uint32_t)kqueue, (uint32_t)ev);
+  
   if ((knote = LIST_HEAD(&knote_free_list)) == NULL) {
     return NULL;
   }
   
   LIST_REM_HEAD(&knote_free_list, link);  
-  LIST_ADD_TAIL(&kqueue->knote_list, knote, kqueue_link);
-
-  hash = knote_calc_hash(kqueue, knote->ident, knote->filter);
-  LIST_ADD_TAIL(&knote_hash[hash], knote, hash_link);
+  
+  Info ("new knote addr: %08x", (uint32_t)knote);
   
   knote->kqueue = kqueue;
   knote->ident = ev->ident;  
@@ -431,10 +425,17 @@ struct KNote *alloc_knote(struct KQueue *kqueue, struct kevent *ev)
   knote->flags = ev->flags;
   knote->fflags = ev->fflags;
   knote->data = NULL;
-  knote->udata = ev->udata;  
-  knote->pending = false;  
-  knote->on_pending_list = false;
+  knote->udata = ev->udata;
+    
+  knote->enabled = false;
+  knote->pending = false;
+  knote->on_pending_list = false;  // FIXME: Can't we get this if pending and enabled is true ?
+  
   knote->object = NULL;
+
+  LIST_ADD_TAIL(&kqueue->knote_list, knote, kqueue_link);  
+  hash = knote_calc_hash(kqueue, knote->ident, knote->filter);
+  LIST_ADD_TAIL(&knote_hash[hash], knote, hash_link);
     
   switch (knote->filter) {
     case EVFILT_READ:
@@ -599,23 +600,115 @@ void free_knote(struct KQueue *kqueue, struct KNote *knote)
 
 /* @brief   Enable an existing knote
  *
+ * TODO: Check if we need to raise any pending events,
+ * e.g. if file has data in buffer for reading or
+ * if message is already on message port.
+ *
+ * check if knote was previously on pending list, else
+ * also check if object's state would raise a pending event.
  */
 void enable_knote(struct KQueue *kqueue, struct KNote *knote)
 {
-  // TODO: Mark knote as enabled.
-  // TODO: Check if we need to raise any pending events,
-  // e.g. if file has data in buffer for reading or
-  // if message is already on message port.
+  struct Process *current;
+  struct SuperBlock *sb;
+  struct VNode *vnode;
+  struct ISRHandler *isrhandler;
+  struct MsgPort *msgport;
   
+  current = get_current_process();
+  
+  if (knote->enabled == true) {
+    return;
+  }
+  
+  knote->enabled = true;
+  
+  // Check if already pending, if so add to pending queue  
+
+  if (knote->pending == true) {
+    KASSERT(knote->on_pending_list == false);
+    
+    LIST_ADD_TAIL(&kqueue->pending_list, knote, pending_link);
+    knote->on_pending_list = true;
+    return;
+  }
+  
+  // We're not sure if an event is pending, so check.
+
+  switch (knote->filter)
+  {
+    case EVFILT_READ:
+    case EVFILT_WRITE:
+    // TODO: ADd EVFILT_FS for mount/unmount events
+    case EVFILT_VNODE:
+      vnode = get_fd_vnode(current, knote->ident);
+      
+      if (vnode) {
+      }
+      break;
+      
+    case EVFILT_AIO:
+      break;
+
+    case EVFILT_PROC:
+      break;
+      
+    case EVFILT_SIGNAL:    
+      break;
+      
+    case EVFILT_TIMER:
+      break;
+      
+    case EVFILT_NETDEV:
+      break;
+      
+    case EVFILT_USER:
+      break;
+      
+    case EVFILT_IRQ:
+      isrhandler = get_isrhandler(current, knote->ident);
+      
+      if (isrhandler) {
+      }      
+      break;
+      
+    case EVFILT_MSGPORT:
+      // Check if there is already a message on port
+      sb = get_superblock(current, knote->ident);
+      
+      if (sb) {
+        msgport = &sb->msgport;
+  
+        if (kpeekmsg(msgport) != NULL) {
+          knote->pending = true;           
+          LIST_ADD_TAIL(&kqueue->pending_list, knote, pending_link);
+          knote->on_pending_list = true;
+        }        
+      }
+      break;
+      
+    default:
+      break;
+  }
 }
 
 
 /* @brief   Disable an existing knote
  *
+ * Remove from pending list,  keep knote->pending as true if already pending
  */
 void disable_knote(struct KQueue *kqueue, struct KNote *knote)
 {
-  // TODO: This should be called prior to deleting a knote
+  if (knote->enabled == false) {
+    return;
+  }
+  
+  knote->enabled = false;
+  
+  if (knote->on_pending_list == true) {
+    LIST_REM_ENTRY(&kqueue->pending_list, knote, pending_link);
+    knote->on_pending_list = false;
+  }
 }
 
 
@@ -625,6 +718,4 @@ int knote_calc_hash(struct KQueue *kq, int ident, int filter)
 {
   return ((ident << 8) | filter) % KNOTE_HASH_SZ;
 }
-
-
 

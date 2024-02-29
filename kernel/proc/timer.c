@@ -46,7 +46,7 @@
 
 //#define KDEBUG 1
 
-#include <kernel/board/raspberry.h>
+#include <kernel/arch.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
@@ -54,6 +54,7 @@
 #include <kernel/timer.h>
 #include <kernel/types.h>
 #include <sys/time.h>
+#include <time.h>
 
 
 /* @brief   Returns the system time in seconds and microseconds.
@@ -123,7 +124,6 @@ int sys_sleep(int seconds)
   struct Timer *timer;
 
   Info ("sys_sleep(%d)", seconds);
-  Info("hard_clock =%u", (uint32_t)hardclock_time);
   
   current = get_current_process();
     
@@ -142,8 +142,53 @@ int sys_sleep(int seconds)
     TaskSleep(&current->rendez);
   }
 
-  Info ("sys_sleep awakened");
+  return 0;
+}
+
+
+int sys_nanosleep(struct timespec *_req, struct timespec *_rem)
+{
+  int_state_t int_state;
+  struct Process *current;
+  struct Timer *timer;
+  struct timespec req, rem;
+
+  Info ("sys_nanosleep");
+
+  current = get_current_process();
   
+  if (CopyIn(&req, _req, sizeof(req)) != 0) {
+    return -EFAULT;
+  }
+  
+#if 0
+  // TODO:  spin_nanosleep() for IO processes that need to sleep for less than 2ms
+  if ((current->flags & PROCF_ALLOW_IO)) {
+    if (req->tv_sec == 0 && req->tv_nsec <= 2000000) {
+      spin_nanosleep(&req);
+      return 0
+    }
+  }
+#endif
+      
+  timer = &current->sleep_timer;  
+  timer->process = current;
+  timer->armed = true;
+  timer->callback = SleepCallback;
+
+  int_state = DisableInterrupts();
+  timer->expiration_time = hardclock_time + (req.tv_sec * JIFFIES_PER_SECOND)
+                                          + (req.tv_nsec / NANOSECONDS_PER_JIFFY);
+  RestoreInterrupts(int_state);
+  
+  LIST_ADD_TAIL(&timing_wheel[timer->expiration_time % JIFFIES_PER_SECOND], timer, timer_entry);
+
+  while (timer->armed == true) {
+    TaskSleep(&current->rendez);
+  }
+
+  // TODO: if interrupted, work out remaining time and store in _rem
+
   return 0;
 }
 

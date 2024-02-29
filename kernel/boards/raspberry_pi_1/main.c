@@ -30,7 +30,6 @@
 #include <kernel/kqueue.h>
 #include <string.h>
 
-
 /* @brief Entry point into the kernel
  *
  * The kernel is mapped at 0x80100000 along with the bootloader and page tables
@@ -98,6 +97,7 @@ void Main(void)
   Info("Hello from kernel!\n");
   
   init_arm();
+  init_timer_registers();
   init_vm();
   init_vfs();
   init_processes();

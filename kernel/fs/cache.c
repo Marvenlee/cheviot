@@ -301,6 +301,7 @@ struct Buf *bread(struct VNode *vnode, uint64_t cluster_offset)
   struct Buf *buf;
   ssize_t xfered;
 
+  Info ("bread");
   // FIXME: What if offset equal to or past end of file?
   
   buf = getblk(vnode, cluster_offset);

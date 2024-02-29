@@ -80,13 +80,14 @@ int sys_fstat(int fd, struct stat *_stat) {
   struct stat stat;
   struct Process *current;
 
-  Info("sys_fstat");
+  Info("sys_fstat fd:%d", fd);
   
   current = get_current_process();
   filp = get_filp(current, fd);
   vnode = get_fd_vnode(current, fd);
 
   if (vnode == NULL) {
+    Info("sys_fstat fd:%d no vnode, -EINVAL", fd);
     return -EINVAL;
   }
 

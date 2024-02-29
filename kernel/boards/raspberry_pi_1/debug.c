@@ -22,6 +22,8 @@
 
 #include <kernel/board/arm.h>
 #include <kernel/board/globals.h>
+#include <kernel/board/gpio.h>
+#include <kernel/board/aux_uart.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
@@ -31,9 +33,6 @@
 #include <kernel/filesystem.h>
 #include <stdarg.h>
 
-#ifdef KDEBUG
-
-
 // Constants
 #define KLOG_WIDTH 256
 
@@ -41,157 +40,42 @@
 // Variables
 static char klog_entry[KLOG_WIDTH];
 bool processes_initialized = false;
-bool debug_init = false;
+bool debug_initialized = false;
 
 // Prototypes
 static void KPrintString(char *s);
 
-#endif
-
-/*
- *
- */
-
-#ifdef KDEBUG
-
-void io_delay(uint32_t cycles) 
-{
-    while(cycles-- > 0) isb();
-}
-
-void configure_gpio(uint32_t pin, enum FSel fn, enum PullUpDown action)
-{    
-    dmb();
-    
-    // set pull up down
-    // ----------------
-    
-    // set action & delay for 150 cycles.
-    volatile uint32_t *pud = &gpio_regs->pud;
-    *pud = action;
-    io_delay(1000);
-
-    // trigger action & delay for 150 cycles.
-    volatile uint32_t *clock = &gpio_regs->pud_clk[pin / 32];
-    *clock = (1 << (pin % 32));
-    io_delay(1000);
-    
-    // clear action
-    *pud = OFF;
-	
-    // remove clock
-    *clock = 0;
-
-    // set function
-    // ------------
-    volatile uint32_t *fsel = &gpio_regs->fsel[pin / 10];
-    uint32_t shift = (pin % 10) * 3;
-    uint32_t mask = ~(7U << shift);
-    *fsel = (*fsel & mask) | (fn << shift);
-    
-    dmb();
-}
-
-void set_gpio(uint32_t pin, bool state)
-{
-    // set or clear output of pin
-    
-    if (state) {
-      gpio_regs->set[pin / 32] = 1U << (pin % 32);
-    } else {
-      gpio_regs->clr[pin / 32] = 1U << (pin % 32);
-    }
-}
-
-void configure_uart(void)
-{
-    dmb();
-    
-    // wait for end of transmission
-    while(uart_regs->flags & FR_BUSY) { }
-
-    // Disable UART0
-    uart_regs->ctrl = 0;
-
-    // flush transmit FIFO
-    uart_regs->lcrh &= ~LCRH_FEN;	
-	
-    // select function 0 and disable pull up/down for pins 14, 15
-    configure_gpio(14, FN0, OFF);
-    configure_gpio(15, FN0, OFF);
-
-    dmb();
-    
-    // Set integer & fractional part of baud rate.
-    // Divider = UART_CLOCK/(16 * Baud)
-    // Fraction part register = (Fractional part * 64) + 0.5
-    // UART_CLOCK = 3000000; Baud = 115200.
-
-    // Divider = 3000000/(16 * 115200) = 1.627 = ~1.
-    // Fractional part register = (.627 * 64) + 0.5 = 40.6 = ~40.
-  
-    int baud = 115200;
-
-    int divider = (UART_CLK)/(16 * baud);
-    int temp = (((UART_CLK % (16 * baud)) * 8) / baud);
-    int fraction = (temp >> 1) + (temp & 1);
-    
-    uart_regs->ibrd = divider;
-    uart_regs->fbrd = fraction;
-
-    // Enable FIFO & 8 bit data transmission (1 stop bit, no parity)
-    uart_regs->lcrh = LCRH_FEN | LCRH_WLEN8;
-    uart_regs->lcrh = LCRH_WLEN8;
-
-    // set FIFO interrupts to fire at half full
-    uart_regs->ifls = IFSL_RX_1_2 | IFSL_TX_1_2;
-    
-    // Clear pending interrupts.
-    uart_regs->icr = INT_ALL;
-
-    // Mask all interrupts.
-    uart_regs->imsc = INT_ALL;
-    
-    // Enable UART0, receive & transfer part of UART.
-    // uart_regs->ctrl = CR_UARTEN | CR_RXE;
-
-    uart_regs->ctrl = CR_UARTEN | CR_TXW | CR_RXE;
-
-    dmb();
-}
-#endif
 
 /* @brief Perform initialization of the kernel logger
  */
-void InitDebug(void) {
-#ifdef KDEBUG
-//  configure_uart();
-  debug_init = true;
-#endif  
+void InitDebug(void)
+{
+  aux_uart_init();
+  debug_initialized = true;
 }
+
 
 /* @brief Notify the kernel logger that processes are now running.
  *
  * Logging output is prefixed with the process ID of the caller 
  */
-void ProcessesInitialized(void) {
-#ifdef KDEBUG
+void ProcessesInitialized(void)
+{
   processes_initialized = true;
-#endif
 }
+
 
 /*
  * ystem call allowing applications to print to serial without opening serial port.
  */
-void sys_debug(char *s) {
-#ifdef KDEBUG
+void sys_debug(char *s)
+{
   char buf[128];
 
   CopyInString (buf, s, sizeof buf);
   buf[sizeof buf - 1] = '\0';
 
   Info("PID %4d: %s:", GetPid(), &buf[0]);
-#endif
 }
 
 
@@ -215,10 +99,9 @@ void sys_debug_sixargs(int a, int b, int c, int d, int e, int f, int dummy1, int
  * to KPRINTF, KLOG, KASSERT and KPANIC.
  */
 
-#ifdef KDEBUG
-void DoLog(const char *format, ...) {
+void DoLog(const char *format, ...)
+{
   va_list ap;
-
   va_start(ap, format);
 
   if (processes_initialized) {
@@ -234,53 +117,6 @@ void DoLog(const char *format, ...) {
 }
 
 
-/* @brief   Write a hex dump of an area of memory
- */
-void MemDump(void *_addr, size_t sz)
-{
-  char line[64];
-  char tmp[4];
-  uint8_t *addr = _addr;
-  
-  Info("MemDump Addr:%08x, sz:%d", (vm_addr)addr, sz);
-  
-  while (sz > 0) {
-    line[0] = '\0';
-    for (int x = 0; sz > 0 && x < 16; x++) {
-      Snprintf(tmp, sizeof tmp, "%02x", (uint8_t)*addr);
-      StrLCat(line, tmp, sizeof line); 
-      addr++;
-      sz --;
-    }    
-
-    Info ("%s", line);
-  } 
-}
-
-/*
- */
-int MemCmp(void *m1, void *m2, size_t sz)
-{
-  uint8_t *a, *b;
-  a = m1;
-  b = m2;
-
-  for (int t = 0; t < sz; t++) {
-    if (*a != *b) {
-      Error("!!!!!!!!!!!!!!! Mem Fail %08x %08x !!!!!!!!!!!!!!!!!!!!!",
-            (vm_addr)a, (vm_addr)b);
-      return -1;
-    }
-    a++;
-    b++;
-  }
-
-  return 0;
-}
-
-#endif
-
-
 /*
  * KernelPanic();
  */
@@ -291,11 +127,9 @@ void PrintKernelPanic(char *format, ...) {
   
   va_start(ap, format);
 
-#ifdef KDEBUG
   Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
   KPrintString(&klog_entry[0]);
   KPrintString("### Kernel Panic ###");
-#endif
 
   va_end(ap);  
   
@@ -303,59 +137,35 @@ void PrintKernelPanic(char *format, ...) {
 }
 
 
-#ifdef KDEBUG
-static void KPrintString(char *s) {  
+void KPrintString(char *string)
+{
+  char *ch = string;
 
-  if (debug_init == false) {
-    return;
+  if (debug_initialized) {
+    while (*ch != '\0') {
+      aux_uart_write_byte(*ch++);
+    }
+    
+    aux_uart_write_byte('\n');
   }
   
-  while (*s != '\0') {
-    while (uart_regs->flags & FR_BUSY);        
-    uart_regs->data = *s++;
-  }
-  
-  while (uart_regs->flags & FR_BUSY);        
-  uart_regs->data = '\n';
+  // TODO:  Switch to writing to syslog inode once console driver is initialized.
 }
-#endif
 
 
 /*
  *
- */ 
-void LogFDs(void)
+ */
+void PrintUserContext(struct UserContext *uc)
 {
-  struct Filp *filp;
-  struct VNode *vnode;
-  struct Process *current;
-  char buf[30];
-
-  current = get_current_process();
-    
-  for (int t=0; t<6; t++) {  
-    filp = get_filp(current, t);
-    
-    if (filp) {
-        vnode = filp->u.vnode;
-     
-        if (S_ISCHR(vnode->mode)) {  
-          Info ("FD[%d]: ISCHR",t);      
-        } else if (S_ISREG(vnode->mode)) {
-          Info ("FD[%d]: ISREG, sz:%d",t, vnode->size);
-        } else if (S_ISFIFO(vnode->mode)) {
-          Info ("FD[%d]: ISFIFO",t);    
-        } else if (S_ISBLK(vnode->mode)) {
-          Info ("FD[%d]: ISBLK",t);  
-        } else if (S_ISDIR(vnode->mode)) {
-          Info ("FD[%d]: ISDIR",t);  
-        } else {
-          Info ("FD[%d]: unknown",t);  
-        }
-    } else {
-      Info ("FD[%d]: -----", t);
-    }
-  }
+  DoLog("pc = %08x,   sp = %08x", uc->pc, uc->sp);
+  DoLog("lr = %08x, cpsr = %08x", uc->lr, uc->cpsr);
+  DoLog("r0 = %08x,   r1 = %08x", uc->r0, uc->r1);
+  DoLog("r2 = %08x,   r3 = %08x", uc->r2, uc->r3);
+  DoLog("r4 = %08x,   r5 = %08x", uc->r4, uc->r5);
+  DoLog("r6 = %08x,   r7 = %08x", uc->r6, uc->r7);
+  DoLog("r8 = %08x,   r9 = %08x", uc->r8, uc->r9);
+  DoLog("r10 = %08x,  r11 = %08x   r12 = %08x", uc->r10, uc->r11, uc->r12);
 }
 
 

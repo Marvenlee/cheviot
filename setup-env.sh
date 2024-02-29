@@ -5,5 +5,6 @@
 
 export PATH=$PATH:$PWD/build/native/bin
 
-export BOARD=raspberrypi1
+export BOARD=raspberrypi4
 
+export PSEUDO_PREFIX=${PWD}/build/native/

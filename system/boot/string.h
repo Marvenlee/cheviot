@@ -1,7 +1,9 @@
 #ifndef STRING_H
 #define STRING_H
 
-#include "types.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdarg.h>
 
 int Snprintf(char *str, size_t size, const char *format, ...);

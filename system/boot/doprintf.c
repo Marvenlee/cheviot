@@ -1,10 +1,14 @@
 
-#include "types.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdarg.h>
+#include <machine/cheviot_hal.h>
 
-void ItoA32(va_list *ap, int32 base, char *buf);
-void UItoA32(va_list *ap, int32 base, char *buf);
-void PrintFormattedInteger(char *buf, int32 base, uint32 flags, int32 width,
+
+void ItoA32(va_list *ap, int32_t base, char *buf);
+void UItoA32(va_list *ap, int32_t base, char *buf);
+void PrintFormattedInteger(char *buf, int32_t base, uint32_t flags, int32_t width,
                            void (*printchar_fp)(char, void *), void *ar);
 
 #define ASCII_TO_INT(n) ((n)-48)
@@ -17,7 +21,7 @@ void PrintFormattedInteger(char *buf, int32 base, uint32 flags, int32 width,
 #define FLAG_UPPERCASE (1 << 4)
 #define FLAG_ALTERNATE (1 << 5)
 
-#define MIN_INT32 (0x80000000L)
+#define MIN_int32_t (0x80000000L)
 
 /* DoPrintf();
  *
@@ -57,11 +61,11 @@ void DoPrintf(void (*printchar_fp)(char, void *), void *printchar_arg,
               const char *format, va_list *ap) {
   const char *c;
   char *s, chr;
-  uint32 flags;
-  int32 width;
-  int32 base;
-  void (*uitoa_fp)(va_list *, int32, char *);
-  void (*itoa_fp)(va_list *, int32, char *);
+  uint32_t flags;
+  int32_t width;
+  int32_t base;
+  void (*uitoa_fp)(va_list *, int32_t, char *);
+  void (*itoa_fp)(va_list *, int32_t, char *);
   char buf[36];
 
   for (c = format; *c != 0; c++) {
@@ -198,17 +202,17 @@ void DoPrintf(void (*printchar_fp)(char, void *), void *printchar_arg,
  * Signed Int to ASCII Buffer, LSD-first, buf = [lsd]...[msd][+][0]
  */
 
-void ItoA32(va_list *ap, int32 base, char *buf) {
-  int32 i = 0;
+void ItoA32(va_list *ap, int32_t base, char *buf) {
+  int32_t i = 0;
   char conv[] = {"0123456789abcdef@OVRPHLOW"};
-  int32 n;
+  int32_t n;
   char sign;
-  int32 carry = 0;
+  int32_t carry = 0;
 
-  n = va_arg(*ap, int32);
+  n = va_arg(*ap, int32_t);
 
   if (n < 0) {
-    if (n == MIN_INT32) {
+    if (n == MIN_int32_t) {
       carry = 1;
       n = n + 1;
     }
@@ -239,12 +243,12 @@ void ItoA32(va_list *ap, int32 base, char *buf) {
  * Unsigned Int to ASCII Buffer, LSD-first, buf = [lsd]...[msd][+][0]
  */
 
-void UItoA32(va_list *ap, int32 base, char *buf) {
-  int32 i = 0;
+void UItoA32(va_list *ap, int32_t base, char *buf) {
+  int32_t i = 0;
   char conv[] = {"0123456789abcdef@OVRPHLOW"};
-  uint32 n;
+  uint32_t n;
 
-  n = va_arg(*ap, uint32);
+  n = va_arg(*ap, uint32_t);
 
   do {
     buf[i++] = conv[n % base];
@@ -261,15 +265,15 @@ void UItoA32(va_list *ap, int32 base, char *buf) {
  * Prints buf in the correct direction. Handles flags, padding and field width
  */
 
-void PrintFormattedInteger(char *buf, int32 base, uint32 flags, int32 width,
+void PrintFormattedInteger(char *buf, int32_t base, uint32_t flags, int32_t width,
                            void (*printchar_fp)(char, void *),
                            void *printchar_arg) {
-  int32 forepadding = 0;
-  int32 zeropadding = 0;
-  int32 tailpadding = 0;
+  int32_t forepadding = 0;
+  int32_t zeropadding = 0;
+  int32_t tailpadding = 0;
   char *signstr = "";
   char *annotatestr = "";
-  int32 len, i, t;
+  int32_t len, i, t;
   char sign;
   char *s;
 

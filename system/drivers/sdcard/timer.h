@@ -27,14 +27,13 @@
 #include <sys/types.h>
 #include "sdcard.h"
 
-// typedef int useconds_t;
 
 struct timer_wait {
   uint32_t trigger_value;
   int rollover;
 };
 
-int delay_microsecs(useconds_t usec);
+int delay_microsecs(int usec);
 struct timer_wait register_timer(useconds_t usec);
 int compare_timer(struct timer_wait tw);
 

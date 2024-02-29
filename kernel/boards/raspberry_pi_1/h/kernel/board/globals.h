@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef KERNEL_ARM_GLOBALS_H
-#define KERNEL_ARM_GLOBALS_H
+#ifndef MACHINE_BOARD_RASPBERRY_PI_1_GLOBALS_H
+#define MACHINE_BOARD_RASPBERRY_PI_1_GLOBALS_H
 
 #include <kernel/board/arm.h>
 #include <kernel/board/boot.h>
-#include <kernel/board/raspberry.h>
 #include <kernel/board/task.h>
 #include <kernel/filesystem.h>
 #include <kernel/lists.h>
@@ -57,27 +56,22 @@ extern bits32_t cpsr_dnm_state;
  * Interrupts
  */
 
-extern int irq_mask_cnt[NIRQ];
-extern int irq_handler_cnt[NIRQ];
-extern isr_handler_list_t isr_handler_list[NIRQ];
 extern bits32_t mask_interrupts[3];
 extern bits32_t pending_interrupts[3];
 extern uint32_t *vector_table;
 
-extern volatile struct bcm2835_system_timer_registers *timer_regs;
-extern volatile struct bcm2835_gpio_registers *gpio_regs;
-extern volatile struct bcm2835_interrupt_registers *interrupt_regs;
-extern volatile struct bcm2835_uart_registers *uart_regs;
+extern struct InterruptAPI interrupt_api;
+
+extern struct bcm2835_timer_registers *timer_regs;
+extern struct bcm2835_gpio_registers *gpio_regs;
+extern struct bcm2835_interrupt_registers *interrupt_regs;
+extern struct bcm2835_aux_registers *aux_regs;
 
 /*
  *
  */
-
 extern vm_addr _heap_base;
 extern vm_addr _heap_current;
-
-extern vm_addr debug_base;
-extern vm_addr debug_ceiling;
 
 extern vm_addr boot_base;
 extern vm_addr boot_ceiling;

@@ -17,7 +17,6 @@
 #ifndef INIT_H
 #define INIT_H
 
-
 // Constants
 #define ARG_SZ 256
 

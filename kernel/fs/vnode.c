@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// #define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -81,6 +81,9 @@ int close_vnode(struct Process *proc, int fd)
   
   vnode_lock(vnode);
   
+  
+  
+  
   if (vnode->reference_cnt == 1) {
     // Do any special cleanup of file, dir, fifo ?
   }
@@ -138,6 +141,8 @@ struct VNode *vnode_new(struct SuperBlock *sb, int inode_nr)
   
   InitRendez(&vnode->rendez);
   
+  Info ("vnode_new = %08x", (uint32_t)vnode);
+  
   return vnode;
 }
 
@@ -148,15 +153,19 @@ struct VNode *vnode_get(struct SuperBlock *sb, int inode_nr)
 {
   struct VNode *vnode;
 
-  while (1) {
-    if (sb->flags & S_ABORT)
-      return NULL;
+  Info ("vnode_get(sb:%08x, ino_nr:%d)",(uint32_t)sb, inode_nr);
 
+  while (1) {                       // FIXME: Why is a while loop needed ?
+    if (sb->flags & S_ABORT) {
+      return NULL;
+    }
+    
     if ((vnode = vnode_find(sb, inode_nr)) != NULL) {
       vnode->reference_cnt++;
       sb->reference_cnt++;
     
       while (vnode->busy) {
+        Info("vnode %08x busy, sleeping", (uint32_t)vnode);
         TaskSleep(&vnode->rendez);
       }
 
@@ -166,6 +175,7 @@ struct VNode *vnode_get(struct SuperBlock *sb, int inode_nr)
         LIST_REM_ENTRY(&vnode_free_list, vnode, vnode_entry);
       }
 
+      Info ("vnode_get retval: %08x", (uint32_t)vnode);
       return vnode;
     
     } else {

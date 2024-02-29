@@ -4476,7 +4476,7 @@ else
 fi
 
 
-ac_config_files="$ac_config_files Makefile libblockdev/Makefile libtermcap/Makefile libcurses/Makefile"
+ac_config_files="$ac_config_files Makefile libblockdev/Makefile libcurses/Makefile libtermcap/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -5230,8 +5230,8 @@ do
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "libblockdev/Makefile") CONFIG_FILES="$CONFIG_FILES libblockdev/Makefile" ;;
-    "libtermcap/Makefile") CONFIG_FILES="$CONFIG_FILES libtermcap/Makefile" ;;
     "libcurses/Makefile") CONFIG_FILES="$CONFIG_FILES libcurses/Makefile" ;;
+    "libtermcap/Makefile") CONFIG_FILES="$CONFIG_FILES libtermcap/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

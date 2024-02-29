@@ -506,10 +506,10 @@ void pmap_flush_tlbs(void)
   //    struct Process *current;
   // NEED an IPI invvalidate for multicore
   //    current = get_current_process();
-  //    SetPageDirectory ((void *)(pmap_va_to_pa
+  //    hal_set_page_directory ((void *)(pmap_va_to_pa
   //    ((vm_addr)current->as.pmap.l1_table)));
-  InvalidateTLB();
-  FlushAllCaches();     //FIXME: Needed?
+  hal_invalidate_tlb();
+  hal_flush_all_caches();     //FIXME: Needed?
 }
 
 /*
@@ -519,9 +519,9 @@ void pmap_flush_tlbs(void)
 void pmap_switch(struct Process *next, struct Process *current)
 {
   // if (next != NULL && next != current) {
-  SetPageDirectory((void *)(pmap_va_to_pa((vm_addr)next->as.pmap.l1_table)));
-  InvalidateTLB();
-  FlushAllCaches();
+  hal_set_page_directory((void *)(pmap_va_to_pa((vm_addr)next->as.pmap.l1_table)));
+  hal_invalidate_tlb();
+  hal_flush_all_caches();
   // }
 }
 

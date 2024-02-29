@@ -53,8 +53,7 @@ int sys_fcntl(int fd, int cmd, int arg)
 
       new_fd = dup_fd(current, fd, arg, OPEN_MAX);	      
       return new_fd;
-  
-	
+  	
     case F_GETFD:	/* Get fildes flags */
       
       if (FD_ISSET(fd, &current->fproc->fd_close_on_exec_set)) {
@@ -74,18 +73,17 @@ int sys_fcntl(int fd, int cmd, int arg)
 			return arg;
       		
 		case F_GETFL:	/* Get file flags */
-      Info("Fcntl F_GETFL");
+      Info("Fcntl F_GETFL unimplemented");
 
-      // Effectively mode bit O_RW, O_APPEND, O_NONBLOCK
-      //  TODO: Add non-block ?
-      break;
+      // TODO: Effectively open flags bit O_RW, O_APPEND, O_NONBLOCK
+      //  TODO: Add as oflags state to filp on open() or any vnode creation
+			return -EINVAL;
       
 		case F_SETFL:	/* Set file flags */
-      Info("Fcntl F_SETFL");
+      Info("Fcntl F_SETFL unimplemented");
 
-      // Effectively mode bit O_RW, O_APPEND, O_NONBLOCK
-      //  TODO: Add non-block ?
-      break;
+      // TODO: Effectively open flags bit O_RW, O_APPEND, O_NONBLOCK
+			return -EINVAL;
       
 		default:
 		  Error("Fcntl ENOSYS");
@@ -117,6 +115,8 @@ int sys_dup2(int fd, int new_fd)
 {
   struct Process *current;
 
+  Info("sys_dup2(fd:%d, new_fd:%d", fd, new_fd);
+
   current = get_current_process();
 
   if (fd < 0 || fd >= OPEN_MAX || new_fd < 0 || new_fd >= OPEN_MAX) {
@@ -128,6 +128,9 @@ int sys_dup2(int fd, int new_fd)
   }
     
   new_fd = dup_fd(current, fd, new_fd, new_fd);
+
+  Info("res:%d of sys_dup2", new_fd);
+
   return new_fd;
 }
 
@@ -149,18 +152,39 @@ int sys_close(int fd)
 int do_close(struct Process *proc, int fd)
 {
   struct Filp *filp;
-    
+  struct VNode *vnode;
+  struct Pipe *pipe;
+  
   filp = get_filp(proc, fd);
   
   if (filp == NULL) {
     return -EINVAL;
   }
   
-  filp->reference_cnt--;
-    
+  filp->reference_cnt--;  
+  
   KASSERT(filp->reference_cnt >= 0);
   
   if (filp->reference_cnt == 0) {  
+
+    if (filp->type == FILP_TYPE_VNODE) {
+      vnode = get_fd_vnode(proc, fd);
+  
+      if (vnode == NULL) {
+        return -EINVAL;  
+      }
+      
+      if (S_ISFIFO(vnode->mode)) {
+        pipe = vnode->pipe;
+        if (filp->flags & O_RDONLY) {
+          pipe->reader_cnt--;
+        } else {
+          pipe->writer_cnt--;
+        }
+      }
+    }
+
+
     switch (filp->type) {
         case FILP_TYPE_VNODE:
         close_vnode(proc, fd);

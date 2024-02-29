@@ -30,9 +30,8 @@
 #include <sys/syscalls.h>
 #include <unistd.h>
 #include <sys/fsreq.h>
-#include <poll.h>
 #include <sys/termios.h>
-#include "serial.h"
+#include "pl011.h"
 
 
 extern int portid;

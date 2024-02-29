@@ -23,29 +23,15 @@
 #include <sys/debug.h>
 #include "mmio.h"
 #include <stdint.h>
-
-extern void memory_barrier();
+#include <machine/cheviot_hal.h>
 
 inline void mmio_write(uint32_t reg, uint32_t data)
 {
-  memory_barrier();
-  *(volatile uint32_t *)(reg) = data;
-  memory_barrier();
+  hal_mmio_write((void *)reg, data);
 }
 
 inline uint32_t mmio_read(uint32_t reg)
 {
-  uint32_t val;
-  memory_barrier();
-  val = *(volatile uint32_t *)(reg);
-  memory_barrier();
-  
-  return val;
+  return hal_mmio_read((void *)reg);
 }
 
-__attribute__((naked)) void memory_barrier(void)
-{
-  __asm("mov r0, #0");
-  __asm("mcr p15, #0, r0, c7, c10, #5");
-  __asm("mov pc, lr");
-}

@@ -40,6 +40,8 @@
 int lookup(char *_path, int flags, struct lookupdata *ld)
 {
   int rc;
+
+  Info("lookup: %s", _path);
   
   if ((rc = init_lookup(_path, flags, ld)) != 0) {
     Error("Lookup init failed");
@@ -69,10 +71,11 @@ int lookup(char *_path, int flags, struct lookupdata *ld)
 
   } else if (flags & LOOKUP_REMOVE) {
     Error("Lookup remove failed");
-    return -ENOTSUP;
-        
+    return -ENOTSUP;        
   } else {
     if (ld->path[0] == '/' && ld->path[1] == '\0') { // Replace with IsPathRoot()
+      Info ("lookup \"/\"");
+
       ld->parent = NULL;
       ld->vnode = root_vnode;
       vnode_inc_ref(ld->vnode);
@@ -81,6 +84,7 @@ int lookup(char *_path, int flags, struct lookupdata *ld)
     }
 
     if ((rc = lookup_path(ld)) != 0) {
+      Error("lookup_path rc:%d", rc);
       return rc;
     }
           
@@ -96,6 +100,7 @@ int lookup(char *_path, int flags, struct lookupdata *ld)
       vnode_put(ld->parent);
     }
     
+    Info ("lookup rc=%d", rc);
     return rc;
   }
 }
@@ -113,6 +118,8 @@ int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
   struct Process *current;
   int path_len;
   
+  Info("init_lookup");
+  
   current = get_current_process();
   
   ld->vnode = NULL;
@@ -125,6 +132,7 @@ int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
   if (flags & LOOKUP_KERNEL) {
     StrLCpy(ld->path, _path, sizeof ld->path);
   } else if (CopyInString(ld->path, _path, sizeof ld->path) == -1) {
+    Error("init_lookup -EFAULT");
     return -EFAULT; // FIXME:  Could be ENAMETOOLONG 
   }
 
@@ -136,9 +144,12 @@ int init_lookup(char *_path, uint32_t flags, struct lookupdata *ld)
   
   ld->start_vnode = (ld->path[0] == '/') ? root_vnode : current->fproc->current_dir;    
 
+  Info ("ld_start_vnode = %08x", (uint32_t)ld->start_vnode);
+
   KASSERT(ld->start_vnode != NULL);
 
   if (!S_ISDIR(ld->start_vnode->mode)) {
+    Error("init_lookup start vnode -ENOTDIR");
     return -ENOTDIR;
   }
 
@@ -156,6 +167,8 @@ int lookup_path(struct lookupdata *ld)
   struct VNode *vnode;
   int rc;
   
+//  Info ("lookup_path");
+  
   KASSERT(ld->start_vnode != NULL);
 
   ld->parent = NULL;
@@ -166,12 +179,15 @@ int lookup_path(struct lookupdata *ld)
   
   while(1) {    
     ld->last_component = path_token(ld);
-      
+
     if (ld->last_component == NULL) {
+      Error("lookup_path last_component NULL");
       rc = -EINVAL;
       break;
     }
 
+//    Info ("lookup_path last_component %s", ld->last_component);
+    
     if (ld->parent != NULL) {
       vnode_put(ld->parent);
       ld->parent = NULL;
@@ -195,7 +211,8 @@ int lookup_path(struct lookupdata *ld)
     
     // TODO: Check component is a directory, check permissions
   }
-     
+
+  Info ("lookup_path rc=%d", rc);     
   return rc;
 }
 
@@ -233,6 +250,8 @@ char *path_token(struct lookupdata *ld)
   char *ch;
   char *name;
 
+  Info ("path_token");
+
   ch = ld->position;
   
   while (*ch == '/') {
@@ -261,6 +280,8 @@ char *path_token(struct lookupdata *ld)
   }
 
   *ch = '\0';
+  
+  Info ("path_token retval: %s", name);
   return name;
 }
 
@@ -322,12 +343,14 @@ int walk_component(struct lookupdata *ld)
     return -ENOTDIR;   
  
   } else if (StrCmp(ld->last_component, ".") == 0) {    
-    
+    Info("walk_comp - last comp is .");    
     vnode_inc_ref(ld->parent);    
     ld->vnode = ld->parent;
     return 0;
   
   } else if (StrCmp(ld->last_component, "..") == 0) {
+    Info("walk_comp - last comp is ..");    
+
     if (ld->parent == root_vnode) {
       vnode_inc_ref(root_vnode);
       ld->vnode = root_vnode;
@@ -340,7 +363,7 @@ int walk_component(struct lookupdata *ld)
       ld->parent = ld->parent->vnode_covered;
     }
   }
-
+  
   KASSERT(ld->parent != NULL);
     
   if ((rc = vfs_lookup(ld->parent, ld->last_component, &ld->vnode)) != 0) {

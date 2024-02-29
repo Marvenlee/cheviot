@@ -87,13 +87,23 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 sbin_PROGRAMS = boot$(EXEEXT)
-@BOARD_RASPBERRY_PI_1_TRUE@am__append_1 = boards/raspberry_pi_1/arm.S \
-@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/arm_misc.c \
-@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/debug_pl011_uart.c
+@BOARD_RASPBERRY_PI_1_TRUE@am__append_1 = boards/raspberry_pi_1/aux_uart.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/bootstrap.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/debug.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/gpio.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/init.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/led.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/memory.c \
+@BOARD_RASPBERRY_PI_1_TRUE@                boards/raspberry_pi_1/start.S 
 
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@am__append_2 = boards/raspberry_pi_4/arm.S \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/arm_misc.c \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/debug_mini_uart.c
+@BOARD_RASPBERRY_PI_4_TRUE@am__append_2 = boards/raspberry_pi_4/aux_uart.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/bootstrap.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/debug.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/gpio.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/init.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/led.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/memory.c \
+@BOARD_RASPBERRY_PI_4_TRUE@                boards/raspberry_pi_4/start.S 
 
 subdir = boot
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -106,25 +116,38 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 PROGRAMS = $(sbin_PROGRAMS)
-am__boot_SOURCES_DIST = bootstrap.c doprintf.c elf.c globals.c main.c \
-	mbox.c memory.c mmio.c start.S boards/raspberry_pi_1/arm.S \
-	boards/raspberry_pi_1/arm_misc.c \
-	boards/raspberry_pi_1/debug_pl011_uart.c \
-	boards/raspberry_pi_4/arm.S boards/raspberry_pi_4/arm_misc.c \
-	boards/raspberry_pi_4/debug_mini_uart.c
+am__boot_SOURCES_DIST = doprintf.c elf.c globals.c main.c \
+	boards/raspberry_pi_1/aux_uart.c \
+	boards/raspberry_pi_1/bootstrap.c \
+	boards/raspberry_pi_1/debug.c boards/raspberry_pi_1/gpio.c \
+	boards/raspberry_pi_1/init.c boards/raspberry_pi_1/led.c \
+	boards/raspberry_pi_1/memory.c boards/raspberry_pi_1/start.S \
+	boards/raspberry_pi_4/aux_uart.c \
+	boards/raspberry_pi_4/bootstrap.c \
+	boards/raspberry_pi_4/debug.c boards/raspberry_pi_4/gpio.c \
+	boards/raspberry_pi_4/init.c boards/raspberry_pi_4/led.c \
+	boards/raspberry_pi_4/memory.c boards/raspberry_pi_4/start.S
 am__dirstamp = $(am__leading_dot)dirstamp
-@BOARD_RASPBERRY_PI_1_TRUE@am__objects_1 = boards/raspberry_pi_1/arm.$(OBJEXT) \
-@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/arm_misc.$(OBJEXT) \
-@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/debug_pl011_uart.$(OBJEXT)
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@am__objects_2 = boards/raspberry_pi_4/arm.$(OBJEXT) \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/arm_misc.$(OBJEXT) \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/debug_mini_uart.$(OBJEXT)
-am_boot_OBJECTS = bootstrap.$(OBJEXT) doprintf.$(OBJEXT) elf.$(OBJEXT) \
-	globals.$(OBJEXT) main.$(OBJEXT) mbox.$(OBJEXT) \
-	memory.$(OBJEXT) mmio.$(OBJEXT) start.$(OBJEXT) \
-	$(am__objects_1) $(am__objects_2)
+@BOARD_RASPBERRY_PI_1_TRUE@am__objects_1 = boards/raspberry_pi_1/aux_uart.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/bootstrap.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/debug.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/gpio.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/init.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/led.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/memory.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/start.$(OBJEXT)
+@BOARD_RASPBERRY_PI_4_TRUE@am__objects_2 = boards/raspberry_pi_4/aux_uart.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/bootstrap.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/debug.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/gpio.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/led.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/memory.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/start.$(OBJEXT)
+am_boot_OBJECTS = doprintf.$(OBJEXT) elf.$(OBJEXT) globals.$(OBJEXT) \
+	main.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 boot_OBJECTS = $(am_boot_OBJECTS)
-boot_LDADD = $(LDADD)
+boot_DEPENDENCIES =
 boot_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(boot_LDFLAGS) $(LDFLAGS) \
 	-o $@
 AM_V_P = $(am__v_P_@AM_V@)
@@ -142,15 +165,24 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/bootstrap.Po ./$(DEPDIR)/doprintf.Po \
-	./$(DEPDIR)/elf.Po ./$(DEPDIR)/globals.Po ./$(DEPDIR)/main.Po \
-	./$(DEPDIR)/mbox.Po ./$(DEPDIR)/memory.Po ./$(DEPDIR)/mmio.Po \
-	./$(DEPDIR)/start.Po boards/raspberry_pi_1/$(DEPDIR)/arm.Po \
-	boards/raspberry_pi_1/$(DEPDIR)/arm_misc.Po \
-	boards/raspberry_pi_1/$(DEPDIR)/debug_pl011_uart.Po \
-	boards/raspberry_pi_4/$(DEPDIR)/arm.Po \
-	boards/raspberry_pi_4/$(DEPDIR)/arm_misc.Po \
-	boards/raspberry_pi_4/$(DEPDIR)/debug_mini_uart.Po
+am__depfiles_remade = ./$(DEPDIR)/doprintf.Po ./$(DEPDIR)/elf.Po \
+	./$(DEPDIR)/globals.Po ./$(DEPDIR)/main.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/bootstrap.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/debug.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/gpio.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/init.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/led.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/memory.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/start.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/bootstrap.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/debug.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/gpio.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/init.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/led.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/memory.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/start.Po
 am__mv = mv -f
 CPPASCOMPILE = $(CCAS) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CCASFLAGS) $(CCASFLAGS)
@@ -288,23 +320,25 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-boot_SOURCES = bootstrap.c doprintf.c elf.c globals.c main.c mbox.c \
-	memory.c mmio.c start.S $(am__append_1) $(am__append_2)
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
+boot_SOURCES = doprintf.c elf.c globals.c main.c $(am__append_1) \
+	$(am__append_2)
+@BOARD_RASPBERRY_PI_1_TRUE@boot_LDADD = -lrpihal
+@BOARD_RASPBERRY_PI_4_TRUE@boot_LDADD = -lrpihal
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
+@BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
+@BOARD_RASPBERRY_PI_4_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@boot_LDFLAGS = -v \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@               -nostartfiles \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@               -lgcc \
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@               -T $(srcdir)/linker.ls
-
+@BOARD_RASPBERRY_PI_4_TRUE@AM_CCASFLAGS = -march=armv7ve -r -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
 @BOARD_RASPBERRY_PI_1_TRUE@boot_LDFLAGS = -v \
 @BOARD_RASPBERRY_PI_1_TRUE@               -nostartfiles \
 @BOARD_RASPBERRY_PI_1_TRUE@               -lgcc \
-@BOARD_RASPBERRY_PI_1_TRUE@               -T $(srcdir)/linker.ls
+@BOARD_RASPBERRY_PI_1_TRUE@               -T $(srcdir)/boards/raspberry_pi_1/linker.ls
+
+@BOARD_RASPBERRY_PI_4_TRUE@boot_LDFLAGS = -v \
+@BOARD_RASPBERRY_PI_4_TRUE@               -nostartfiles \
+@BOARD_RASPBERRY_PI_4_TRUE@               -lgcc \
+@BOARD_RASPBERRY_PI_4_TRUE@               -T $(srcdir)/boards/raspberry_pi_4/linker.ls
 
 all: all-am
 
@@ -387,13 +421,28 @@ boards/raspberry_pi_1/$(am__dirstamp):
 boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) boards/raspberry_pi_1/$(DEPDIR)
 	@: > boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_1/arm.$(OBJEXT):  \
+boards/raspberry_pi_1/aux_uart.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_1/arm_misc.$(OBJEXT):  \
+boards/raspberry_pi_1/bootstrap.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_1/debug_pl011_uart.$(OBJEXT):  \
+boards/raspberry_pi_1/debug.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/gpio.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/init.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/led.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/memory.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/start.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_4/$(am__dirstamp):
@@ -402,13 +451,28 @@ boards/raspberry_pi_4/$(am__dirstamp):
 boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) boards/raspberry_pi_4/$(DEPDIR)
 	@: > boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_4/arm.$(OBJEXT):  \
+boards/raspberry_pi_4/aux_uart.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_4/arm_misc.$(OBJEXT):  \
+boards/raspberry_pi_4/bootstrap.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_4/debug_mini_uart.$(OBJEXT):  \
+boards/raspberry_pi_4/debug.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/gpio.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/init.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/led.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/memory.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/start.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
 
@@ -424,21 +488,26 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bootstrap.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/doprintf.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/elf.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/globals.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mbox.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memory.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mmio.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/start.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/arm.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/arm_misc.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/debug_pl011_uart.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/arm.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/arm_misc.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/debug_mini_uart.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/bootstrap.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/debug.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/gpio.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/init.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/led.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/memory.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/start.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/bootstrap.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/debug.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/gpio.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/led.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/memory.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/start.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -608,21 +677,26 @@ clean: clean-am
 clean-am: clean-generic clean-sbinPROGRAMS mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ./$(DEPDIR)/bootstrap.Po
-	-rm -f ./$(DEPDIR)/doprintf.Po
+		-rm -f ./$(DEPDIR)/doprintf.Po
 	-rm -f ./$(DEPDIR)/elf.Po
 	-rm -f ./$(DEPDIR)/globals.Po
 	-rm -f ./$(DEPDIR)/main.Po
-	-rm -f ./$(DEPDIR)/mbox.Po
-	-rm -f ./$(DEPDIR)/memory.Po
-	-rm -f ./$(DEPDIR)/mmio.Po
-	-rm -f ./$(DEPDIR)/start.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/arm.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/arm_misc.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/debug_pl011_uart.Po
-	-rm -f boards/raspberry_pi_4/$(DEPDIR)/arm.Po
-	-rm -f boards/raspberry_pi_4/$(DEPDIR)/arm_misc.Po
-	-rm -f boards/raspberry_pi_4/$(DEPDIR)/debug_mini_uart.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/bootstrap.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/debug.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/gpio.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/init.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/led.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/memory.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/start.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/bootstrap.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/debug.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/gpio.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/led.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/memory.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/start.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -668,21 +742,26 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/bootstrap.Po
-	-rm -f ./$(DEPDIR)/doprintf.Po
+		-rm -f ./$(DEPDIR)/doprintf.Po
 	-rm -f ./$(DEPDIR)/elf.Po
 	-rm -f ./$(DEPDIR)/globals.Po
 	-rm -f ./$(DEPDIR)/main.Po
-	-rm -f ./$(DEPDIR)/mbox.Po
-	-rm -f ./$(DEPDIR)/memory.Po
-	-rm -f ./$(DEPDIR)/mmio.Po
-	-rm -f ./$(DEPDIR)/start.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/arm.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/arm_misc.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/debug_pl011_uart.Po
-	-rm -f boards/raspberry_pi_4/$(DEPDIR)/arm.Po
-	-rm -f boards/raspberry_pi_4/$(DEPDIR)/arm_misc.Po
-	-rm -f boards/raspberry_pi_4/$(DEPDIR)/debug_mini_uart.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/bootstrap.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/debug.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/gpio.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/init.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/led.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/memory.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/start.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/bootstrap.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/debug.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/gpio.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/led.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/memory.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/start.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -718,9 +797,6 @@ uninstall-am: uninstall-sbinPROGRAMS
 
 .PRECIOUS: Makefile
 
-
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_FALSE@  echo "BOARD env variable not valid";
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_FALSE@  exit -1;
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

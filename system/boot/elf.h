@@ -1,7 +1,11 @@
 #ifndef ELF_H
 #define ELF_H
 
-#include "types.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <machine/cheviot_hal.h>
+
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 

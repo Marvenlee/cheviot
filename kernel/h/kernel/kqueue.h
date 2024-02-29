@@ -45,34 +45,36 @@ struct KQueue
  */
 struct KNote
 {
-  knote_link_t link;       // free list
-  knote_link_t hash_link;  // hash table lookup;  
-  knote_link_t kqueue_link;  // kqueue's list of knotes
-  knote_link_t pending_link; // kqueue's list of pending knote events
-  knote_link_t object_link;    // List of knotes attached to object being monitored (e.g. vnode, process)
+  knote_link_t link;          // free list
+  knote_link_t hash_link;     // hash table lookup;  
+  knote_link_t kqueue_link;   // kqueue's list of knotes
+  knote_link_t pending_link;  // kqueue's list of pending knote events
+  knote_link_t object_link;   // List of knotes attached to object being monitored (e.g. vnode, process)
   
-	struct KQueue *kqueue;	/* which queue we are on */
-  bool pending;
-  bool on_pending_list;
-	int hint;
+  struct KQueue *kqueue;	    // which kqueue we belong to 
+  bool enabled;               // knote is listening for events and can put on pending list
+  bool pending;               // knote has an event pending
+  bool on_pending_list;       // knote is already on the pending list.
+  int hint;
 	
   int ident;
   int filter;  
-	int flags;
+  int flags;
   int fflags;
-  void *data;         // same as object?
-	void *udata;		    // opaque user data identifier
+  void *data;                 // kernel object it points to?
+  void *udata;	              // opaque user data identifier
 	
-  // int sfflags;	    // saved filter flags
-  // intptr_t sdata;	// saved data field
-
-  void *object;   // opaque pointer to vnode, msgport, isr_handler, process  
+  void *object;               // opaque pointer to vnode, msgport, isr_handler, process  
 };
 
 
 /*
  * Prototypes
  */
+ 
+void enable_knote(struct KQueue *kqueue, struct KNote *knote);
+void disable_knote(struct KQueue *kqueue, struct KNote *knote);
+
 int sys_kqueue(void);
 int sys_kevent(int kq, const struct kevent	*changelist, int nchanges,
                struct	kevent *eventlist, int nevents, const struct timespec *timeout);

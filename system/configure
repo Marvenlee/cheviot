@@ -4384,7 +4384,7 @@ else
 fi
 
 
-ac_config_files="$ac_config_files Makefile etc/Makefile boot/Makefile drivers/Makefile drivers/sdcard/Makefile drivers/serial/Makefile filesystems/Makefile filesystems/devfs/Makefile filesystems/extfs/Makefile filesystems/fatfs/Makefile filesystems/ifs/Makefile init/Makefile"
+ac_config_files="$ac_config_files Makefile etc/Makefile boot/Makefile drivers/Makefile drivers/aux/Makefile drivers/null/Makefile drivers/random/Makefile drivers/sdcard/Makefile drivers/serial/Makefile filesystems/Makefile filesystems/devfs/Makefile filesystems/extfs/Makefile filesystems/fatfs/Makefile filesystems/ifs/Makefile init/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -5140,6 +5140,9 @@ do
     "etc/Makefile") CONFIG_FILES="$CONFIG_FILES etc/Makefile" ;;
     "boot/Makefile") CONFIG_FILES="$CONFIG_FILES boot/Makefile" ;;
     "drivers/Makefile") CONFIG_FILES="$CONFIG_FILES drivers/Makefile" ;;
+    "drivers/aux/Makefile") CONFIG_FILES="$CONFIG_FILES drivers/aux/Makefile" ;;
+    "drivers/null/Makefile") CONFIG_FILES="$CONFIG_FILES drivers/null/Makefile" ;;
+    "drivers/random/Makefile") CONFIG_FILES="$CONFIG_FILES drivers/random/Makefile" ;;
     "drivers/sdcard/Makefile") CONFIG_FILES="$CONFIG_FILES drivers/sdcard/Makefile" ;;
     "drivers/serial/Makefile") CONFIG_FILES="$CONFIG_FILES drivers/serial/Makefile" ;;
     "filesystems/Makefile") CONFIG_FILES="$CONFIG_FILES filesystems/Makefile" ;;

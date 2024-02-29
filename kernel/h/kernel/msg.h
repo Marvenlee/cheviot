@@ -71,6 +71,8 @@ int ksendmsg(struct MsgPort *msgport, int siov_cnt, struct IOV *siov, int riov_c
 int kputmsg(struct MsgPort *msgport, struct Msg *msg);
 int kreplymsg(struct Msg *msg);
 struct Msg *kgetmsg(struct MsgPort *port);
+struct Msg *kpeekmsg(struct MsgPort *port);
+
 int kwaitport(struct MsgPort *msgport, struct timespec *timeout);
 int seekiov(int iov_cnt, struct IOV *iov, off_t offset, int *i, size_t *iov_remaining);
 

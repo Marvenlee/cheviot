@@ -8,7 +8,7 @@ AM_CCASFLAGS = -r -DBOARD_RASPBERRY_PI_1
 else
 if BOARD_RASPBERRY_PI_4
 
-AM_CFLAGS = -O2 -std=c99 -g0
+AM_CFLAGS = -O0 -std=c99 -g2
 AM_CPPFLAGS = -DBOARD_RASPBERRY_PI_4
 AM_CCASFLAGS = -r -DBOARD_RASPBERRY_PI_4
 
@@ -19,5 +19,5 @@ else
 endif
 endif
 
-
 SUBDIRS = boot drivers filesystems init etc
+

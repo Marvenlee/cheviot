@@ -127,11 +127,12 @@ void DoLog(const char *format, ...);
 void KLog2(const char *format, va_list ap);
 void PrintKernelPanic(char *format, ...);
 void KLogToScreenDisable(void);
-void KPrintXY(int x, int y, char *s);
 
 void ProcessesInitialized(void);
 
-void MemDump(void *addr, size_t sz);
+void PrintUserContext(struct UserContext *uc);
+void PrintMemDump(uint32_t base, size_t word_cnt);
+
 
 void LogFDs(void);
 

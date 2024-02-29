@@ -107,6 +107,9 @@ void *sys_virtualalloc(void *_addr, size_t len, bits32_t flags)
   }
 
   pmap_flush_tlbs();
+  
+  Info("%08x = sys_virtualalloc(len:%d, flags:%08x)", (uint32_t)addr, len, flags);
+
   return (void *)addr;
 
 cleanup:

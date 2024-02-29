@@ -76,21 +76,34 @@ int main(int argc, char *argv[])
   int rc;
   
   init_ifs(argc, argv);
+  
+  log_info("init_ifs complete !");
+  
+  log_info("first fork of root...");
     
   rc = fork();
 
+  log_info("forked");
+
   if (rc > 0) {
+    log_info("root forked, rc > 0, (parent), rc=%d", rc);
+    log_info("calling close and exec_init");
     // We are still the root process (pid 0 ?)
     close(portid);
     portid = -1;
     exec_init();
   } else if (rc == 0) {
+    log_info("root forked, rc == 0, child process");
+    log_info("child process pid = %d", getpid());
+    log_info("calling ifs message loop");
     // We are the second process (pid 1 ?), the IFS handler process
     ifs_message_loop();
   } else {
     log_error("ifs fork failed, exiting: rc:%d", rc);
     return EXIT_FAILURE;
   }
+
+  log_info("end of main, returning 0");
   
   return 0;
 }
@@ -104,31 +117,41 @@ static void exec_init(void)
   int rc;
 
   log_info("exec_init()");
-    
+  log_info ("second fork()");
+  
   rc = fork();
 
-  log_info ("forked, rc = %d", rc);
+  log_info("forked again, rc = %d", rc);
 
   if (rc > 0) {
+    log_info("Calling reap_processes");
     // We are still the root process (pid 0), the root reaper process
     reap_processes();
-  } else if (rc == 0) {  
+    log_info("reap processes returned");
+    
+  } else if (rc == 0) {
     log_info("sleeping before execing /sbin/init");
 
-//    sleep(5);   // FIXME: This shouldn't need to wait as mount created prior to forking.
-
+    sleep(5);   // FIXME: We need this due to current race condition where
+                // /sbin/init sends an lookup message but we've not registered
+                // the event with kqueue yet in the ifs_message_loop.
+                // FIXME: Need to check for existing pending events in kqueue
+                  
     // We are the third process (pid 2), the init process.
     log_info("execing /sbin/init");
     
     rc = execl("/sbin/init", NULL);        
+    
     log_error("ifs exec failed, %d", rc);
     exit(EXIT_FAILURE);  
   }
   
   if (rc == -1) {
-    log_error("ifs second fork failed");
+    log_error("ifs second fork failed, rc=-1");
     exit(EXIT_FAILURE);  
   }
+  
+  log_info("exec_init returning");
 }
 
 
@@ -137,9 +160,13 @@ static void exec_init(void)
  */
 static void reap_processes(void)
 {
+  log_info("reap_processes");
+  
   while(waitpid(-1, NULL, 0) != 0) {
     sleep(5);
   }
+  
+  log_info("reap_processes exiting, waitpid returned 0");
 }
 
 
@@ -153,6 +180,8 @@ static void ifs_message_loop(void)
   int nevents;
   struct kevent ev;
   msgid_t msgid;
+  
+  log_info("ifs_message_loop");  
     
   EV_SET(&ev, portid, EVFILT_MSGPORT, EV_ADD | EV_ENABLE, 0, 0, 0); 
   kevent(kq, &ev, 1,  NULL, 0, NULL);
@@ -215,11 +244,12 @@ static void ifs_lookup(msgid_t msgid, struct fsreq *req)
   memset(&reply, 0, sizeof reply);
   
   sz = readmsg(portid, msgid, name, req->args.lookup.name_sz, sizeof *req);
-
   name[255] = '\0';
+  
   ifs_dir_node = &ifs_inode_table[req->args.lookup.dir_inode_nr];
-
+  
   for (int inode_nr = 0; inode_nr < ifs_header->node_cnt; inode_nr++) {
+    
     if (ifs_inode_table[inode_nr].parent_inode_nr != ifs_dir_node->inode_nr) {
       continue;
     }
@@ -238,6 +268,8 @@ static void ifs_lookup(msgid_t msgid, struct fsreq *req)
       return;
     }
   }
+
+  log_warn("ifs_lookup failed, -ENOENT");
   
   replymsg(portid, msgid, -ENOENT, &reply, sizeof reply);
 }
@@ -264,6 +296,8 @@ static void ifs_read(msgid_t msgid, struct fsreq *req)
   off64_t offset;
   size_t count;
 
+//  log_info("ifs_read");
+
   rnode = &ifs_inode_table[req->args.read.inode_nr];  
   offset = req->args.read.offset;
   count = req->args.read.sz;  
@@ -273,6 +307,8 @@ static void ifs_read(msgid_t msgid, struct fsreq *req)
   nbytes_read = (count < remaining) ? count : remaining;
   
   if (nbytes_read >= 1) {
+//    log_info("ifs read, writemsg nbytes_read:%d", nbytes_read);
+
     nbytes_read = writemsg(portid, msgid, src, nbytes_read, 0);
   }
 

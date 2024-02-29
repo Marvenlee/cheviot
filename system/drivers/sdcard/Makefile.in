@@ -101,7 +101,7 @@ PROGRAMS = $(sbin_PROGRAMS)
 am_sdcard_OBJECTS = emmc.$(OBJEXT) globals.$(OBJEXT) init.$(OBJEXT) \
 	main.$(OBJEXT) mbox.$(OBJEXT) mmio.$(OBJEXT) timer.$(OBJEXT)
 sdcard_OBJECTS = $(am_sdcard_OBJECTS)
-sdcard_LDADD = $(LDADD)
+sdcard_DEPENDENCIES =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -260,12 +260,13 @@ sdcard_SOURCES = \
   mmio.c \
   timer.c 
 
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
+sdcard_LDADD = -lrpihal
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
+@BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
+@BOARD_RASPBERRY_PI_4_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
+@BOARD_RASPBERRY_PI_4_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
 all: all-am
 
 .SUFFIXES:
@@ -602,9 +603,6 @@ uninstall-am: uninstall-sbinPROGRAMS
 
 .PRECIOUS: Makefile
 
-
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_FALSE@  echo "BOARD env variable not valid";
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_FALSE@  exit -1;
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

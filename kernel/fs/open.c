@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -37,6 +37,8 @@ int sys_open(char *_path, int oflags, mode_t mode)
   struct lookupdata ld;
   int sc;
 
+  Info("sys_open");
+
   if ((sc = lookup(_path, LOOKUP_PARENT, &ld)) != 0) {
     Error("Open - lookup failed, sc = %d", sc);
     return sc;
@@ -51,6 +53,8 @@ int sys_open(char *_path, int oflags, mode_t mode)
 int kopen(char *_path, int oflags, mode_t mode) {
   struct lookupdata ld;
   int sc;
+
+  Info("kopen: %s", _path);
 
   if ((sc = lookup(_path, LOOKUP_PARENT | LOOKUP_KERNEL, &ld)) != 0) {
     Error("Kopen - lookup failed, sc = %d", sc);

@@ -9,8 +9,8 @@ ExternalProject_Add (
 	                   CFLAGS=-march=armv6 --prefix=${CMAKE_CURRENT_BINARY_DIR}/build/host/boot
 	BUILD_ALWAYS      OFF
 	INSTALL_DIR       ${CMAKE_CURRENT_BINARY_DIR}/build/host/boot
-	DEPENDS           newlib
+	DEPENDS           newlib hal
 	BUILD_COMMAND     make
+	INSTALL_COMMAND   pseudo make install
 )
-
 

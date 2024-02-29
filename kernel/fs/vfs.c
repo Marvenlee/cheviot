@@ -19,7 +19,7 @@
  * servers.
  */
 
-//#define KDEBUG
+//#define KDEBUG 1
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -48,6 +48,8 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   size_t name_sz;
   int sc;
 
+  Info("vfs_lookup(dvn:%08x, name: %s)",(uint32_t)dvnode, name);
+
   KASSERT(dvnode != NULL);
   KASSERT(name != NULL);
   KASSERT(result != NULL);  
@@ -69,12 +71,22 @@ int vfs_lookup(struct VNode *dvnode, char *name,
   riov[0].addr = &reply;
   riov[0].size = sizeof reply;
   
+  reply.args.lookup.inode_nr = 0xbeefdead;
+  reply.args.lookup.size = 0xdeadbeef;
+  
+  Info("vfs_lookup sizeof reply buf=%08x", riov[0].size);
+  Info("vfs_lookup name_sz = %d", siov[1].size);
+  Info("vfs_lookup - ksendmsg");
   sc = ksendmsg(&sb->msgport, NELEM(siov), siov, NELEM(riov), riov);
 
   if (sc != 0) {
+    Info("ksendmsg failed, sc:%d", sc);
     *result = NULL;
     return sc;
   }
+  
+  Info("vfs_lookup reply, inode_nr=%d", reply.args.lookup.inode_nr);
+  Info("vfs_lookup reply, size = %d", (uint32_t)reply.args.lookup.size);
   
   if (reply.args.lookup.inode_nr == dvnode->inode_nr) {
     vnode_inc_ref(dvnode);
@@ -87,6 +99,7 @@ int vfs_lookup(struct VNode *dvnode, char *name,
     vnode = vnode_new(sb, reply.args.lookup.inode_nr);
 
     if (vnode == NULL) {
+      Info("vfs_lookup, vnode_new -ENOMEM");
       return -ENOMEM;
     }
 
@@ -99,6 +112,7 @@ int vfs_lookup(struct VNode *dvnode, char *name,
     vnode->flags = V_VALID;
   } 
 
+  Info("vfs_lookup result: vnode:%08x, ino:%d", (uint32_t)vnode, vnode->inode_nr);
   *result = vnode;
   return 0;
 }
@@ -121,9 +135,8 @@ ssize_t vfs_read(struct VNode *vnode, void *dst, size_t nbytes, off64_t *offset)
 {
   struct SuperBlock *sb;
   struct fsreq req = {0};
-  struct fsreply reply = {0};
   struct IOV siov[1];
-  struct IOV riov[2];
+  struct IOV riov[1];
   int nbytes_read;
 
   KASSERT(vnode != NULL);
@@ -146,15 +159,13 @@ ssize_t vfs_read(struct VNode *vnode, void *dst, size_t nbytes, off64_t *offset)
   
   siov[0].addr = &req;
   siov[0].size = sizeof req;
-
-  riov[0].addr = &reply;
-  riov[0].size = sizeof reply;
-  riov[1].addr = dst;
-  riov[1].size = nbytes;
+  riov[0].addr = dst;
+  riov[0].size = nbytes;
 
   nbytes_read = ksendmsg(&sb->msgport, NELEM(siov), siov, NELEM(riov), riov);
 
   if (nbytes_read < 0) {
+    Info("vfs_read error :%d", nbytes_read);
     return nbytes_read;    
   }
 
@@ -162,6 +173,7 @@ ssize_t vfs_read(struct VNode *vnode, void *dst, size_t nbytes, off64_t *offset)
     *offset += nbytes_read;
   }
 
+  Info("vfs_read nbytes_read:%d", nbytes_read);
   return nbytes_read;
 }
 
@@ -172,10 +184,10 @@ ssize_t vfs_write(struct VNode *vnode, void *src, size_t nbytes, off64_t *offset
 {
   struct SuperBlock *sb;
   struct fsreq req = {0};
-  struct fsreply reply = {0};
   struct IOV siov[2];
-  struct IOV riov[1];
   int nbytes_written;
+
+  Info("vfs_write nbytes:%d, offset:%08x", nbytes, (uint32_t)offset);
 
   sb = vnode->superblock;
 
@@ -197,10 +209,7 @@ ssize_t vfs_write(struct VNode *vnode, void *src, size_t nbytes, off64_t *offset
   siov[1].addr = src;
   siov[1].size = nbytes;
 
-  riov[0].addr = &reply;
-  riov[0].size = sizeof reply;
-
-  nbytes_written = ksendmsg(&sb->msgport, NELEM(siov), siov, NELEM(riov), riov);
+  nbytes_written = ksendmsg(&sb->msgport, NELEM(siov), siov, 0, NULL);
   
   if (nbytes_written < 0) {
     return nbytes_written;  
@@ -243,10 +252,7 @@ int vfs_write_async(struct SuperBlock *sb, struct DelWriMsg *msg, struct Buf *bu
   msg->siov[1].addr = buf->data;
   msg->siov[1].size = nbytes;
 
-  msg->riov[0].addr = &msg->reply;
-  msg->riov[0].size = sizeof msg->reply;
-
-  sc = ksendmsg(&sb->msgport, NELEM(msg->siov), msg->siov, NELEM(msg->riov), msg->riov);
+  sc = ksendmsg(&sb->msgport, NELEM(msg->siov), msg->siov, 0, NULL);
   return sc;
 }
 

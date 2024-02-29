@@ -17,7 +17,8 @@
 #include <poll.h>
 #include <unistd.h>
 #include <sys/event.h>
-
+#include <machine/cheviot_hal.h>
+#include "peripheral_base.h"
 
 /* @brief   Initialize the sdcard device driver
  *
@@ -131,25 +132,15 @@ int map_io_registers(void)
   log_info("map_io_registers");
   
   emmc_base = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE  | CACHE_UNCACHEABLE,
-                                         (void *)EMMC_BASE_PA);
+                                         (void *)EMMC_BASE);
                                          
-  // Mailbox buffer address, this will be set to 0x40007000 which is an alias of
-  // 0x00007000 physical but L2 cache coherent.  TODO: Ensure we reserve mem at 0x7000 for this.
-  
-  mb_addr = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE  | CACHE_UNCACHEABLE,
-                                       (void *)MB_ADDR_PA);                                       
-  timer_clo = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE,
-                                         (void *)TIMER_BASE_PA);
-  timer_clo += TIMER_CLO_OFFSET;
+  // mbox_base is io registers
   mbox_base = (uint32_t)virtualallocphys(0, 8092, PROT_READ | PROT_WRITE | CACHE_UNCACHEABLE,
-                                         (void *)MBOX_BASE_PA);
+                                         (void *)MBOX_BASE);
   mbox_base += MBOX_BASE_OFFSET;
 
-
-  log_info("emmc_base: %08x, pa:%08x", (uint32_t)emmc_base, EMMC_BASE_PA);
-  log_info("mb_addr  : %08x, pa:%08x", (uint32_t)mb_addr, MB_ADDR_PA);
-  log_info("timer clo: %08x, pa:%08x (base)", (uint32_t)timer_clo, TIMER_BASE_PA);
-  log_info("mbox_base: %08x, pa:%08x (base)", (uint32_t)mbox_base, MBOX_BASE_PA);
+  log_info("emmc_base:  %08x, pa:%08x", (uint32_t)emmc_base, EMMC_BASE);
+  log_info("mbox_base:  %08x, pa:%08x (base)", (uint32_t)mbox_base, MBOX_BASE);
 
   return 0;
 }

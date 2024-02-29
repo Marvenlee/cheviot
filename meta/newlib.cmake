@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.5)
 
 include(ExternalProject)
 
-
 ExternalProject_Add (
   newlib-interim
   URL               ftp://sourceware.org/pub/newlib/newlib-4.1.0.tar.gz
@@ -14,7 +13,7 @@ ExternalProject_Add (
 	                    --target=arm-none-eabi --disable-newlib-supplied-syscalls
 	                    --enable-interwork --enable-multilib	                    
   BUILD_ALWAYS      OFF
-  DEPENDS           gcc-native-install binutils-native
+  DEPENDS           gcc-native-install binutils-native hostdirs
   INSTALL_DIR       ${CMAKE_CURRENT_BINARY_DIR}/build/native/
   BUILD_COMMAND     make
   INSTALL_COMMAND   make install

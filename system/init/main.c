@@ -397,25 +397,35 @@ int cmdSettty (void) {
   int old_fd;
   char *tty;
 
+  log_info("***** cmdSettty *****");
+
   tty = tokenize(NULL);
   
   if (tty == NULL) {
+    log_info("tty token not present");
     return -1;
   }
+  
+  log_info("open tty, path:%s", tty);
   
   old_fd = open(tty, O_RDWR);  
   
   if (old_fd == -1) {
+    log_info("open tty failed");    
     return -1;
   }
   
-  fd = fcntl(old_fd, F_DUPFD, 5);
+  fd = fcntl(old_fd, F_DUPFD, 20);
+
+  log_info("fcntl old_fd=%d, res fd=%d", old_fd, fd);    
 
   close(old_fd);
 
   dup2(fd, STDIN_FILENO);
   dup2(fd, STDOUT_FILENO);
   dup2(fd, STDERR_FILENO);
+  
+  log_info("printing greeting");
   
   setbuf(stdout, NULL);  
   PrintGreeting();
@@ -503,7 +513,6 @@ char *readLine(void)
     linebuf[255] = '\0';
     
     if (*src == '\0') {
-        log_info("no more file to read, src:%08x", src);
         return NULL; 
     }
         
@@ -517,7 +526,9 @@ char *readLine(void)
     
     *dst = '\0';
     
+#if 0
     log_info("startup.cfg: %s", linebuf);
+#endif
     
     return linebuf;
 }
@@ -528,31 +539,21 @@ char *readLine(void)
  */
 void PrintGreeting(void)
 {
-	printf("\033[0;0H\033[0J");	
-	printf("            \033[33mxodxxxxxooolooxkxxdcx\033[m\n");
-	printf("              \033[32mkkkxo::do:cdxkkox\033[m\n");
-	printf("            \033[32mXl;:cc::::::::cc;cOKWW\033[m\n");
-	printf("          \033[32mKkoc:c:::::::::::::::::oxO\033[m\n");
-	printf("        \033[32mOo:::;;;:ccccccccccccc:;;;;;cxK\033[m\n");
-	printf("      \033[32mOc;;:::cccccccccccccccccccccc;;,,d\033[m\n");
-	printf("     \033[32mk;,:ccccccccccccccccccccccccccccc:':X\033[m\n");
-	printf("    \033[32md,:ccccccccccccccccccccccccccccccccc:c0\033[m\n");
-	printf("   \033[32mo:ccccccccccc:c:;::;;;;:;:::ccccccccccccx\033[m\n");
-	printf("  \033[32mdclccccc:;;:::;;;;:;,,,,::;;;:::;;:cccccc:k\033[m\n");
-	printf("  \033[32mccccc:;;;,,'\033[m;okkOKNd....kNKOkxc'\033[32m;;;:;:ccccl\033[m\n");
-	printf("  \033[32mccc:;;;,.   \033[mcWMMMMMX'..:NMMMMMk.\033[32m ..,;;,;ccl\033[m    hello AGAIN\n");
-	printf("  \033[32mlc;;;,.     \033[mcWMMMMMW:..oMMMMWWO..\033[32m   ..;;;:l\033[m\n");
-	printf("  \033[32mo;;:':'     \033[m:NMMMMX0l..xN0WMMMO..\033[32m    ..,:,o\033[m\n");
-	printf("   \033[32m,c,;,'    \033[m..0MMMWl'c .dk'KMWMx  \033[32m    ..'::x\033[m\n");
-	printf("    \033[32mlc;'..    \033[m.oWMMMX0c .cXKWMMWc. \033[32m    ..:ox\033[m\n");
-	printf("       \033[32m0c.    \033[m..dWMMMN,...kMMMWx.  \033[32m   .,cm\033[m\n");
-	printf("       \033[32mO:,.    \033[m..xWWWd....,KWKc.  \033[32m   .':;O\033[m\n");
-	printf("      \033[32mO;,:c;.\033[m    .':,...   ... \033[32m    .,cc;;c\033[m\n");
-	printf("    \033[32md:,:ccccc,.... ..      .......;cllcc,;;d\033[m\n");
-	printf("    \033[32mKc:,:lcccc:codl;,......,:lxOXKlcllc;:c0\033[m\n");
-	printf("     \033[32mXo:;:cccd0     \033[31mWK,.''cXW\033[32m      kc:;:oK\033[m\n");
-	printf("      \033[32mWxlcoO      \033[31mW0c,'','',:xN\033[32m     0dxK\033[m\n");
-	printf("                 \033[31mOl,',,,,,,,,':O\033[m\n\n");
+#if 1
+  printf("\033[0;0H\033[0J\r\n\n");
+
+  printf("  \033[34;1m   .oooooo.   oooo                               o8o                .   \033[37;1m      .oooooo.    .ooooooo.  \n");
+  printf("  \033[34;1m  d8P'  `Y8b  `888                               `^'              .o8   \033[37;1m     d8P'  `Y8b  d8P'   `Y8b \n");
+  printf("  \033[34;1m 888           888 .oo.    .ooooo.  oooo    ooo oooo   .ooooo.  .o888oo \033[37;1m    888      888 Y88bo.      \n");
+  printf("  \033[34;1m 888           888P^Y88b  d88' `88b  `88.  .8'  `888  d88' `88b   888   \033[37;1m    888      888  `^Y8888o.  \n");
+  printf("  \033[34;1m 888           888   888  888ooo888   `88..8'    888  888   888   888   \033[37;1m    888      888      `^Y88b \n");
+  printf("  \033[34;1m `88b    ooo   888   888  888    .o    `888'     888  888   888   888 . \033[37;1m    `88b    d88' oo     .d8P \n");
+  printf("  \033[34;1m  `Y8bood8P'  o888o o888o `Y8bod8P'     `8'     o888o `Y8bod8P'   `888' \033[37;1m     `Y8bood8P'  `^888888P'  \n");
+  printf("\n");
+  printf("\033[0m\n");
+#endif
+
+  sleep(1);
 }
 
 

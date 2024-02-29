@@ -22,55 +22,7 @@
 #include <kernel/board/task.i>
 #include <kernel/board/macros.i>
 
-.global FlushAllCaches
-.global FlushCacheLine
-
-.global _start
-.global StartIdleTask
-.global IdleTask
-.global GetCtrl
-.global SetCtrl
-.global CallSWI
-.global DisableInterrupts
-.global RestoreInterrupts
-.global EnableInterrupts
-.global SpinLock
-.global SpinUnlock
-.global InterruptLock
-.global InterruptUnlock
-.global CopyIn
-.global CopyInString
-.global CopyOut
-.global CopyUserString
-.global StrLenUser
-.global MemCpy
-.global memset
-.global FlushCaches
-.global InvalidateTLB
-.global EnableL1Cache
-.global DisableL1Cache
-.global MemoryBarrier
-.global DataCacheFlush
-.global SyncBarrier
-.global DataSyncBarrier
-.global EnablePaging
-.global SetPageDirectory
-.global get_current_process
-.global get_cpu
-.global GetCPSR
-.global GetSPSR
-.global GetFAR
-.global GetDFSR
-.global GetIFSR
-.global GetDACR
-.global SetDACR
-.global GetVBAR
-.global SetVBAR
-    
-.global isb
-.global dsb
-.global dmb
-
+// Stacks : TODO:  Some will become per-processor
 .global svc_stack_top
 .global svc_stack
 .global interrupt_stack_top
@@ -79,12 +31,23 @@
 .global exception_stack
 .global idle_stack_top
 .global idle_stack
-.global bdflush_stack_top
-.global bdflush_stack
 
-.global ifs_stack
-.global ifs_stack_top
-
+// Functions
+.global _start
+.global get_current_process
+.global get_cpu
+.global DisableInterrupts
+.global RestoreInterrupts
+.global EnableInterrupts
+.global SpinLock
+.global SpinUnlock
+.global SpinLockIRQSave
+.global SpinUnlockIRQRestore
+.global CopyIn
+.global CopyInString
+.global CopyOut
+.global CopyUserString
+.global StrLenUser
 .global SetContext
 .global GetContext
 
@@ -109,10 +72,6 @@ exception_stack_top:
 idle_stack:
 .skip 4096
 idle_stack_top:
-
-bdflush_stack:
-.skip 4096
-bdflush_stack_top:
 
 init_stack:
 .skip 4096
@@ -193,35 +152,6 @@ get_cpu:
     bx lr
 
 
-GetCPSR:
-    mrs r0, cpsr
-    bx lr
-
-GetSPSR:
-    mrs r0, spsr
-    bx lr
-
-GetFAR:
-    mrc p15, 0, r0, c6, c0, 0
-    bx lr
-
-GetDFSR:
-    mrc p15, 0, r0, c5, c0, 0 
-    bx lr
-
-GetIFSR:
-    mrc p15, 0, r0, c5, c0, 1 
-    bx lr
-
-GetDACR:
-    mrc p15, 0, r0, c3, c0, 0;
-    bx lr
-    
-SetDACR:
-    mcr p15, 0, r0, c3, c0, 0;
-    bx lr
-
-
 /* @brief Disable interrupts on current CPU and return previous interrupt state
  * 
  * @return  int_state, interrupt flags prior to disabling interrupts
@@ -282,28 +212,6 @@ SpinUnlockIRQRestore:
     MRestoreInterrupts
     bx lr
 
-
-# ****************************************************************************
-# MemCpy (r0 = dst, r1 = src, r2 = cnt)    r3 = temp
-
-MemCpy:
-    cmp r2, #0
-    bxeq lr
-    ldrb r3, [r1], #1
-    strb r3, [r0], #1
-    sub r2, #1
-    b MemCpy
-
-
-# ****************************************************************************
-# memset (r0 = dst, r1 = val, r2 = sz);
-
-memset:
-    cmp r2, #0
-    bxeq lr
-    strb r1, [r0], #1
-    sub r2, #1
-    b memset
 
 
 // @brief   Copy data from a user-space buffer into a kernel buffer
@@ -476,156 +384,6 @@ StrLenUserNoTermDone:
     bx lr
 StrLenUserCatch:
     mov r0, #-1
-    bx lr
-
-
-# ****************************************************************************
-
-GetTLBType:
-    mrc p15, 0, r0, c0, c0, #0
-    bx lr
-
-    
-SetTLBType:
-    mcr p15, 0, r0, c0, c0, #0
-    bx lr
-
-
-GetCtrl:
-    mrc p15, 0, r0, c1, c0, #0
-    bx lr
-
-
-SetCtrl:
-    mcr p15, 0, r0, c1, c0, #0
-    bx lr
-
-
-GetVBAR:
-    mrc p15, 0, r0, c12, c0, #0
-    bx lr
-
-
-SetVBAR:
-    mcr p15, 0, r0, c12, c0, #0
-    bx lr
-
-
-# ****************************************************************************
-
-FlushCacheLine:
-    mcr p15, 0, r0, c7, c6, #1
-    bx lr
-
-
-MemoryBarrier:
-    mov r0, #0
-    mcr p15, #0, r0, c7, c10, #5
-    bx lr
-
-
-DataCacheFlush:
-    mov r0, #0
-    mcr p15, #0, r0, c7, c14, #0
-    bx lr
-
-
-SyncBarrier:
-    mov r0, #0
-    mcr p15, #0, r0, c7, c10, #4
-    bx lr
-
-
-DataSyncBarrier:
-    stmfd sp!, {r0-r8,r12,lr}
-    mcr p15, #0, ip, c7, c5, #0
-    mcr p15, #0, ip, c7, c5, #6
-    mcr p15, #0, ip, c7, c10, #4
-    mcr p15, #0, ip, c7, c10, #4
-    ldmfd sp!, {r0-r8,r12,pc}
-
-    
-InvalidateTLB:
-    mov r0,#0
-    mcr p15,0,r0,c8,c7,0        // invalidate tlb
-    bx lr
-
-
-isb:
-    mcr p15, 0, r12, c7, c5, 4
-    bx lr
-
-
-dsb:
-    mcr p15, 0, r12, c7, c10, 4
-    bx lr    
-
-
-dmb:
-    mcr p15, 0, r12, c7, c10, 5
-    bx lr
-
-
-FlushAllCaches:
-		mov	r1, #0
-		mcr	p15, 0, r1, c7, c14, 0	@ clean+invalidate D
-		mcr	p15, 0, r1, c7, c5, 0	@ invalidate I+BTB
-		mcr	p15, 0, r1, c7, c15, 0	@ clean+invalidate unified
-		mcr	p15, 0, r1, c7, c10, 4	@ drain WB
-		mov	pc, lr
-
-
-FlushCaches:
-    mov r0, #0
-    mcr p15, 0, r0, c7, c14, 0;
-    mcr p15,0,r0,c7,c7,0        // invalidate caches
-    mcr p15,0,r0,c8,c7,0        // invalidate tlb
-    bx lr
-
-    
-EnableL1Cache:
-    mov r0, #0
-    mcr p15, 0, r0, c7, c7, 0   // invalidate caches
-    mcr p15, 0, r0, c8, c7, 0   // invalidate tlb
-    mrc p15, 0, r0, c1, c0, 0
-    orr r0,r0,#0x1000           // instruction
-    orr r0,r0,#0x0004           // data
-    mcr p15, 0, r0, c1, c0, 0
-    bx lr
-
-
-DisableL1Cache:
-    mrc p15, 0, r0, c1, c0, 0
-    bic r0,r0,#0x1000 ;@ instruction
-    bic r0,r0,#0x0004 ;@ data
-    mcr p15, 0, r0, c1, c0, 0
-    bx lr
-
-
-EnablePaging:
-    mov r2,#0
-    mcr p15, 0, r2, c7, c14, 0
-    mcr p15,0,r2,c7,c7,0        // invalidate caches
-    mcr p15,0,r2,c8,c7,0        // invalidate tlb
-    mvn r2,#0
-    mcr p15,0,r2,c3,c0,0        // domain
-    mcr p15,0,r0,c2,c0,0        // tlb base
-    mcr p15,0,r0,c2,c0,1        // tlb base
-    mrc p15,0,r2,c1,c0,0
-    orr r2,r2,r1
-    mcr p15,0,r2,c1,c0,0
-    bx lr
-
-
-SetPageDirectory:
-    mov r2,#0
-    
-    // FIXME: SetPageDirectory - Should we be invalidating cache?
-    // mcr p15,0,r2,c7,c7,0     // invalidate caches
-    mcr p15,0,r2,c8,c7,0        // invalidate tlb
-    
-    mcr p15,0,r0,c2,c0,0        // tlb base
-    mcr p15,0,r0,c2,c0,1        // tlb base
     bx lr
 
 

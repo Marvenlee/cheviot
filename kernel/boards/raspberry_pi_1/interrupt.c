@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2014  Marven Gilhespie
  *
@@ -19,9 +20,9 @@
  */
 
 #include <kernel/board/arm.h>
+#include <kernel/board/interrupt.h>
+#include <kernel/board/timer.h>
 #include <kernel/board/globals.h>
-#include <kernel/board/raspberry.h>
-#include <kernel/board/raspberry.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
 #include <kernel/globals.h>
@@ -32,24 +33,11 @@
 #include <kernel/interrupt.h>
 
 
-// FIXME: Move all into raspberry.c
-void dmb(void);
-void TimerInterruptHandler(void);
-void EnableIRQ(int irq);
-void DisableIRQ(int irq);
-int IsInterruptPending(int irq);
-void ProcessInterrupts(int imin, int imax);
-
-volatile int dispatch_level = 0;
-
-extern struct InterruptAPI interrupt_api;
-
-
-
 /*
  *
  */
-void InterruptHandler(struct UserContext *context) {
+void interrupt_handler(struct UserContext *context)
+{
   bool unlock = false;
   
   if (bkl_locked == false) {
@@ -57,11 +45,12 @@ void InterruptHandler(struct UserContext *context) {
     unlock = true;
   }
 
-  InterruptTopHalf();
+  interrupt_top_half();
 
   if (unlock == true) {
     KernelUnlock();
-//  CheckSignals(context);
+    // FIXME: Check for pending signals before returning.
+    // CheckSignals(context);
   }
 }
 
@@ -69,61 +58,49 @@ void InterruptHandler(struct UserContext *context) {
 /*
  *
  */
-void InterruptTopHalf(void) {
+void interrupt_top_half(void)
+{
   int irq;
   struct ISRHandler *isr_handler;
   struct Process *current;
   
   current = get_current_process();
 
-  dmb();  
-  pending_interrupts[0] |= interrupt_regs->irq_pending_1;
-  pending_interrupts[1] |= interrupt_regs->irq_pending_2;
-  pending_interrupts[2] |= interrupt_regs->irq_basic_pending;
-  dmb();
-
-  if (pending_interrupts[0] & (1 << INTERRUPT_TIMER3)) {
-    TimerInterruptHandler();
-
-    pending_interrupts[0] &= ~(1 << INTERRUPT_TIMER3);
+  save_pending_interrupts();
+  
+  if (check_pending_interrupt(INTERRUPT_TIMER3)) {
+    interrupt_top_half_timer();   
+    clear_pending_interrupt(INTERRUPT_TIMER3);
   }
   
   irq = 0;
 
   while (irq < NIRQ) {
-    if (pending_interrupts[irq / 32] == 0) {
+    if (get_pending_interrupt_word(irq) == 0) {      
       irq += 32;
       continue;
     }
 
-    if (pending_interrupts[irq / 32] & (1 << (irq % 32))) {
+    if (check_pending_interrupt(irq) == true) {
       isr_handler = LIST_HEAD(&isr_handler_list[irq]);
 
-      if (isr_handler != NULL) {
-        while (isr_handler != NULL) {
-        
-          if (isr_handler->isr_callback != NULL) {            
-            if (isr_handler->isr_callback == NULL) {
-              MaskInterruptFromISR(irq);
-              knote_from_isr(&interrupt_api, NOTE_INT);  
-              dmb();
-            } else {
-              pmap_switch(isr_handler->isr_process, current);                
-              interrupt_api.context = isr_handler;
-              dmb();
-              isr_handler->isr_callback(irq, &interrupt_api);
-              dmb();              
-              pmap_switch(current, isr_handler->isr_process);
-            }
+      while (isr_handler != NULL) {        
+        if (isr_handler->isr_callback != NULL) {            
+          if (isr_handler->isr_callback == NULL) {
+            interruptapi_mask_interrupt(irq);
+            interruptapi_knotei(&interrupt_api, NOTE_INT);  
+          } else {
+            pmap_switch(isr_handler->isr_process, current);                
+            interrupt_api.context = isr_handler;
+            isr_handler->isr_callback(irq, &interrupt_api);
+            pmap_switch(current, isr_handler->isr_process);
           }
-
-          isr_handler = LIST_NEXT(isr_handler, isr_handler_entry);
         }
-        
+
+        isr_handler = LIST_NEXT(isr_handler, isr_handler_entry);
       }
-      
-      pending_interrupts[irq / 32] &= ~(1 << (irq % 32));
-      
+
+      clear_pending_interrupt(irq);
     }
 
     irq++;
@@ -134,189 +111,71 @@ void InterruptTopHalf(void) {
 /*
  *
  */
-void TimerInterruptHandler(void) {
-  uint32_t clo;
-  uint32_t status;
-
-  dmb();
-  status = timer_regs->cs;
-  dmb();
-
-  if (status & ST_CS_M3) {
-    clo = timer_regs->clo;
-    clo += MICROSECONDS_PER_JIFFY;
-    timer_regs->c3 = clo;
-  dmb();
-
-    timer_regs->cs = ST_CS_M3;
-  dmb();
-
-    TimerTopHalf();
-  }
+void save_pending_interrupts(void)
+{
+  pending_interrupts[0] |= interrupt_regs->irq_pending_1;
+  pending_interrupts[1] |= interrupt_regs->irq_pending_2;
+  pending_interrupts[2] |= interrupt_regs->irq_basic_pending;
 }
 
 
 /*
- * MaskInterrupt();
  *
- * Masks an IRQ line.
- * Only MaskInterrupt() and UnmaskInterrupt() system calls should be called from
- * within interrupt handlers.
  */
-
-int sys_maskinterrupt(int irq) {
-//  struct Process *current;
-
-//  current = get_current_process();
-
-/*
-  if (!(current->flags & PROCF_ALLOW_IO)) {
-    return -EPERM;
-  }
-*/
-
-  if (irq < 0 || irq >= NIRQ) {
-    return -EINVAL;
-  }
-
-  DisableInterrupts();
-
-  if (irq_mask_cnt[irq] < 0x80000000) {
-    irq_mask_cnt[irq]++;
-  }
-  
-  if (irq_mask_cnt[irq] > 0) {
-    DisableIRQ(irq);
-  }
-
-  EnableInterrupts();
-
-  return irq_mask_cnt[irq];
+bool check_pending_interrupt(int irq)
+{
+  return ((pending_interrupts[irq / 32] & (1 << (irq % 32))) != 0) ? true : false;  
 }
 
 
 /*
- * UnmaskInterrupt();
  *
- * Unmasks an IRQ line.
- * Only MaskInterrupt() and UnmaskInterrupt() system calls should be called from
- * within interrupt handlers.
  */
+void clear_pending_interrupt(int irq)
+{
+   pending_interrupts[irq / 32] &= ~(1 << (irq % 32));
 
-int sys_unmaskinterrupt(int irq) {
-//  struct Process *current;
-
-//  current = get_current_process();
-
-/*  if (!(current->flags & PROCF_ALLOW_IO)) {
-    return -EPERM;
-  }
-*/
-
-  if (irq < 0 || irq >= NIRQ) {
-    return -EINVAL;
-  }
-
-  DisableInterrupts();
-
-  if (irq_mask_cnt[irq] > 0) {
-    irq_mask_cnt[irq]--;
-  }
-  
-  if (irq_mask_cnt[irq] == 0) {
-    EnableIRQ(irq);
-  }
-
-  EnableInterrupts();
-
-  return irq_mask_cnt[irq];
-}
-
-
-
-/*
- * MaskInterrupt();
- *
- * Masks an IRQ line.
- * Only MaskInterrupt() and UnmaskInterrupt() system calls should be called from
- * within interrupt handlers.
- */
-
-int MaskInterruptFromISR(int irq) {
-  if (irq < 0 || irq >= NIRQ) {
-    return -EINVAL;
-  }
-
-  if (irq_mask_cnt[irq] < 0x80000000) {
-    irq_mask_cnt[irq]++;
-  }
-  
-  if (irq_mask_cnt[irq] > 0) {
-    DisableIRQ(irq);
-  }
-
-  return irq_mask_cnt[irq];
+  // TODO: Where is the EOI ?
+  // TODO: Does ARMC interrupt controller need an EOI command? 
 }
 
 
 /*
- * UnmaskInterrupt();
  *
- * Unmasks an IRQ line.
- * Only MaskInterrupt() and UnmaskInterrupt() system calls should be called from
- * within interrupt handlers.
  */
-
-int UnmaskInterruptFromISR(int irq) {
-  if (irq < 0 || irq >= NIRQ) {
-    return -EINVAL;
-  }
-
-  if (irq_mask_cnt[irq] > 0) {
-    irq_mask_cnt[irq]--;
-  }
-  
-  if (irq_mask_cnt[irq] == 0) {
-    EnableIRQ(irq);
-  }
-  
-  return irq_mask_cnt[irq];
+uint32_t get_pending_interrupt_word(int irq)
+{
+  return pending_interrupts[irq / 32];
 }
-
-
 
 
 /*
  * Unmasks an IRQ line
  */
-
-void EnableIRQ(int irq) {
-  dmb();
+void enable_irq(int irq)
+{
   if (irq < 32) {
-    interrupt_regs->enable_irqs_1 = 1 << irq;
+    hal_mmio_write(&interrupt_regs->enable_irqs_1, 1 << irq);
   } else if (irq < 64) {
-    interrupt_regs->enable_irqs_2 = 1 << (irq - 32);
+    hal_mmio_write(&interrupt_regs->enable_irqs_2, 1 << (irq - 32));
   } else {
-    interrupt_regs->enable_basic_irqs = 1 << (irq - 64);
+    hal_mmio_write(&interrupt_regs->enable_basic_irqs, 1 << (irq - 64));
   }
-  dmb();
 }
+
 
 /*
  * Masks an IRQ line
  */
-
-void DisableIRQ(int irq) {
-  dmb();
+void disable_irq(int irq)
+{
   if (irq < 32) {
-    interrupt_regs->disable_irqs_1 = 1 << irq;
+    hal_mmio_write(&interrupt_regs->disable_irqs_1, 1 << irq);
   } else if (irq < 64) {
-    interrupt_regs->disable_irqs_2 = 1 << (irq - 32);
+    hal_mmio_write(&interrupt_regs->disable_irqs_2, 1 << (irq - 32));
   } else {
-    interrupt_regs->disable_basic_irqs = 1 << (irq - 64);
+    hal_mmio_write(&interrupt_regs->disable_basic_irqs, 1 << (irq - 64));
   }
-  dmb();
 }
-
 
 

@@ -4,7 +4,10 @@
 #include "bootinfo.h"
 #include "elf.h"
 #include "memory.h"
-#include "types.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <machine/cheviot_hal.h>
 
 extern struct BootInfo bootinfo;
 
@@ -18,18 +21,17 @@ extern int phdr_cnt;
  *
  */
 
-extern uint32 mailbuffer[64];
-extern uint32 arm_mem_base;
-extern uint32 arm_mem_size;
-extern uint32 vc_mem_base;
-extern uint32 vc_mem_size;
+extern uint32_t mailbuffer[64];
+extern uint32_t arm_mem_base;
+extern uint32_t arm_mem_size;
+extern uint32_t vc_mem_base;
+extern uint32_t vc_mem_size;
 
 /* Debugger stuff */
 
-extern volatile struct bcm2835_gpio_registers *gpio_regs;
-extern uint32 screen_width;
-extern uint32 screen_height;
-extern uint32 screen_pitch;
+extern uint32_t screen_width;
+extern uint32_t screen_height;
+extern uint32_t screen_pitch;
 extern void *screen_buf;
 
 // extern bool __debug_enabled;

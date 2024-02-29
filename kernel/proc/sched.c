@@ -26,6 +26,7 @@
 #include <kernel/msg.h>
 #include <kernel/proc.h>
 #include <kernel/types.h>
+#include <kernel/arch.h>
 
 // Static prototypes
 static void TaskTimedSleepCallback(struct Timer *timer);
@@ -274,22 +275,32 @@ void KernelLock(void)
 /* @brief   Unlock the Big Kernel Lock
  *
  * See comments above for KernelLock()
+ *
+ * This is called at the end of a system call or exception.  This checks to see
+ * if there are any remaining processes blocked on the big kernel lock and if so
+ * yields to one of these processes.
+ *
+ * Only when there are no other processes blocked on the big kernel lock do we
+ * return to user mode.  
+ *
+ * We do not have kernel preemption, effectively all processes blocked on the BKL
+ * must run before we can return to user space.
  */
 void KernelUnlock(void)
 {
   struct Process *proc;
 
   if (bkl_locked == true) {
-    proc = LIST_HEAD(&bkl_blocked_list);
+    proc = LIST_HEAD(&bkl_blocked_list);   // Pick the next process that is blocked on bkl
 
     if (proc != NULL) {
-      bkl_locked = true;
+      bkl_locked = true;      // It should be locked already by previous if statement
       bkl_owner = proc;
 
       LIST_REM_HEAD(&bkl_blocked_list, blocked_link);
 
       proc->state = PROC_STATE_READY;
-      SchedReady(proc);
+      SchedReady(proc);       // 
       Reschedule();
     } else {
       bkl_locked = false;
@@ -515,5 +526,23 @@ void  TaskWakeupAll(struct Rendez *rendez)
     RestoreInterrupts(int_state);
 
   } while (proc != NULL);
+}
+
+
+
+int sys_getpriority(void)
+{
+	return 0;
+}
+
+int sys_setpriority(void)
+{
+	return 0;
+}
+
+int sys_sysconf(void)
+{
+	Info ("sys_sysconf");
+	return -ENOSYS;
 }
 

@@ -19,9 +19,8 @@ AM_CONDITIONAL([BOARD_RASPBERRY_PI_4], [test "$BOARD" = "raspberrypi4"])
 
 AC_CONFIG_FILES([
   Makefile
-  libblockdev/Makefile
-  libtermcap/Makefile
-  libcurses/Makefile
+  libhal_rpi_1/Makefile
+  libhal_rpi_4/Makefile
   ])
   
 AC_OUTPUT

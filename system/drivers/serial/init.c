@@ -29,7 +29,7 @@
 #include <sys/debug.h>
 #include <sys/syscalls.h>
 #include <sys/event.h>
-#include "serial.h"
+#include "pl011.h"
 #include "globals.h"
 
 /*
@@ -37,7 +37,7 @@
  */
 void init (int argc, char *argv[])
 {
-  log_info("serial - init");
+  log_info("aux uart - init");
 
 	termios.c_iflag = ICRNL;		/* Input */
 	termios.c_oflag = ONLCR;		/* Output */
@@ -66,8 +66,8 @@ void init (int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
     
-  if (configure_uart() != 0) {
-    log_error("uart initialization failed, exiting");
+  if (pl011_uart_configure() != 0) {
+    log_error("aux uart initialization failed, exiting");
     exit(EXIT_FAILURE);
   }
 
@@ -96,7 +96,15 @@ int process_args(int argc, char *argv[])
     return -1;
   }
   
-  while ((c = getopt(argc, argv, "u:g:m:")) != -1) {
+  config.uid = getuid();
+  config.gid = getgid();
+  config.mode = 0700 | S_IFCHR;
+  config.baud = 115200;
+  config.parity = false;
+  config.stop_bits = 1;
+  config.hw_flow_control = false;
+  
+  while ((c = getopt(argc, argv, "u:g:m:b:s:pf")) != -1) {
     switch (c) {
     case 'u':
       config.uid = atoi(optarg);
@@ -126,14 +134,7 @@ int process_args(int argc, char *argv[])
       break;  
       
     case 'f':
-      if (strcmp(optarg, "hard") == 0) {
-        config.flow_control = FLOW_CONTROL_HW;
-      } else if (strcmp(optarg, "none") == 0) {
-        config.flow_control = FLOW_CONTROL_HW;
-      } else {
-        exit(-1);
-      }
-      
+      config.hw_flow_control = true;      
       break;
       
     default:
@@ -157,7 +158,7 @@ int mount_device(void)
 {
   struct stat stat;
 
-  stat.st_dev = 0; // Get from config, or returned by Mount() (sb index?)
+  stat.st_dev = 0; // Get from config or env
   stat.st_ino = 0;
   stat.st_mode = 0777 | S_IFCHR;
 

@@ -1,15 +1,25 @@
 #include <string.h>
 #include "bootstrap.h"
-#include "dbg.h"
+#include "debug.h"
 #include "elf.h"
 #include "globals.h"
 #include "memory.h"
-#include "types.h"
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "machine/cheviot_hal.h"
+
+
+// Macros for address alignment. TODO: Replace with libc roundup and rounddown
+#define ALIGN_UP(val, alignment)                                               \
+  ((((val) + (alignment)-1) / (alignment)) * (alignment))
+
+#define ALIGN_DOWN(val, alignment) ((val) - ((val) % (alignment)))
+
 
 // Prototypes (not picked up in string.h)
 void *	 memchr (const void *, int, size_t);
-int 	 memcmp (const void *, const void *, size_t);
+int 	   memcmp (const void *, const void *, size_t);
 void *	 memcpy (void *__restrict, const void *__restrict, size_t);
 void *	 memmove (void *, const void *, size_t);
 void *	 memset (void *, int, size_t);
@@ -40,23 +50,22 @@ void Main(void) {
 
   void (*kernel_entry_point)(struct BootInfo * bi);
 
-  gpio_regs = (struct bcm2835_gpio_registers *)GPIO_BASE;
-  dbg_init();
+  board_init();
 
-  KLog("Bootloader");
+  boot_log_info("Bootloader");
 
-  bootinfo.mem_size = init_mem();
+  bootinfo.mem_size = get_physical_mem_size();
   ifs_image = ALIGN_DOWN((bootinfo.mem_size - rootfs_image_size), 0x10000);
 
-  memcpy((void *)ifs_image, (uint8 *)0x8000 + rootfs_image_offset,
+  memcpy((void *)ifs_image, (uint8_t *)0x8000 + rootfs_image_offset,
          rootfs_image_size);
 
   if (elf_load((void *)ifs_image, rootfs_image_size, "kernel", &bootinfo.kernel_ehdr, &bootinfo.kernel_phdr[0], &kernel_ceiling) != 0) {
-    KPanic("Cannot load kernel");
+    boot_panic("Cannot load kernel");
   }
 
   if (elf_find((void *)ifs_image, rootfs_image_size, "sbin", "ifs",  &ifs_exe_base, &ifs_exe_size) == -1) {
-    KPanic("cannot find IFS.exe in IFS image");
+    boot_panic("cannot find IFS.exe in IFS image");
   }
   bootinfo.screen_buf = screen_buf;
   bootinfo.screen_width = screen_width;
@@ -69,7 +78,12 @@ void Main(void) {
  
   kernel_entry_point = (void *)bootinfo.kernel_ehdr.e_entry;
  
+  boot_log_info("kernel_entry: %08x", (uint32_t)kernel_entry_point);
+ 
   BootstrapKernel(kernel_ceiling);
+  
+  boot_log_info("Calling kernel_entry_point %08x",(uint32_t)kernel_entry_point);
+  
   kernel_entry_point(&bootinfo);
 
   while (1) {

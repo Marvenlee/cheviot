@@ -14,8 +14,6 @@
 
 @SET_MAKE@
 
-# Makefile.am placeholder for Raspberry Pi 4 board
-
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -91,9 +89,11 @@ POST_UNINSTALL = :
 sbin_PROGRAMS = kernel$(EXEEXT)
 @BOARD_RASPBERRY_PI_1_TRUE@am__append_1 = \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/arm.S           \
+@BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/aux_uart.c      \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/debug.c         \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/exception.c     \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/globals.c       \
+@BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/gpio.c          \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/idle.c          \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/init_arm.c      \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/init_proc.c     \
@@ -103,9 +103,29 @@ sbin_PROGRAMS = kernel$(EXEEXT)
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/main.c          \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/pmap.c          \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/proc.c          \
-@BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/raspberry.c     \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/signals.c       \
+@BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/timer.c         \
 @BOARD_RASPBERRY_PI_1_TRUE@  boards/raspberry_pi_1/vectors.S
+
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@am__append_2 = \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/arm.S           \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/aux_uart.c      \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/debug.c         \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/exception.c     \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/globals.c       \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/gpio.c          \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/idle.c          \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/init_arm.c      \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/init_proc.c     \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/init_root.c     \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/init_vm.c       \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/interrupt.c     \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/main.c          \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/pmap.c          \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/proc.c          \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/signals.c       \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/timer.c         \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/vectors.S
 
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -131,23 +151,35 @@ am__kernel_SOURCES_DIST = proc/globals.c proc/interrupt.c proc/proc.c \
 	fs/vfs.c fs/vnode.c fs/write.c utility/doprintf.c \
 	utility/string.c vm/as.c vm/globals.c vm/page.c vm/pagefault.c \
 	vm/segment.c vm/vm.c boards/raspberry_pi_1/arm.S \
-	boards/raspberry_pi_1/debug.c \
+	boards/raspberry_pi_1/aux_uart.c boards/raspberry_pi_1/debug.c \
 	boards/raspberry_pi_1/exception.c \
-	boards/raspberry_pi_1/globals.c boards/raspberry_pi_1/idle.c \
-	boards/raspberry_pi_1/init_arm.c \
+	boards/raspberry_pi_1/globals.c boards/raspberry_pi_1/gpio.c \
+	boards/raspberry_pi_1/idle.c boards/raspberry_pi_1/init_arm.c \
 	boards/raspberry_pi_1/init_proc.c \
 	boards/raspberry_pi_1/init_root.c \
 	boards/raspberry_pi_1/init_vm.c \
 	boards/raspberry_pi_1/interrupt.c boards/raspberry_pi_1/main.c \
 	boards/raspberry_pi_1/pmap.c boards/raspberry_pi_1/proc.c \
-	boards/raspberry_pi_1/raspberry.c \
-	boards/raspberry_pi_1/signals.c \
-	boards/raspberry_pi_1/vectors.S
+	boards/raspberry_pi_1/signals.c boards/raspberry_pi_1/timer.c \
+	boards/raspberry_pi_1/vectors.S boards/raspberry_pi_4/arm.S \
+	boards/raspberry_pi_4/aux_uart.c boards/raspberry_pi_4/debug.c \
+	boards/raspberry_pi_4/exception.c \
+	boards/raspberry_pi_4/globals.c boards/raspberry_pi_4/gpio.c \
+	boards/raspberry_pi_4/idle.c boards/raspberry_pi_4/init_arm.c \
+	boards/raspberry_pi_4/init_proc.c \
+	boards/raspberry_pi_4/init_root.c \
+	boards/raspberry_pi_4/init_vm.c \
+	boards/raspberry_pi_4/interrupt.c boards/raspberry_pi_4/main.c \
+	boards/raspberry_pi_4/pmap.c boards/raspberry_pi_4/proc.c \
+	boards/raspberry_pi_4/signals.c boards/raspberry_pi_4/timer.c \
+	boards/raspberry_pi_4/vectors.S
 am__dirstamp = $(am__leading_dot)dirstamp
 @BOARD_RASPBERRY_PI_1_TRUE@am__objects_1 = boards/raspberry_pi_1/arm.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/aux_uart.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/debug.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/exception.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/globals.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/gpio.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/idle.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/init_arm.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/init_proc.$(OBJEXT) \
@@ -157,9 +189,27 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/main.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/pmap.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/proc.$(OBJEXT) \
-@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/raspberry.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/signals.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/timer.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/vectors.$(OBJEXT)
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@am__objects_2 = boards/raspberry_pi_4/arm.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/aux_uart.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/debug.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/exception.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/globals.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/gpio.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/idle.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init_arm.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init_proc.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init_root.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init_vm.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/interrupt.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/main.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/pmap.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/proc.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/signals.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/timer.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/vectors.$(OBJEXT)
 am_kernel_OBJECTS = proc/globals.$(OBJEXT) proc/interrupt.$(OBJEXT) \
 	proc/proc.$(OBJEXT) proc/sched.$(OBJEXT) proc/signal.$(OBJEXT) \
 	proc/timer.$(OBJEXT) fs/access.$(OBJEXT) fs/block.$(OBJEXT) \
@@ -176,9 +226,9 @@ am_kernel_OBJECTS = proc/globals.$(OBJEXT) proc/interrupt.$(OBJEXT) \
 	utility/doprintf.$(OBJEXT) utility/string.$(OBJEXT) \
 	vm/as.$(OBJEXT) vm/globals.$(OBJEXT) vm/page.$(OBJEXT) \
 	vm/pagefault.$(OBJEXT) vm/segment.$(OBJEXT) vm/vm.$(OBJEXT) \
-	$(am__objects_1)
+	$(am__objects_1) $(am__objects_2)
 kernel_OBJECTS = $(am_kernel_OBJECTS)
-kernel_LDADD = $(LDADD)
+kernel_DEPENDENCIES =
 kernel_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(kernel_LDFLAGS) \
 	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
@@ -197,9 +247,11 @@ DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = boards/raspberry_pi_1/$(DEPDIR)/arm.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/debug.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/exception.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/globals.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/gpio.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/idle.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/init_arm.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/init_proc.Po \
@@ -209,9 +261,27 @@ am__depfiles_remade = boards/raspberry_pi_1/$(DEPDIR)/arm.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/main.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/pmap.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/proc.Po \
-	boards/raspberry_pi_1/$(DEPDIR)/raspberry.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/signals.Po \
+	boards/raspberry_pi_1/$(DEPDIR)/timer.Po \
 	boards/raspberry_pi_1/$(DEPDIR)/vectors.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/arm.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/debug.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/exception.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/globals.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/gpio.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/idle.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/init_arm.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/init_proc.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/init_root.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/main.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/pmap.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/proc.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/signals.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/timer.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/vectors.Po \
 	fs/$(DEPDIR)/access.Po fs/$(DEPDIR)/block.Po \
 	fs/$(DEPDIR)/cache.Po fs/$(DEPDIR)/char.Po fs/$(DEPDIR)/dir.Po \
 	fs/$(DEPDIR)/dnlc.Po fs/$(DEPDIR)/exec.Po \
@@ -403,13 +473,15 @@ kernel_SOURCES = proc/globals.c proc/interrupt.c proc/proc.c \
 	fs/signal.c fs/stat.c fs/symlink.c fs/sync.c fs/truncate.c \
 	fs/vfs.c fs/vnode.c fs/write.c utility/doprintf.c \
 	utility/string.c vm/as.c vm/globals.c vm/page.c vm/pagefault.c \
-	vm/segment.c vm/vm.c $(am__append_1)
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
-@BOARD_RASPBERRY_PI_1_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
+	vm/segment.c vm/vm.c $(am__append_1) $(am__append_2)
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O0 -g2 -std=c99
+@BOARD_RASPBERRY_PI_1_TRUE@AM_CFLAGS = -O0 -g2 -std=c99
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CPPFLAGS = -I$(srcdir)/h -I$(srcdir)/boards/raspberry_pi_4/h -DBOARD_RASPBERRY_PI_4
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CPPFLAGS = -I$(srcdir)/h -I$(srcdir)/boards/raspberry_pi_1/h -DBOARD_RASPBERRY_PI_1
-@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/h -I$(srcdir)/boards/raspberry_pi_4/h -DBOARD_RASPBERRY_PI_4
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@AM_CCASFLAGS = -march=armv7ve -r -I$(srcdir)/h -I$(srcdir)/boards/raspberry_pi_4/h -DBOARD_RASPBERRY_PI_4
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CCASFLAGS = -r -I$(srcdir)/h -I$(srcdir)/boards/raspberry_pi_1/h -DBOARD_RASPBERRY_PI_1
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@kernel_LDADD = -lrpihal
+@BOARD_RASPBERRY_PI_1_TRUE@kernel_LDADD = -lrpihal
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@kernel_LDFLAGS = -v \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@                 -nostartfiles \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@                 -lgcc \
@@ -587,6 +659,9 @@ boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp):
 boards/raspberry_pi_1/arm.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/aux_uart.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_1/debug.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
@@ -594,6 +669,9 @@ boards/raspberry_pi_1/exception.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_1/globals.$(OBJEXT):  \
+	boards/raspberry_pi_1/$(am__dirstamp) \
+	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_1/gpio.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_1/idle.$(OBJEXT):  \
@@ -623,15 +701,75 @@ boards/raspberry_pi_1/pmap.$(OBJEXT):  \
 boards/raspberry_pi_1/proc.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_1/raspberry.$(OBJEXT):  \
+boards/raspberry_pi_1/signals.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
-boards/raspberry_pi_1/signals.$(OBJEXT):  \
+boards/raspberry_pi_1/timer.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_1/vectors.$(OBJEXT):  \
 	boards/raspberry_pi_1/$(am__dirstamp) \
 	boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/$(am__dirstamp):
+	@$(MKDIR_P) boards/raspberry_pi_4
+	@: > boards/raspberry_pi_4/$(am__dirstamp)
+boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) boards/raspberry_pi_4/$(DEPDIR)
+	@: > boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/arm.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/aux_uart.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/debug.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/exception.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/globals.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/gpio.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/idle.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/init_arm.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/init_proc.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/init_root.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/init_vm.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/interrupt.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/main.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/pmap.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/proc.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/signals.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/timer.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/vectors.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
 
 kernel$(EXEEXT): $(kernel_OBJECTS) $(kernel_DEPENDENCIES) $(EXTRA_kernel_DEPENDENCIES) 
 	@rm -f kernel$(EXEEXT)
@@ -640,6 +778,7 @@ kernel$(EXEEXT): $(kernel_OBJECTS) $(kernel_DEPENDENCIES) $(EXTRA_kernel_DEPENDE
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f boards/raspberry_pi_1/*.$(OBJEXT)
+	-rm -f boards/raspberry_pi_4/*.$(OBJEXT)
 	-rm -f fs/*.$(OBJEXT)
 	-rm -f proc/*.$(OBJEXT)
 	-rm -f utility/*.$(OBJEXT)
@@ -649,9 +788,11 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/arm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/debug.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/exception.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/globals.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/gpio.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/idle.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/init_arm.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/init_proc.Po@am__quote@ # am--include-marker
@@ -661,9 +802,27 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/main.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/pmap.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/proc.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/raspberry.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/signals.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/timer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_1/$(DEPDIR)/vectors.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/arm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/debug.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/exception.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/globals.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/gpio.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/idle.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init_arm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init_proc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init_root.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/main.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/pmap.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/proc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/signals.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/timer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/vectors.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@fs/$(DEPDIR)/access.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@fs/$(DEPDIR)/block.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@fs/$(DEPDIR)/cache.Po@am__quote@ # am--include-marker
@@ -1013,6 +1172,8 @@ distclean-generic:
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/$(am__dirstamp)
 	-rm -f boards/raspberry_pi_1/$(am__dirstamp)
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+	-rm -f boards/raspberry_pi_4/$(am__dirstamp)
 	-rm -f fs/$(DEPDIR)/$(am__dirstamp)
 	-rm -f fs/$(am__dirstamp)
 	-rm -f proc/$(DEPDIR)/$(am__dirstamp)
@@ -1032,9 +1193,11 @@ clean-am: clean-generic clean-sbinPROGRAMS mostlyclean-am
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 		-rm -f boards/raspberry_pi_1/$(DEPDIR)/arm.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/debug.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/exception.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/globals.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/gpio.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/idle.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/init_arm.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/init_proc.Po
@@ -1044,9 +1207,27 @@ distclean: distclean-am
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/main.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/pmap.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/proc.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/raspberry.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/signals.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/timer.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/vectors.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/arm.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/debug.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/exception.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/globals.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/gpio.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/idle.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_arm.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_proc.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_root.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/main.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/pmap.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/proc.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/signals.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/timer.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/vectors.Po
 	-rm -f fs/$(DEPDIR)/access.Po
 	-rm -f fs/$(DEPDIR)/block.Po
 	-rm -f fs/$(DEPDIR)/cache.Po
@@ -1140,9 +1321,11 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
 		-rm -f boards/raspberry_pi_1/$(DEPDIR)/arm.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/aux_uart.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/debug.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/exception.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/globals.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/gpio.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/idle.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/init_arm.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/init_proc.Po
@@ -1152,9 +1335,27 @@ maintainer-clean: maintainer-clean-am
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/main.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/pmap.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/proc.Po
-	-rm -f boards/raspberry_pi_1/$(DEPDIR)/raspberry.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/signals.Po
+	-rm -f boards/raspberry_pi_1/$(DEPDIR)/timer.Po
 	-rm -f boards/raspberry_pi_1/$(DEPDIR)/vectors.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/arm.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/aux_uart.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/debug.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/exception.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/globals.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/gpio.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/idle.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_arm.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_proc.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_root.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/main.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/pmap.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/proc.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/signals.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/timer.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/vectors.Po
 	-rm -f fs/$(DEPDIR)/access.Po
 	-rm -f fs/$(DEPDIR)/block.Po
 	-rm -f fs/$(DEPDIR)/cache.Po

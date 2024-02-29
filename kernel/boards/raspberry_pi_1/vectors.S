@@ -59,7 +59,7 @@ syscall_table:
 
     .long sys_sleep                     // 7   
     .long sys_alarm                     // 8
-    .long 0xfee1501d                    // 9    TODO: Add a createtimer syscall
+    .long sys_nanosleep                 // 9
     .long sys_gettimeofday              // 10
     .long sys_settimeofday              // 11
     
@@ -72,7 +72,7 @@ syscall_table:
     .long sys_maskinterrupt             // 17
     .long sys_unmaskinterrupt           // 18
 
-    .long 0xdeadbaaf                    // 19
+    .long sys_set_syslog_file           // 19   TODO: Add sys_set_syslog_file and libc code
         
     .long sys_exec                      // 20   
      
@@ -192,22 +192,19 @@ syscall_table:
 #define UNKNOWN_SYSCALL             0
 #define MAX_SYSCALL                 83
 
-
-// @brief   System call table that can be called from interrupt handlers
+// @brief   System calls that can be called from interrupt handlers
 //
 // TODO: Currently interrupt handlers registered with CreateInterrupt run
 // in kernel mode and use a struct InterruptAPI with function pointers to
 // the below functions.  Replace it with interrupts running in user-mode
 // with interrupts disabled and only allow the following 3 syscalls.
-// Perhaps add exit_From_isr to abort process.
 
-.balign 16
-isr_syscall_table:
-  .long MaskInterruptFromISR        // 0
-  .long UnmaskInterruptFromISR      // 1
-  .long knote_from_isr              // 2
+  .long interruptapi_mask_interrupt     // MAX_SYSCALL + 0
+  .long interruptapi_unmask_interrupt   // MAX_SYSCALL + 1
+  .long interruptapi_knotei             // MAX_SYSCALL + 2
 
-#define MAX_ISR_SYSCALL             2
+#define MIN_ISR_SYSCALL             MAX_SYSCALL    
+#define MAX_ISR_SYSCALL             (MAX_SYSCALL + 2)
 
 
 // @brief   System call entry point
@@ -242,6 +239,10 @@ swi_vector:
     ldr lr, [sp, #CONTEXT_PC]
     ldr r7, [lr, #-4]                   // Get syscall nr and check range  (possible to fault, hence getting lock beforehand
     bic r7,r7, #0xff000000              // Eventually handle thumb mode.
+
+    // TODO: Check if we are calling from an interrupt handler runnning in user mode.
+    // TODO: Requires special interrupt stack to avoid overwriting existing stack.
+    
     cmp r7, #MAX_SYSCALL
     movgt r7, #UNKNOWN_SYSCALL
 
@@ -278,7 +279,7 @@ irq_vector:
     MPushRegs    
 
     mov r0, sp    
-    bl InterruptHandler
+    bl interrupt_handler
 
     mov r0, sp
     bl CheckSignals
@@ -294,7 +295,7 @@ undef_instr_vector:
     MPushRegs
     
     mov r0, sp    
-    bl UndefInstrHandler
+    bl undef_instr_handler
 
     mov r0, sp
     bl CheckSignals
@@ -310,7 +311,7 @@ prefetch_abort_vector:
     MPushRegs   
 
     mov r0, sp    
-    bl PrefetchAbortHandler
+    bl prefetch_abort_handler
 
     mov r0, sp
     bl CheckSignals
@@ -326,7 +327,7 @@ data_abort_vector:
     MPushRegs
 
     mov r0, sp
-    bl DataAbortHandler
+    bl data_abort_handler
 
     mov r0, sp
     bl CheckSignals
@@ -339,15 +340,15 @@ data_abort_vector:
 .balign 16
 
 reset_vector:
-    bl ResetHandler
+    bl reset_handler
     bl reset_vector
     
 reserved_vector:
-    bl ReservedHandler    
+    bl reserved_handler    
     bl reserved_vector
 
 fiq_vector:
-    bl FiqHandler
+    bl fiq_handler
     bl fiq_vector
 
 

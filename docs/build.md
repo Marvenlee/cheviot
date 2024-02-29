@@ -2,15 +2,15 @@
 
 # Requirements
 
-The following may be required to build
+A Linux system with common developer tools, gcc, binutils, cmake and sqlite3.
+The following should get most of the required tools.
 
+```
 sudo apt install build-essential
 sudo apt install cmake
-
-Two precompiled binary blobs are required for the Raspberry Pi. These are
-the start.elf and bootcode.bin files that are available in other Linux
-repositories.  These need to be copied across to a third_party/blobs directory.
-
+sudo apt install sqlite3
+sudo apt install sqlite3-dev
+```
 
 ## Building the project
 
@@ -22,7 +22,8 @@ readme.md resides in. This will build the GCC cross compiler, Newlib library
 and the kernel along with ksh, coreutils and several basic drivers.
 
 Modify the setup-env.sh to set the appropriate board, currently this
-defaults to raspberrypi1 as support for other boards are a work in progress.
+defaults to raspberrypi4.
+
 
 ```
     $ cd cheviot
@@ -30,42 +31,36 @@ defaults to raspberrypi1 as support for other boards are a work in progress.
     $ cd build
     $ source ../setup-env.sh
     $ cmake ..
+    $ make pseudo-native    
     $ make
 ```
 
-## Creating the kernel.img 
+This will build the projects and populate the build/host folder which contains
+the directory tree of the final root partition.
 
-The above steps build the separate executables but we now need to combine these
-into a single kernel.img that we can place on the Rasberry Pi's FAT boot partition.
-This kernel.img combines a bootloader and a simple file system image containing
-the kernel, SD Card and terminal drivers, init process and shell. This filesystem is the 
-Initial File System (IFS).
-
-From the build directory run the build-kernel-img.sh script to build the kernel.img
-file in the build/boot_partition directory. This also places the required bootcode.bin
-and start.elf files inside the same directory.  Copy all 3 files to the FAT boot
-partition on the Raspberry Pi model A.
+We then run make image to build the final sd-card image:
 
 ```
-    $ ../tools/mk-kernel-img.sh
+    $ make image
 ```
 
-Connect a USB to FTDI serial adaptor from a PC to the Raspberry Pi GPIO header for
-the serial port pins.  Start minicom and connect to the serial port.  Boot the Raspberry
-Pi with the firmware on the SD card.  The Pi should boot and show some messages.
-After a short pause it will reach a command prompt.
+This builds 3 images, the boot partition, the root partition and the combined sd-card image.
 
+  * part1\_boot.fat
+  * part2\_root.ext2
+  * sdimage.img
 
-## Creating a SD-Card image for flashing with dd, Balena Etcher or bmaptool
+The partitions can be mounted on a Linux system with the loopback device.  The sdimage.img
+can be flashed to an SD-Card using dd, bmaptool or Balenaetcher.
 
-From the build directory run the following script:
+# Notes
 
-```
-    $ ../tools/mk-sdcard-image.sh    
-```
+Pseudo is used so that commands can run as a "virtual" root user. Sqlite3 is used as a
+database of the generated files "virtual" permissions so that we can set most files
+as being owned by root and with appropriate permissions.
 
-This is a work-in-progress.  Files in the image are assigned the current user's
-UID and GID and not the root's UID and GID, 0 and 0. This will be fixed using the
-"pseudo" tool.
-
+The 'make image' command runs the tools/mk-kernel.img.sh script to create the kernel.img
+that is placed on the boot partition.  This combines the bootloader and Initial File System
+(IFS) image which contains the required files to bootstrap the system. The required files
+includes the kernel, UART and other drivers.
 

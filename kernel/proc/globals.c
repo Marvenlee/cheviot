@@ -55,7 +55,11 @@ process_list_t bkl_blocked_list;
 /*
  * Interrupt handling
  */
- 
+
+int irq_mask_cnt[NIRQ];
+int irq_handler_cnt[NIRQ];
+isr_handler_list_t isr_handler_list[NIRQ];
+
 struct Process *interrupt_dpc_process;
 int max_isr_handler;
 struct ISRHandler *isr_handler_table;

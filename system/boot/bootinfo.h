@@ -1,9 +1,11 @@
 #ifndef BOOTINFO_H
 #define BOOTINFO_H
 
-#include "types.h"
 #include "elf.h"
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "machine/cheviot_hal.h"
 
 
 #define MAX_BOOTINFO_PHDRS    16

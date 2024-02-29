@@ -1,0 +1,2 @@
+SUBDIRS = libcrypt libdb libutil
+

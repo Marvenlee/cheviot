@@ -16,8 +16,7 @@
 
 #include <sys/types.h>
 #include <kernel/proc.h>
-
-
+#include <kernel/dbg.h>
 
 int sys_getpid (void) {
   struct Process *current;  
@@ -103,6 +102,36 @@ int sys_getpgrp (void) {
 }
 
 
+
+int sys_setegid (int gid)
+{
+	Info("sys_setegid");
+	return 0;
+}
+
+int sys_seteuid(int uid)
+{
+	Info("sys_seteuid");
+	return 0;
+}
+
+int sys_issetugid(void)
+{
+	Info("sys_issetugid");
+	return 0;
+}
+
+int sys_setgroups (void)
+{
+	Info("sys_setgroups");
+	return -ENOSYS;
+}
+
+int sys_getgroups(void)
+{
+	Info("sys_getgroups");
+	return -ENOSYS;
+}
 
 
 

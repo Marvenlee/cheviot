@@ -109,19 +109,17 @@ void init_processes(void)
   timer_process =
       create_process(TimerBottomHalf, SCHED_RR, 31, PROCF_KERNEL, &cpu_table[0]);
 
+  Info("timer process created");
+
   interrupt_dpc_process =
       create_process(interrupt_dpc, SCHED_RR, 30, PROCF_KERNEL, &cpu_table[0]);
 
-  Info("timer process created");
+  Info("interrupt dpc process created");
 
   bdflush_process =
       create_process(bdflush, SCHED_RR, 17, PROCF_KERNEL, &cpu_table[0]);
 
   Info("bdflush process created");
-
-
-  Info("bdflush process created");
-
 
   // Can we not schedule a no-op bit of code if no processes running?
   // Do we really need an idle task in separate address-space ? 

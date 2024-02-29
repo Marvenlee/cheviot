@@ -1,4 +1,4 @@
 
-SUBDIRS = sdcard serial
+SUBDIRS = aux null random sdcard serial
 
 

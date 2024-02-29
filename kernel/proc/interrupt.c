@@ -20,7 +20,7 @@
  * Used by device drivers to receive notification of interrupts.
  */
 
-#include <kernel/board/globals.h>
+//#include <kernel/board/globals.h>
 #include <kernel/arch.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
@@ -75,6 +75,130 @@ int sys_createinterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *
   EnableInterrupts();  
   return fd;
 }
+
+
+
+/* @brief   Mask an IRQ.
+ *
+ */
+int sys_maskinterrupt(int irq)
+{
+#if 0
+  struct Process *current;
+
+  current = get_current_process();
+
+  if (!(current->flags & PROCF_ALLOW_IO)) {
+    return -EPERM;
+  }
+#endif
+
+  if (irq < 0 || irq >= NIRQ) {
+    return -EINVAL;
+  }
+
+  DisableInterrupts();
+
+  if (irq_mask_cnt[irq] < 0x80000000) {
+    irq_mask_cnt[irq]++;
+  }
+  
+  if (irq_mask_cnt[irq] > 0) {
+    disable_irq(irq);
+  }
+
+  EnableInterrupts();
+
+  return irq_mask_cnt[irq];
+}
+
+
+/* @brief   Unmasks an IRQ
+ *
+ */
+int sys_unmaskinterrupt(int irq)
+{
+#if 0
+  struct Process *current;
+
+  current = get_current_process();
+
+  if (!(current->flags & PROCF_ALLOW_IO)) {
+    return -EPERM;
+  }
+#endif
+
+  if (irq < 0 || irq >= NIRQ) {
+    return -EINVAL;
+  }
+
+  DisableInterrupts();
+
+  if (irq_mask_cnt[irq] > 0) {
+    irq_mask_cnt[irq]--;
+  }
+  
+  if (irq_mask_cnt[irq] == 0) {
+    enable_irq(irq);
+  }
+
+  EnableInterrupts();
+
+  return irq_mask_cnt[irq];
+}
+
+
+/* @brief   Masks an IRQ from an ISR.
+ *
+ * The mask_interrupt function pointer in struct InterruptAPI points to
+ * this function.
+ *
+ * NOTE: This will be replaced by a system call once we have interrupt
+ * handlers running in user-mode.
+ */
+int interruptapi_mask_interrupt(int irq)
+{
+  if (irq < 0 || irq >= NIRQ) {
+    return -EINVAL;
+  }
+
+  if (irq_mask_cnt[irq] < 0x80000000) {
+    irq_mask_cnt[irq]++;
+  }
+  
+  if (irq_mask_cnt[irq] > 0) {
+    disable_irq(irq);
+  }
+
+  return irq_mask_cnt[irq];
+}
+
+
+/* @brief   Unmasks an IRQ from an ISR
+ * 
+ * The unmask_interrupt function pointer in struct InterruptAPI points to
+ * this function.
+ *
+ * NOTE: This will be replaced by a system call once we have interrupt
+ * handlers running in user-mode.
+ */
+int interruptapi_unmask_interrupt(int irq)
+{
+  if (irq < 0 || irq >= NIRQ) {
+    return -EINVAL;
+  }
+
+  if (irq_mask_cnt[irq] > 0) {
+    irq_mask_cnt[irq]--;
+  }
+  
+  if (irq_mask_cnt[irq] == 0) {
+    enable_irq(irq);
+  }
+  
+  return irq_mask_cnt[irq];
+}
+
 
 /*
  * Called by CloseHandle() to free an interrupt handler.  If there are no
@@ -213,8 +337,6 @@ void free_isrhandler(struct ISRHandler *isrhandler)
   }
 }
 
-
-
 /* @brief   Put a knote on a kqueue's pending list from an interrupt handler
  *
  * struct InterruptAPI should have a context pointer, to point to allocated interrupt struct
@@ -231,7 +353,7 @@ void free_isrhandler(struct ISRHandler *isrhandler)
  * Move into interrupt.c, rename isr_postprocessing()
  * Add isr_dpc_task in interrupt.c, call knote_isr_dpc()
  */
-int knote_from_isr(struct InterruptAPI *api, int hint)
+int interruptapi_knotei(struct InterruptAPI *api, int hint)
 {
   struct ISRHandler *isr_handler = api->context;
   

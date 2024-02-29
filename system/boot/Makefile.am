@@ -2,22 +2,24 @@
 sbin_PROGRAMS = boot
 
 boot_SOURCES = \
-  bootstrap.c \
   doprintf.c \
   elf.c \
   globals.c \
-  main.c \
-  mbox.c \
-  memory.c \
-  mmio.c \
-  start.S
+  main.c
 
 
 if BOARD_RASPBERRY_PI_1
 
-boot_SOURCES += boards/raspberry_pi_1/arm.S \
-                boards/raspberry_pi_1/arm_misc.c \
-                boards/raspberry_pi_1/debug_pl011_uart.c
+boot_SOURCES += boards/raspberry_pi_1/aux_uart.c \
+                boards/raspberry_pi_1/bootstrap.c \
+                boards/raspberry_pi_1/debug.c \
+                boards/raspberry_pi_1/gpio.c \
+                boards/raspberry_pi_1/init.c \
+                boards/raspberry_pi_1/led.c \
+                boards/raspberry_pi_1/memory.c \
+                boards/raspberry_pi_1/start.S 
+
+boot_LDADD = -lrpihal
 
 AM_CFLAGS = -O2 -std=c99 -g0
 AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
@@ -26,31 +28,30 @@ AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
 boot_LDFLAGS = -v \
                -nostartfiles \
                -lgcc \
-               -T $(srcdir)/linker.ls
+               -T $(srcdir)/boards/raspberry_pi_1/linker.ls
+endif
 
-
-else
 if BOARD_RASPBERRY_PI_4
 
-boot_SOURCES += boards/raspberry_pi_4/arm.S \
-                boards/raspberry_pi_4/arm_misc.c \
-                boards/raspberry_pi_4/debug_mini_uart.c
+boot_SOURCES += boards/raspberry_pi_4/aux_uart.c \
+                boards/raspberry_pi_4/bootstrap.c \
+                boards/raspberry_pi_4/debug.c \
+                boards/raspberry_pi_4/gpio.c \
+                boards/raspberry_pi_4/init.c \
+                boards/raspberry_pi_4/led.c \
+                boards/raspberry_pi_4/memory.c \
+                boards/raspberry_pi_4/start.S 
 
+boot_LDADD = -lrpihal
 
 AM_CFLAGS = -O2 -std=c99 -g0
 AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
-AM_CCASFLAGS = -r -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
+AM_CCASFLAGS = -march=armv7ve -r -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
 
 boot_LDFLAGS = -v \
                -nostartfiles \
                -lgcc \
-               -T $(srcdir)/linker.ls
-
-else
-  echo "BOARD env variable not valid";
-  exit -1;
-
-endif
+               -T $(srcdir)/boards/raspberry_pi_4/linker.ls
 endif
 
 

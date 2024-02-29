@@ -1,8 +1,12 @@
-cmake_minimum_required(VERSION 3.5)
+# Build an SD-Card image containing boot and root partitions
+# This image can be written to an SD-Card using 'dd', BalenaEtcher
+# or bmaptool.
 
-
-# Copy files from build/host and place in build/ifs
-
-# build/native/bin/mkifs to create a build/kernel.img file containing the kernel and IFS filesystem
-
+add_custom_target ( image                     
+#                     COMMAND pseudo ${CMAKE_CURRENT_SOURCE_DIR}/tools/copy-rpi-binary-blobs.sh 
+                     COMMAND pseudo ${CMAKE_CURRENT_SOURCE_DIR}/tools/mk-kernel.img.sh 
+                     COMMAND pseudo ${CMAKE_CURRENT_SOURCE_DIR}/tools/mk-sdcard-image.sh 
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/)
+                     
+set_target_properties(image PROPERTIES EXCLUDE_FROM_ALL TRUE)
 

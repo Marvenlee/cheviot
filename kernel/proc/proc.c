@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/board/elf.h>
 #include <kernel/dbg.h>
@@ -164,6 +164,7 @@ int sys_waitpid(int pid, int *status, int options)
   int found_in_pgrp = 0;
   int err = 0;
   
+  Info("sys_waitpid(pid:%d, opt:%08x", pid, options);
   
   current = get_current_process();
 

@@ -36,15 +36,14 @@ struct ISRHandler
 };
 
 
+
 // Prototypes
 int sys_createinterrupt(int irq, void (*callback)(int irq, struct InterruptAPI *api));
-int sys_unmaskinterrupt(int irq);
 int sys_maskinterrupt(int irq);
-
-void InterruptLock(void); // TODO: Replace with spinlock_irq_save(&intr_spinlock);
-void InterruptUnlock(void);
-
-
+int sys_unmaskinterrupt(int irq);
+int interruptapi_mask_interrupt(int irq);
+int interruptapi_unmask_interrupt(int irq);
+int interruptapi_knotei(struct InterruptAPI *api, int hint);
 
 int close_isrhandler(struct Process *proc, int fd);
 struct ISRHandler *get_isrhandler(struct Process *proc, int fd);
@@ -52,9 +51,11 @@ int alloc_fd_isrhandler(struct Process *proc);
 int free_fd_isrhandler(struct Process *proc, int fd);
 struct ISRHandler *alloc_isrhandler(void);
 void free_isrhandler(struct ISRHandler *isrhandler);
-
-int knote_from_isr(struct InterruptAPI *api, int hint);
 void interrupt_dpc(void);
+
+// HAL Board Specific Functions
+void enable_irq(int irq);
+void disable_irq(int irq);
 
 
 

@@ -45,7 +45,7 @@ void init_arm(void)
 {
   vm_addr vbar;
 
-  cpsr_dnm_state = GetCPSR() & CPSR_DNM_MASK;
+  cpsr_dnm_state = hal_get_cpsr() & CPSR_DNM_MASK;
 
   vbar = (vm_addr)vector_table;
 
@@ -68,36 +68,21 @@ void init_arm(void)
   *(uint32_t volatile *)(vbar + 0x38) = (uint32_t)irq_vector;
   *(uint32_t volatile *)(vbar + 0x3C) = (uint32_t)fiq_vector;
 
-  SetVBAR((vm_addr)vector_table);
+  hal_set_vbar((vm_addr)vector_table);
 
-  uint32_t ctrl = GetCtrl();
+  uint32_t ctrl = hal_get_ctrl();
   ctrl |= C1_XP;
-  SetCtrl(ctrl);
+  hal_set_ctrl(ctrl);
 
   // TODO: What is DACR, why set to 0x55555555 ?
   uint32_t dacr;
 
-  dacr = GetDACR();
-  SetDACR(0x55555555);
-  dacr = GetDACR();
+  dacr = hal_get_dacr();
+  hal_set_dacr(0x55555555);
+  dacr = hal_get_dacr();
 
-  EnableL1Cache();
+  hal_enable_l1_cache();
 
   // TODO SPSR, does this contain the interrupt
-
-  init_timer_registers();
 }
 
-
-/* @brief Initialize the timer peripheral
-*/
-void init_timer_registers(void)
-{
-  uint32_t clo;
-
-  clo = timer_regs->clo;
-  clo += MICROSECONDS_PER_JIFFY;
-  timer_regs->c3 = clo;
-
-  EnableIRQ(INTERRUPT_TIMER3);
-}

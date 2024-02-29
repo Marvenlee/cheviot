@@ -32,7 +32,7 @@
  */
 int sys_access(char *pathname, mode_t permissions)
 {
-  Info ("sys_access");
+	// TODO: implement sys_access
   return F_OK;
 }
 
@@ -62,8 +62,6 @@ int sys_chmod(char *_path, mode_t mode)
   struct lookupdata ld;
   struct VNode *vnode;
   int err;
-
-  Info ("Chmod");
 
   current = get_current_process();
 
@@ -100,8 +98,6 @@ int sys_chown(char *_path, uid_t uid, gid_t gid)
   struct VNode *vnode;
   int err;
 
-  Info ("Chown");
-
   current = get_current_process();
 
   if ((err = lookup(_path, 0, &ld)) != 0) {
@@ -127,6 +123,74 @@ int sys_chown(char *_path, uid_t uid, gid_t gid)
 }
 
 
+/* @brief 	fchmod system call
+ *
+ */
+int sys_fchmod(int fd, mode_t mode)
+{
+  struct Process *current;
+  struct VNode *vnode;
+  int err;
+
+  current = get_current_process();
+  vnode = get_fd_vnode(current, fd);
+
+  if (vnode == NULL) {
+    return -EINVAL;
+  }
+
+  if (vnode->uid == current->uid) {
+    err = vfs_chmod(vnode, mode);
+    
+    if (err == 0) {
+      vnode->mode = mode;
+    }
+  } else {
+    err = EPERM;
+  }
+
+  knote(&vnode->knote_list, NOTE_ATTRIB);
+  
+  vnode_put(vnode);
+  return err;
+}
+
+
+/* @brief   fchown system call
+ *
+ * FIXME: does get_fd_vnode lock the vnode?
+ */
+int sys_fchown(int fd, uid_t uid, gid_t gid)
+{
+  struct Process *current;
+  struct VNode *vnode;
+  int err;
+
+  current = get_current_process();
+  vnode = get_fd_vnode(current, fd);
+
+  if (vnode == NULL) {
+    return -EINVAL;
+  }
+
+  if (vnode->uid == current->uid) {
+    err = vfs_chown(vnode, uid, gid);
+    
+    if (err == 0) {
+      vnode->uid = uid;
+      vnode->gid = gid;
+    }    
+  } else {
+    err = EPERM;
+  }
+
+
+  knote(&vnode->knote_list, NOTE_ATTRIB);
+  vnode_put(vnode);
+  return 0;
+}
+
+
 /* @brief   Check if an operation is allowed on a file
  * 
  * TODO:  Should this also check the filp's mode bits ? 
@@ -141,9 +205,7 @@ int is_allowed(struct VNode *vnode, mode_t desired_access)
   int shift;
   struct Process *current;
 
-//  Info ("FIXME: IsAllowed vn = %08x, acc:%o", (vm_addr)vnode, desired_access);
-
-// FIXME
+	// FIXME : fix is_allowed
   return 0;
   
   

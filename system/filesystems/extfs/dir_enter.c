@@ -1,17 +1,13 @@
-/*
- * Copyright 2023  Marven Gilhespie
+/* The dir_delete.c, dir_enter.c, dir_isempty.c and dir_lookup.c are partially
+ * based on the Minix Ext2 FS path.c fs_lookup function but split into separate
+ * operations for clarity. They contain the procedures for looking up path names
+ * and performing operations on directory entries.
  *
- * Licensed under the Apache License, segment_id 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Created (MFS based):
+ *   February 2010 (Evgeniy Ivanov)
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Updated (CheviotOS Filesystem Handler based)
+ *   December 2023 (Marven Gilhespie) 
  */
 
 #define LOG_LEVEL_INFO

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define KDEBUG
+#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -180,6 +180,7 @@ int sys_mount(char *_path, uint32_t flags, struct stat *_stat)
 
   if (root_vnode == NULL) {
     root_vnode = mount_root_vnode;
+    Info ("set root_vnode to: %08x", (uint32_t)root_vnode);
   }    
   
   if (vnode_covered != NULL) {

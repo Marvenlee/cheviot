@@ -44,10 +44,13 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
   bits32_t flags;
   struct Pageframe *pf;
 
+  Info ("fork address space");
+
   KASSERT(new_as != NULL);
   KASSERT(old_as != NULL);
 
   if (pmap_create(new_as) != 0) {
+    Error("faile to create pmap");
     return -1;
   }
 
@@ -73,6 +76,8 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
       
      
       if ((flags & MEM_PHYS) != MEM_PHYS && (flags & PROT_WRITE)) {
+//        Info (".. va:%08x, rw, anon, mark both as COW", (uint32_t)va);
+        
         // Read-Write mapping, Mark page in both as COW and read-only;
         flags |= MAP_COW;
      
@@ -86,10 +91,12 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
 
         pf = pmap_pa_to_pf(pa);
         pf->reference_cnt++;
+        
       } else if ((flags & MEM_PHYS) != MEM_PHYS) {
         // TODO: Should flags also map it as COW?
         // Read-only mapping
-
+//        Info (".. va:%08x, read-only, anon", (uint32_t)va);
+        
         if (pmap_enter(new_as, va, pa, flags) != 0) {
           goto cleanup;
         }
@@ -98,6 +105,8 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
         pf->reference_cnt++;
       } else {
         // Physical Mapping
+//        Info (".. va:%08x, phys", (uint32_t)va);
+        
         if (pmap_enter(new_as, va, pa, flags) != 0) {
           goto cleanup;
         }
@@ -105,10 +114,11 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
     }
   }
 
-  pmap_flush_tlbs();
+  //pmap_flush_tlbs();
   return 0;
 
 cleanup:
+  Info ("fork address space failed, cleanup");
   cleanup_address_space(new_as);
   free_address_space(new_as);
   return -1;
@@ -126,6 +136,8 @@ void cleanup_address_space(struct AddressSpace *as)
   vm_addr vpt;
   vm_addr va;
   uint32_t flags;
+
+  Info("cleanup_address_space");
 
   for (vpt = VM_USER_BASE; vpt <= VM_USER_CEILING; vpt += PAGE_SIZE * N_PAGETABLE_PTE) {
     if (pmap_is_pagetable_present(as, vpt) == false) {
@@ -162,7 +174,7 @@ void cleanup_address_space(struct AddressSpace *as)
   as->segment_table[0] = VM_USER_BASE | SEG_TYPE_FREE;
   as->segment_table[1] = VM_USER_CEILING | SEG_TYPE_CEILING;
 
-  pmap_flush_tlbs();
+//  pmap_flush_tlbs();
 }
 
 

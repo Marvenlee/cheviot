@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <machine/raspberry_pi_hal.h>
+#include <machine/cheviot_hal.h>
 
 
 /* @brief   Write to a peripheral register
@@ -40,6 +40,5 @@ uint32_t hal_mmio_read(void *reg)
   
   return val;
 }
-
 
 

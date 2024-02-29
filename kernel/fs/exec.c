@@ -90,7 +90,7 @@ int do_exec(int fd, struct execargs *_args)
   struct Process *current;
   struct execargs args;
   int8_t *pool;
-  
+    
   Info("do_exec");
   
   current = get_current_process();
@@ -415,7 +415,7 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
       }
     }
 
-    // FIXME: sys_virtualprotect(sec_addr, sec_mem_sz, sec_prot);
+    sys_virtualprotect(sec_addr, sec_mem_sz, sec_prot);
   }
 
   return 0;
