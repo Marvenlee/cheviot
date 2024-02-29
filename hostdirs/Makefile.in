@@ -585,6 +585,7 @@ install-data-local:
 	install -d $(prefix)/home
 	install -d $(prefix)/lib
 	install -d $(prefix)/media
+	install -d $(prefix)/media/root
 	install -d $(prefix)/mnt
 	install -d $(prefix)/root -m 0700 
 	install -d $(prefix)/sbin

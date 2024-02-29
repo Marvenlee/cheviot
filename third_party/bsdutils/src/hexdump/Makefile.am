@@ -9,7 +9,7 @@ hexdump_SOURCES = \
   odsyntax.c \
   parse.c
   
-hexdump_LDADD = -lbsdcompat
+hexdump_LDADD = -lutil
 
 AM_CFLAGS = -O0 -std=c99 -g2
 AM_CPPFLAGS = -I$(srcdir)

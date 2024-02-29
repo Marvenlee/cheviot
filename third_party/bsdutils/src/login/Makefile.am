@@ -6,7 +6,7 @@ login_SOURCES = \
   copyrightstr.c \
 	login.c
   
-login_LDADD = -lcrypt -lbsdcompat -ldb
+login_LDADD = -lc -lcrypt -ldb -lutil
 
 AM_CFLAGS = -O0 -std=c99 -g2
 AM_CPPFLAGS = -I$(srcdir)
