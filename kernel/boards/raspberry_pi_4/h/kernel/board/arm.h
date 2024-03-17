@@ -51,38 +51,9 @@ typedef uint32_t    int_state_t;
 
 
 /*
- * General VM Constants
- */
-#define PAGE_SIZE         4096
-#define LARGE_PAGE_SIZE   65536
-#define VM_KERNEL_BASE    0x80000000
-#define VM_KERNEL_CEILING 0x8FFF0000
-#define VM_USER_BASE      0x00400000
-#define VM_USER_CEILING   0x7F000000
-
-#define ROOT_CEILING_ADDR 0x00010000
-#define KERNEL_BASE_VA    0x80000000
-#define IOMAP_BASE_VA     0xA0000000
-
-#define ROOT_PAGETABLES_CNT         1
-#define ROOT_PAGETABLES_PDE_BASE    0
-
-#define IO_PAGETABLES_CNT           16
-#define IO_PAGETABLES_PDE_BASE      2560
-
-#define KERNEL_PAGETABLES_CNT       512
-#define KERNEL_PAGETABLES_PDE_BASE  2048
-
-#define VPAGETABLE_SZ     4096
-#define VPTE_TABLE_OFFS   1024
-#define PAGEDIR_SZ        16384
-
-#define N_PAGEDIR_PDE     4096
-#define N_PAGETABLE_PTE   256
-
-/*
  * PmapVPTE virtual page table flags
  */
+#if 0
 #define VPTE_PHYS     (1 << 0)
 #define VPTE_LAZY     (1 << 2)
 #define VPTE_PROT_COW (1 << 3)
@@ -93,6 +64,7 @@ typedef uint32_t    int_state_t;
 #define VPTE_DIRTY    (1 << 8) // FIXME: Should be part of Pageframe only
 #define VPTE_WIRED    (1 << 9) // FIXME: Should be part of Pageframe only
 #define VPTE_PRESENT  (1 << 10)
+#endif
 
 /*
  */

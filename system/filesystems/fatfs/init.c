@@ -89,7 +89,7 @@ void init(int argc, char *argv[]) {
   
   
   KLog("Mounting %s", config.mount_path);
-  portid = mount(config.mount_path, 0, &stat);
+  portid = createmsgport(config.mount_path, 0, &stat, NMSG_BACKLOG);
 
   if (portid < 0) {
     KLog("***** exiting fat, mounting (%s) failed", config.mount_path);

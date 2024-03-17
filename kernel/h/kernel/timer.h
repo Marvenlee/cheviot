@@ -1,6 +1,7 @@
 #ifndef KERNEL_TIMER_H
 #define KERNEL_TIMER_H
 
+#include <kernel/arch.h>
 #include <kernel/lists.h>
 #include <kernel/types.h>
 #include <sys/time.h>
@@ -42,5 +43,9 @@ int SetTimeout (int milliseconds, void (*callback)(struct Timer *timer), void *a
 bool softclock_trailing_hardclock(uint64_t softclock);
 void TimerTopHalf(void);
 void TimerBottomHalf(void);
+
+// Architecture-specific busy-wait sleep
+int arch_spin_nanosleep(struct timespec *reg);
+
 
 #endif

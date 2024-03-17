@@ -1,5 +1,5 @@
 /*
- * Copyright 2023  Marven Gilhespie
+ * Copyright 2019  Marven Gilhespie
  *
  * Licensed under the Apache License, segment_id 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,30 @@
  * limitations under the License.
  */
 
-#ifndef BOARDS_RASPBERRY_PI_4_MEMORY_H
-#define BOARDS_RASPBERRY_PI_4_MEMORY_H
+#ifndef NULL_GLOBALS_H
+#define NULL_GLOBALS_H
 
-#include <stdint.h>
+#include <errno.h>
 #include <stdbool.h>
-#include <stddef.h>
-#include <machine/cheviot_hal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/event.h>
+#include <sys/mount.h>
+#include <sys/signal.h>
+#include <sys/stat.h>
+#include <sys/syscalls.h>
+#include <unistd.h>
+#include <sys/fsreq.h>
+#include "null.h"
 
 
-/*
- * Prototypes
- */
-size_t get_physical_mem_size(void);
 
+extern int portid;
+extern int kq;
+
+extern struct Config config;
 
 #endif
 

@@ -31,8 +31,8 @@ extern uint8_t _ebss;
 extern vm_addr _heap_base;
 extern vm_addr _heap_current;
 
-vm_addr core_pagetable_base;
-vm_addr core_pagetable_ceiling;
+extern vm_addr core_pagetable_base;
+extern vm_addr core_pagetable_ceiling;
 
 
 /*

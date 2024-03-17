@@ -28,8 +28,16 @@
 #include "sdcard.h"
 #include <time.h>
 #include <sys/time.h>
+#include <machine/cheviot_hal.h>
 
 
+struct timer_wait tw;
+
+
+/*
+ * This can put task to sleep, granularity is kernel's timer tick rate.
+ * Unless we get fancy with variable intervals between timers.
+ */
 int delay_microsecs(int usec)
 {
   struct timespec req, rem; 
@@ -44,43 +52,41 @@ int delay_microsecs(int usec)
 }
 
 
-
-struct timer_wait register_timer(useconds_t usec)
+/*
+ *
+ */
+void register_timer(struct timer_wait * tw, unsigned int usec)
 {
-  struct timeval now;
-  struct timer_wait tw;
-  tw.rollover = 0;
-  tw.trigger_value = 0;
-
-  if (usec < 0) {
-    errno = EINVAL;
-    return tw;
-  }
-  
-  gettimeofday(&now, NULL);
-  
-  uint32_t cur_timer = now.tv_usec;
-  uint32_t trig = cur_timer + (uint32_t)usec;
-
-  tw.trigger_value = trig;
-  if (trig > cur_timer)
-    tw.rollover = 0;
-  else
-    tw.rollover = 1;
-  return tw;
+	struct timespec timeout_ts;
+	
+	tw->timeout_nsec = usec * 1000;
+	
+	timeout_ts.tv_sec = 0;
+	timeout_ts.tv_nsec = usec * 1000;
+	
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tw->start_ts);
 }
 
-int compare_timer(struct timer_wait tw) {
-  struct timeval now;
- 
-  gettimeofday(&now, NULL); 
-  uint32_t cur_timer = now.tv_usec;
-  
-  if (cur_timer < tw.trigger_value) {
-    if (tw.rollover)
-      tw.rollover = 0;
-  } else if (!tw.rollover)
-    return 1;
 
-  return 0;
+/*
+ *
+ */
+int compare_timer(struct timer_wait * tw)
+{
+	struct timespec current_ts;
+	struct timespec diff_ts;
+	bool elapsed;
+	
+	clock_gettime(CLOCK_MONOTONIC_RAW, &current_ts);
+
+	elapsed = diff_timespec(&diff_ts, &current_ts, &tw->start_ts);
+	
+	if (elapsed) {
+		log_warn("timeout expired: %d s, %d usecs, timeout:%d", 
+							(int)diff_ts.tv_sec, (int)diff_ts.tv_nsec / 1000, (int)tw->timeout_nsec);				
+		return 1;
+	} else {
+		return 0;
+	}
 }
+

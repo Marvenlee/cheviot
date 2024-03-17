@@ -31,15 +31,11 @@
 #include <task.h>
 
 
-//#define SERIAL_IRQ  57
-/*
-#define INO_NR 0
-#define PAGE_SIZE 4096
-#define POLL_TIMEOUT 100000
-#define NULL ((void *)0)
 
-#define UART_CLK (3000000 * 16)
-*/
+/*
+ */
+#define NMSG_BACKLOG 			 3		// 1 read, 1 write, 1 ioctl/termios/synchronous function
+#define POLL_TIMEOUT 	100000
 
 /*
  * Configuration settings
@@ -50,7 +46,8 @@ struct Config
   uid_t uid;
   gid_t gid;
   mode_t mode;
-
+	dev_t dev;
+	
   int baud;
   int stop_bits;
   bool hw_flow_control;

@@ -7,20 +7,24 @@
 
 #define LOG_LEVEL_INFO
 
+#include <stdint.h>
 #include <stdarg.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "ext2.h"
 #include "globals.h"
-
 
 /* @brief   Initialize and mount an Ext filesystem
  *
  */
 void init(int argc, char *argv[])
 {
-//  struct stat block_stat;
+	struct stat blk_stat;
   struct stat mnt_stat;
   int sc;
   struct superblock *sp;
+  
+  log_info("ext2fs: init");
   
   memset (&superblock, 0, sizeof superblock);
   
@@ -31,21 +35,26 @@ void init(int argc, char *argv[])
     panic("ext2fs failed to process command line arguments");
   }
 
-  block_fd = open(sb_device_path, O_RDWR);
+  block_fd = open(config.device_path, O_RDWR);
 
   if (block_fd == -1) {  
     panic("ext2fs failed to open block device");
   }
 
+  log_info("ext2fs: opened block device");
+
   // FIXME: Save the partition size returned by block stat, compare to
   // FIXME: Save the st_dev of the block device, this FS will be mounted with same value  
-  // if (fstat(block_fd, &block_stat) != 0) {
-  //   log_warn("ext2fs fstart failed");
-  // }
+  
+  if (fstat(block_fd, &blk_stat) != 0) {
+     log_warn("ext2fs fstart failed");
+  }
   
   if (read_superblock() != 0) {
     panic("ext2fs failed to read superblock");
   }
+
+  log_info("ext2fs: read superblock");
   
   if ((cache = init_block_cache(block_fd, NR_CACHE_BLOCKS, sb_block_size)) == NULL) {
     panic("ext2fs init block cache failed");
@@ -54,19 +63,17 @@ void init(int argc, char *argv[])
   if (init_inode_cache() != 0) {
     panic("ext2fs init inode cache failed");
   }
-    
-  mnt_stat.st_dev = 0;            // FIXME: Stat the block device to get dev value
+  
+  mnt_stat.st_dev = blk_stat.st_dev;
   mnt_stat.st_ino = EXT2_ROOT_INO;
-  mnt_stat.st_mode = 0777 | S_IFDIR; // FIXME: Get the RWX permissions from command line
-  mnt_stat.st_uid = 0;            // FIXME: Get these from command line
-  mnt_stat.st_gid = 0;            // FIXME: Get these from command line
-                                  // Unless we inherit from "mounted on" dir
+  mnt_stat.st_mode = S_IFDIR | (config.mode & 0777);
+  mnt_stat.st_uid = config.uid;
+  mnt_stat.st_gid = config.gid;
   mnt_stat.st_size = 0xFFFFFF00;  // FIXME: Get the size from partition or superblock
   mnt_stat.st_blksize = 512;
   mnt_stat.st_blocks = superblock.s_blocks_count; // Size in 512 byte blocks
   
-  // FIXME:  Pass stat for root dir and files, pass additional statvfs for FS mount.
-  portid = mount(sb_mount_path, 0, &mnt_stat);
+  portid = createmsgport(config.mount_path, 0, &mnt_stat, NMSG_BACKLOG);
 
   if (portid == -1) {
     panic("ext2fs mounting failed");
@@ -96,10 +103,10 @@ int process_args(int argc, char *argv[])
 {
   int c;
   
-  sb_uid = 1000;
-  sb_gid = 1000;
-  sb_mode = 0777;
-  sb_rd_only = false;
+  config.uid = 0;
+  config.gid = 0;
+  config.mode = 0700;
+  config.read_only = false;
   
   if (argc <= 1) {
     return -1;
@@ -108,19 +115,19 @@ int process_args(int argc, char *argv[])
   while ((c = getopt(argc, argv, "u:g:m:r")) != -1) {
     switch (c) {
       case 'u':
-        sb_uid = atoi(optarg);
+        config.uid = atoi(optarg);
         break;
 
       case 'g':
-        sb_gid = atoi(optarg);
+        config.gid = atoi(optarg);
         break;
 
       case 'm':
-        sb_mode = atoi(optarg);
+        config.mode = atoi(optarg);
         break;
 
       case 'r':
-        sb_rd_only = true;
+        config.read_only = true;
         break;
       
       default:
@@ -132,8 +139,8 @@ int process_args(int argc, char *argv[])
     return -1;
   }
 
-  sb_mount_path = argv[optind];
-  sb_device_path = argv[optind + 1];
+  config.mount_path = argv[optind];
+  config.device_path = argv[optind + 1];
   return 0;
 }
 

@@ -204,6 +204,7 @@ typedef uint32_t    int_state_t;
 /*
  * PmapVPTE virtual page table flags
  */
+#if 0 
 #define VPTE_PHYS     (1 << 0)
 #define VPTE_LAZY     (1 << 2)
 #define VPTE_PROT_COW (1 << 3)
@@ -214,6 +215,7 @@ typedef uint32_t    int_state_t;
 #define VPTE_DIRTY    (1 << 8) // FIXME: Should be part of Pageframe only
 #define VPTE_WIRED    (1 << 9) // FIXME: Should be part of Pageframe only
 #define VPTE_PRESENT  (1 << 10)
+#endif
 
 /*
  */

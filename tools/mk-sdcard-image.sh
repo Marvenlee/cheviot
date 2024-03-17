@@ -97,7 +97,7 @@ dd if=/dev/zero of="$img_file" bs="$bs" count=$((($first_partition_offset + $par
 printf "
 label: dos
 unit: sectors
-size=$(($partition_size_1/$block_size)), type=13, bootable
+size=$(($partition_size_1/$block_size)), type=4, bootable
 size=$(($partition_size_2/$block_size)), type=83
 " | sfdisk "$img"
 

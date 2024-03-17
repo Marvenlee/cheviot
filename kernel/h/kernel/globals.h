@@ -134,9 +134,6 @@ extern knote_list_t knote_free_list;
 
 extern knote_list_t knote_hash[KNOTE_HASH_SZ];
 
-// Messages
-extern msgid_t unique_msgid_counter;
-extern msg_list_t msgid_hash[MSGID_HASH_SZ];
 
 /*
  * Directory Name Lookup Cache
@@ -161,7 +158,7 @@ extern struct Buf *buf_table;
 extern buf_list_t buf_hash[BUF_HASH];
 extern buf_list_t buf_avail_list;
 
-superblock_list_t writable_filesystem_list;    
+extern superblock_list_t writable_filesystem_list;    
 
 
 

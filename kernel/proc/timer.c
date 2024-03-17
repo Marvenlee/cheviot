@@ -69,7 +69,7 @@ int sys_gettimeofday(struct timeval *tv_user)
 
   int_state = DisableInterrupts();
   tv.tv_sec = hardclock_time / JIFFIES_PER_SECOND;
-  tv.tv_usec = (hardclock_time % JIFFIES_PER_SECOND); // TODO: FIXME 
+  tv.tv_usec = (hardclock_time % JIFFIES_PER_SECOND); // TODO: FIXME  * MICROSECONDS_PER_JIFFY;
   RestoreInterrupts(int_state);
 
   CopyOut(tv_user, &tv, sizeof(struct timeval));
@@ -77,13 +77,70 @@ int sys_gettimeofday(struct timeval *tv_user)
 }
 
 
+/*
+ *
+ */
+int sys_clock_gettime(int clock_id, struct timespec *_ts)
+{
+	int sc;
+	struct timespec ts;
+  int_state_t int_state;
+
+	switch(clock_id)
+	{
+		case CLOCK_REALTIME:
+			// FIXME: For now return clock monotonic;
+			int_state = DisableInterrupts();
+			ts.tv_sec = hardclock_time / JIFFIES_PER_SECOND;
+			ts.tv_nsec = (hardclock_time % JIFFIES_PER_SECOND) * NANOSECONDS_PER_JIFFY; 
+			RestoreInterrupts(int_state);			
+			sc = 0;
+			break;
+			
+		case CLOCK_MONOTONIC:
+			int_state = DisableInterrupts();
+			ts.tv_sec = hardclock_time / JIFFIES_PER_SECOND;
+			ts.tv_nsec = (hardclock_time % JIFFIES_PER_SECOND) * NANOSECONDS_PER_JIFFY;
+			RestoreInterrupts(int_state);			
+			sc = 0;
+			break;
+		
+		case CLOCK_MONOTONIC_RAW:
+			sc = arch_clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+			break;
+		
+		default:
+			sc = -EINVAL;
+	}
+
+  if (sc != 0) {
+  	return sc;
+  }
+
+  if (CopyOut(_ts, &ts, sizeof(struct timespec)) != 0) {
+  	return -EFAULT;
+  }
+	
+	return sc;
+}
+
+
 /* @brief   Set the system time
  *
- * TODO:
  */
 int sys_settimeofday(struct timeval *tv_user)
 {
+ 	/* TODO:  scrap this, use clock_settime. */
   return 0;
+}
+
+/*
+ *
+ */
+int sys_clock_settime(int clock_id, struct timespec *_ts)
+{
+	// TODO: clock_settime
+	return -ENOSYS;
 }
 
 
@@ -122,8 +179,6 @@ int sys_sleep(int seconds)
   int_state_t int_state;
   struct Process *current;
   struct Timer *timer;
-
-  Info ("sys_sleep(%d)", seconds);
   
   current = get_current_process();
     
@@ -153,23 +208,21 @@ int sys_nanosleep(struct timespec *_req, struct timespec *_rem)
   struct Timer *timer;
   struct timespec req, rem;
 
-  Info ("sys_nanosleep");
-
   current = get_current_process();
   
   if (CopyIn(&req, _req, sizeof(req)) != 0) {
+	  Info ("sys_nanosleep: EFAULT");
     return -EFAULT;
   }
   
-#if 0
-  // TODO:  spin_nanosleep() for IO processes that need to sleep for less than 2ms
-  if ((current->flags & PROCF_ALLOW_IO)) {
-    if (req->tv_sec == 0 && req->tv_nsec <= 2000000) {
-      spin_nanosleep(&req);
-      return 0
+  // TODO:  spin_nanosleep() for IO processes that need to sleep for less than 10ms
+//  if ((current->flags & PROCF_ALLOW_IO)) {
+    if (req.tv_sec == 0 && req.tv_nsec < 10000000) {
+      if (arch_spin_nanosleep(&req) == 0) {
+	      return 0;
+	    }
     }
-  }
-#endif
+//  }
       
   timer = &current->sleep_timer;  
   timer->process = current;
@@ -177,6 +230,7 @@ int sys_nanosleep(struct timespec *_req, struct timespec *_rem)
   timer->callback = SleepCallback;
 
   int_state = DisableInterrupts();
+  
   timer->expiration_time = hardclock_time + (req.tv_sec * JIFFIES_PER_SECOND)
                                           + (req.tv_nsec / NANOSECONDS_PER_JIFFY);
   RestoreInterrupts(int_state);
@@ -188,7 +242,8 @@ int sys_nanosleep(struct timespec *_req, struct timespec *_rem)
   }
 
   // TODO: if interrupted, work out remaining time and store in _rem
-
+  Info ("sys_nanosleep awakened");
+  
   return 0;
 }
 

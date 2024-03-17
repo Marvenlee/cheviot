@@ -34,7 +34,6 @@
 
 // @brief   Kernel - User VM Boundaries
 .equ VM_KERNEL_BASE,              0x80000000
-.equ VM_KERNEL_CEILING,           0x8FFF0000
 .equ VM_USER_BASE,                0x00400000
 .equ VM_USER_CEILING,             0x7F000000
 

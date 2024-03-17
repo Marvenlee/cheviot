@@ -74,6 +74,8 @@ int main(int argc, char **argv)
   
   log_info("statted etc/startup.cfg");
   log_info("startup.cfg size = %d", st.st_size);
+
+	log_info("sizeof stat st: %d", sizeof (struct stat));
     
   buf = malloc (st.st_size + 1);
   
@@ -82,16 +84,16 @@ int main(int argc, char **argv)
     close(startup_cfg_fd);
     return -1;
   }
-
   
   read(startup_cfg_fd, buf, st.st_size);
+  buf[st.st_size] = '\0';
 
   close(startup_cfg_fd);  
-  buf[st.st_size] = '\0';
-  src = buf;
-   
+
   log_info("processing startup.cfg");
-   
+
+  src = buf;   
+
   while ((line = readLine()) != NULL) {
     cmd = tokenize(line);
     
@@ -113,12 +115,14 @@ int main(int argc, char **argv)
       cmdSleep();
     } else if (strncmp("pivot", cmd, 5) == 0) {
       cmdPivot();
-    } else if (strncmp("remount", cmd, 5) == 0) {
-      cmdRemount();
+    } else if (strncmp("renamemount", cmd, 5) == 0) {
+      cmdRenameMount();
     } else if (strncmp("setenv", cmd, 6) == 0) {
       cmdSetEnv();
     } else if (strncmp("settty", cmd, 6) == 0) {
       cmdSettty();
+    } else if (strncmp("printgreeting", cmd, 6) == 0) {
+      cmdPrintGreeting();
     } else {
       log_error("init script, unknown command: %s", cmd);
     }
@@ -134,6 +138,82 @@ int main(int argc, char **argv)
   }
   
   return 0;
+}
+
+
+/* @brief   Read a line from startup.cfg
+ *
+ */
+char *readLine(void)
+{
+    char *dst = linebuf;
+    linebuf[255] = '\0';
+    
+    if (*src == '\0') {
+        return NULL; 
+    }
+        
+    while (*src != '\0' && *src != '\r' && *src != '\n') {
+        *dst++ = *src++;
+    }
+
+    if (*src != '\0') {
+        src++;
+    }
+    
+    *dst = '\0';
+    
+#if 0
+    log_info("startup.cfg: %s", linebuf);
+#endif
+    
+    return linebuf;
+}
+
+
+/* @brief   Split a line of text from startup.cfg into nul-terminated tokens
+ *
+ */
+char *tokenize(char *line)
+{
+    static char *ch;
+    char separator;
+    char *start;
+    
+    if (line != NULL) {
+        ch = line;
+    }
+    
+    while (*ch != '\0') {
+        if (*ch != ' ') {
+           break;
+        }
+        ch++;        
+    }
+    
+    if (*ch == '\0') {
+        return NULL;
+    }        
+    
+    if (*ch == '\"') {
+        separator = '\"';
+        ch++;
+    } else {
+        separator = ' ';
+    }
+
+    start = ch;
+
+    while (*ch != '\0') {
+        if (*ch == separator) {
+            *ch = '\0';
+            ch++;
+            break;
+        }           
+        ch++;
+    }
+            
+    return start;    
 }
 
 
@@ -304,8 +384,8 @@ int cmdWaitfor (void) {
     kevent(kq, NULL, 0, &ev, 1, &ts);
   }
   
-  close(kq);    
-
+  close(kq);
+  
 #else
   while (1) {
     if (stat(fullpath, &st) == 0 && st.st_dev != parent_stat.st_dev) {
@@ -364,11 +444,12 @@ int cmdPivot (void) {
   return sc;
 }
 
+
 /* @brief   Handle a "remount" command in startup.cfg
  *
  * format: remount <new_path> <old_path>
  */
-int cmdRemount (void) {
+int cmdRenameMount (void) {
   char *new_path;
   char *old_path;
   int sc;
@@ -383,7 +464,7 @@ int cmdRemount (void) {
     return -1;
   }
   
-  sc = movemount (new_path, old_path);
+  sc = renamemsgport(new_path, old_path);
   return sc;
 }
 
@@ -425,11 +506,7 @@ int cmdSettty (void) {
   dup2(fd, STDOUT_FILENO);
   dup2(fd, STDERR_FILENO);
   
-  log_info("printing greeting");
-  
-  setbuf(stdout, NULL);  
-  PrintGreeting();
-
+  setbuf(stdout, NULL);
   tty_set = true;
   return 0;
 }
@@ -458,86 +535,10 @@ int cmdSetEnv(void)
 }
 
 
-/* @brief   Split a line of text from startup.cfg into nul-terminated tokens
+/* @brief   Print a CheviotOS greeting to stdout
  *
  */
-char *tokenize(char *line)
-{
-    static char *ch;
-    char separator;
-    char *start;
-    
-    if (line != NULL) {
-        ch = line;
-    }
-    
-    while (*ch != '\0') {
-        if (*ch != ' ') {
-           break;
-        }
-        ch++;        
-    }
-    
-    if (*ch == '\0') {
-        return NULL;
-    }        
-    
-    if (*ch == '\"') {
-        separator = '\"';
-        ch++;
-    } else {
-        separator = ' ';
-    }
-
-    start = ch;
-
-    while (*ch != '\0') {
-        if (*ch == separator) {
-            *ch = '\0';
-            ch++;
-            break;
-        }           
-        ch++;
-    }
-            
-    return start;    
-}
-
-
-/* @brief   Read a line from startup.cfg
- *
- */
-char *readLine(void)
-{
-    char *dst = linebuf;
-    linebuf[255] = '\0';
-    
-    if (*src == '\0') {
-        return NULL; 
-    }
-        
-    while (*src != '\0' && *src != '\r' && *src != '\n') {
-        *dst++ = *src++;
-    }
-
-    if (*src != '\0') {
-        src++;
-    }
-    
-    *dst = '\0';
-    
-#if 0
-    log_info("startup.cfg: %s", linebuf);
-#endif
-    
-    return linebuf;
-}
-
-
-/* @brief   Print a test-card/greeting to stdout
- *
- */
-void PrintGreeting(void)
+void cmdPrintGreeting(void)
 {
 #if 1
   printf("\033[0;0H\033[0J\r\n\n");
@@ -552,8 +553,6 @@ void PrintGreeting(void)
   printf("\n");
   printf("\033[0m\n");
 #endif
-
-  sleep(1);
 }
 
 

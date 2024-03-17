@@ -41,6 +41,7 @@ extern struct DevfsNode devfs_inode_table[DEVFS_MAX_INODE];
 // TODO: Need lock or Superblock lock around dirents_buf
 extern uint8_t dirents_buf[DIRENTS_BUF_SZ];
 
+extern struct Config config;
 
 
 #endif

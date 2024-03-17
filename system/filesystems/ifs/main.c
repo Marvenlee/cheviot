@@ -20,7 +20,9 @@
  * and handles the IFS file system. The root process itself execs /sbin/root which
  * assumes the role of the real root process. 
  */
- 
+
+#define LOG_LEVEL_INFO
+
 #include "ifs.h"
 #include "globals.h"
 #include "sys/debug.h"
@@ -130,13 +132,6 @@ static void exec_init(void)
     log_info("reap processes returned");
     
   } else if (rc == 0) {
-    log_info("sleeping before execing /sbin/init");
-
-    sleep(5);   // FIXME: We need this due to current race condition where
-                // /sbin/init sends an lookup message but we've not registered
-                // the event with kqueue yet in the ifs_message_loop.
-                // FIXME: Need to check for existing pending events in kqueue
-                  
     // We are the third process (pid 2), the init process.
     log_info("execing /sbin/init");
     
@@ -182,7 +177,7 @@ static void ifs_message_loop(void)
   msgid_t msgid;
   
   log_info("ifs_message_loop");  
-    
+  log_info("&ev= %08x", (uint32_t)&ev);
   EV_SET(&ev, portid, EVFILT_MSGPORT, EV_ADD | EV_ENABLE, 0, 0, 0); 
   kevent(kq, &ev, 1,  NULL, 0, NULL);
 
@@ -215,7 +210,7 @@ static void ifs_message_loop(void)
             break;
 
           default:
-            log_warn("ifs: Unknown message cmd:%d\n", req.cmd);
+            log_warn("ifs: unknown command: %d", req.cmd);
             replymsg(portid, msgid, -ENOTSUP, NULL, 0);
             break;
         }
@@ -241,12 +236,21 @@ static void ifs_lookup(msgid_t msgid, struct fsreq *req)
   char name[256];
   ssize_t sz;
    
+//  log_info("ifs_lookup");
+	   
   memset(&reply, 0, sizeof reply);
   
   sz = readmsg(portid, msgid, name, req->args.lookup.name_sz, sizeof *req);
   name[255] = '\0';
-  
+
+//	log_info("lookup name=%s", name);
+	
   ifs_dir_node = &ifs_inode_table[req->args.lookup.dir_inode_nr];
+
+//	log_info("ifs_inode_table=%08x", (uint32_t)ifs_inode_table);
+//	log_info("ifs_dir_node=%08x", (uint32_t)ifs_dir_node);
+//  log_info("ifs_header->node_cnt addr:%08x", (uint32_t)ifs_header->node_cnt);
+  
   
   for (int inode_nr = 0; inode_nr < ifs_header->node_cnt; inode_nr++) {
     
@@ -269,8 +273,8 @@ static void ifs_lookup(msgid_t msgid, struct fsreq *req)
     }
   }
 
-  log_warn("ifs_lookup failed, -ENOENT");
-  
+//  log_warn("ifs_lookup failed, -ENOENT");
+//  log_warn("ifs path was: %s", name);
   replymsg(portid, msgid, -ENOENT, &reply, sizeof reply);
 }
 
@@ -303,6 +307,9 @@ static void ifs_read(msgid_t msgid, struct fsreq *req)
   count = req->args.read.sz;  
   
   src = (uint8_t *)ifs_header + rnode->file_offset + offset;  
+
+//	log_info("src=%08x", src);
+
   remaining = rnode->file_size - offset;
   nbytes_read = (count < remaining) ? count : remaining;
   

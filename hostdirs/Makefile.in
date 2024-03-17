@@ -23,7 +23,6 @@
 # in other recipes so these all gain root ownership and avoids host uid/gid
 # pollution.
 #
-# TODO: Restrict rwx user/group settings for some directories.
 #
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -577,25 +576,25 @@ uninstall-am:
 
 
 install-data-local:
-	install -d $(prefix)/bin
-	install -d $(prefix)/boot
-	install -d $(prefix)/dev
-	install -d $(prefix)/etc
-	install -d $(prefix)/etc/opt
-	install -d $(prefix)/home
-	install -d $(prefix)/lib
-	install -d $(prefix)/media
-	install -d $(prefix)/media/root
-	install -d $(prefix)/mnt
-	install -d $(prefix)/root -m 0700 
-	install -d $(prefix)/sbin
-	install -d $(prefix)/sys
-	install -d $(prefix)/tmp
-	install -d $(prefix)/usr
-	install -d $(prefix)/usr/bin
-	install -d $(prefix)/usr/lib
-	install -d $(prefix)/usr/sbin
-	install -d $(prefix)/var
+	install -o 0 -g 0 -m 0755 -d $(prefix)/bin
+	install -o 0 -g 0 -m 0755 -d $(prefix)/boot
+	install -o 0 -g 0 -m 0755 -d $(prefix)/dev
+	install -o 0 -g 0 -m 0755 -d $(prefix)/etc
+	install -o 0 -g 0 -m 0755 -d $(prefix)/etc/opt
+	install -o 0 -g 0 -m 0755 -d $(prefix)/home
+	install -o 0 -g 0 -m 0755 -d $(prefix)/lib
+	install -o 0 -g 0 -m 0755 -d $(prefix)/media
+	install -o 0 -g 0 -m 0755 -d $(prefix)/media/root
+	install -o 0 -g 0 -m 0755 -d $(prefix)/mnt
+	install -o 0 -g 0 -m 0700 -d $(prefix)/root 
+	install -o 0 -g 0 -m 0755 -d $(prefix)/sbin
+	install -o 0 -g 0 -m 0755 -d $(prefix)/sys
+	install -o 0 -g 0 -m 0755 -d $(prefix)/tmp
+	install -o 0 -g 0 -m 0755 -d $(prefix)/usr
+	install -o 0 -g 0 -m 0755 -d $(prefix)/usr/bin
+	install -o 0 -g 0 -m 0755 -d $(prefix)/usr/lib
+	install -o 0 -g 0 -m 0755 -d $(prefix)/usr/sbin
+	install -o 0 -g 0 -m 0755 -d $(prefix)/var
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

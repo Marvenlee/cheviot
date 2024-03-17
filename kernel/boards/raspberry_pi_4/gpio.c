@@ -40,61 +40,68 @@ static void io_delay(uint32_t cycles)
 
 /*
  *
- */
-void configure_gpio(uint32_t pin, enum FSel fn, enum PullUpDown action)
+ */ 
+int sys_rpi_configure_gpio(uint32_t pin, enum FSel fn, enum PullUpDown action)
 {    
-#if 0
-  hal_memory_barrier();
+  hal_dsb();
   
-  // set pull up down configuration and delay for 150 cycles.
-  hal_mmio_write(&gpio_regs->pud, (uint32_t)action);
-  io_delay(10);
+	if (pin > MAX_GPIO_PIN || fn >= MAX_FSEL || action >= MAX_PUPDN) {
+		return -EINVAL;
+	}
 
-  // trigger action and delay for 150 cycles.
-  hal_mmio_write (&gpio_regs->pud_clk[pin / 32], 1 << (pin % 32));
-  io_delay(10);
+  // set pull up down configuration.
+	//  io_delay(10);
+  hal_mmio_write (&gpio_regs->pup_pdn_cntrl[pin/16], (action & 0x03) << (pin%16));
+	//  io_delay(10);
   
-  // clear action
-  hal_mmio_write(&gpio_regs->pud, (uint32_t)PULL_NONE);
-
-  // remove clock
-  hal_mmio_write (&gpio_regs->pud_clk[pin / 32], 0);
-
   // set function
-  // ------------
   uint32_t fsel = hal_mmio_read(&gpio_regs->fsel[pin / 10]);
   uint32_t shift = (pin % 10) * 3;
   uint32_t mask = ~(7U << shift);  
-  fsel = (fsel & mask) | (fn << shift);  
+  fsel = (fsel & mask) | (fn << shift);    
   hal_mmio_write(&gpio_regs->fsel[pin / 10], fsel);
-#endif
+  return 0;
 }
 
 
 /* @brief   Set or clear output of pin
  */
-void set_gpio(uint32_t pin, bool state)
+int sys_rpi_set_gpio(uint32_t pin, bool state)
 {
+	if (pin > MAX_GPIO_PIN) {
+		return -EINVAL;
+	}
+
   if (state) {
     hal_mmio_write(&gpio_regs->set[pin / 32], 1U << (pin % 32));
   } else {
     hal_mmio_write(&gpio_regs->clr[pin / 32], 1U << (pin % 32));
   }
+  
+  return 0;
 }
 
 
 /*
  *
  */
-bool get_gpio(uint32_t pin)
-{  
+int sys_rpi_get_gpio(uint32_t pin)
+{
+	if (pin > MAX_GPIO_PIN) {
+		return -EINVAL;
+	}
+
   uint32_t lev = hal_mmio_read(&gpio_regs->lev[pin / 32]);
 
   if (lev & (1U << (pin % 32)) != 0) {
-    return true;
+    return 1;
   } else {
-    return false;
+    return 0;
   }
 }
+
+
+
+
 
 

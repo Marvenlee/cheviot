@@ -75,8 +75,9 @@ void main(int argc, char *argv[])
             break;
 
           default:
-            log_error("random: unknown command: %d", req.cmd);
-            exit(EXIT_FAILURE);
+            log_warn("random: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
+            break;
         }
       }      
       

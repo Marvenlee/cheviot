@@ -107,8 +107,9 @@ void taskmain(int argc, char *argv[])
             break;
 
           default:
-            log_error("aux: unknown command: %d", req.cmd);
-            exit(EXIT_FAILURE);
+            log_warn("aux: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
+            break;
         }
       }      
       
@@ -139,7 +140,7 @@ void taskmain(int argc, char *argv[])
  */
 void cmd_isatty (msgid_t msgid, struct fsreq *fsreq)
 {
-  replymsg(portid, msgid, 0, NULL, 0);
+  replymsg(portid, msgid, 1, NULL, 0);
 }
 
 
@@ -175,6 +176,9 @@ void cmd_read(msgid_t msgid, struct fsreq *req)
   read_pending = true;
   read_msgid = msgid;
   memcpy (&read_fsreq, req, sizeof read_fsreq);
+  
+//  log_info("aux: read nbytes:%u", read_fsreq.args.read.sz);
+  
   taskwakeup (&read_cmd_rendez);
 }
 
@@ -228,7 +232,6 @@ void reader_task (void *arg)
       remaining = (rx_sz < read_fsreq.args.read.sz) ? rx_sz : read_fsreq.args.read.sz;
     }
          
-    nbytes_read = 0;
     
     if (rx_head + remaining > sizeof rx_buf) {
       sz = sizeof rx_buf - rx_head;
@@ -236,11 +239,12 @@ void reader_task (void *arg)
       
       writemsg(portid, read_msgid, buf, sz, 0);
 
-      nbytes_read += sz;
+      nbytes_read = sz;
     
-      sz = remaining -= sz;
+      sz = remaining - sz;
       buf = &rx_buf[0];
     } else {
+	    nbytes_read = 0;
       sz = remaining;
       buf = &rx_buf[rx_head];
     }
@@ -308,7 +312,7 @@ void writer_task (void *arg)
       readmsg(portid, write_msgid, buf, sz, sizeof (struct fsreq));
 
       nbytes_written += sz;      
-      sz = remaining -= sz;
+      sz = remaining - sz;
       buf = &tx_buf[0];
     } else {
       sz = remaining;

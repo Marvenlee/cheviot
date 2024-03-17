@@ -18,9 +18,6 @@
 #include "gpio.h"
 
 
-// BCM2835 GPIO registers
-struct bcm2835_gpio_registers *gpio_regs;
-
 /*
  *
  */

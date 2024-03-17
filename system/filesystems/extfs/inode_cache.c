@@ -9,7 +9,7 @@
  *   December 2023 (Marven Gilhespie)
  */
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -22,7 +22,10 @@ int init_inode_cache(void)
 {
   LIST_INIT(&unused_inode_list);
   
+  log_debug("extfs: sizeof inode=%d", sizeof (struct inode));
+  
   for (int t=0; t< NR_INODES; t++) {
+  	memset(&inode_cache[t], 0, sizeof(struct inode));
   	inode_cache[t].i_ino = NO_ENTRY;
   	LIST_ADD_TAIL(&unused_inode_list, &inode_cache[t], i_unused_link);
   }
@@ -30,7 +33,7 @@ int init_inode_cache(void)
   for (int t=0; t< INODE_HASH_SIZE; t++) {
   	LIST_INIT(&hash_inodes[t]);
   }
-  
+
   return 0;
 }
 
@@ -194,7 +197,7 @@ void update_times(struct inode *inode)
 {
   time_t cur_time;
 
-  if (sb_rd_only) {
+  if (config.read_only) {
   	return;
   }
   
@@ -245,19 +248,18 @@ void read_inode(struct inode *inode)
   dir_inode = (struct inode*) (bp->data + offset);
 
   inode_copy(inode, dir_inode);
-  
-  log_info("inode nr = %d", inode->i_ino);
-  log_info("inode->i_mode   = %08x", inode->i_mode);
-  log_info("inode->i_size   = %08x", inode->i_size);
-  log_info("inode->i_uid    = %08x", inode->i_uid);
-  log_info("inode->i_atime  = %08x", inode->i_atime);
-  log_info("inode->i_ctime  = %08x", inode->i_ctime);
-  log_info("inode->i_mtime  = %08x", inode->i_mtime);
-  log_info("inode->i_gid    = %08x", inode->i_gid);
-  log_info("inode->i_blocks = %08x", inode->i_blocks);
-  log_info("inode->i_flags  = %08x", inode->i_flags);
-
   put_block(cache, bp);
+
+  log_debug("extfs: inode nr        = %d", inode->i_ino);
+  log_debug("extfs: inode->i_mode   = %08x", inode->i_mode);
+  log_debug("extfs: inode->i_size   = %08x", inode->i_size);
+  log_debug("extfs: inode->i_uid    = %08x", inode->i_uid);
+  log_debug("extfs: inode->i_atime  = %08x", inode->i_atime);
+  log_debug("extfs: inode->i_ctime  = %08x", inode->i_ctime);
+  log_debug("extfs: inode->i_mtime  = %08x", inode->i_mtime);
+  log_debug("extfs: inode->i_gid    = %08x", inode->i_gid);
+  log_debug("extfs: inode->i_blocks = %08x", inode->i_blocks);
+  log_debug("extfs: inode->i_flags  = %08x", inode->i_flags);
 }
 
 
@@ -295,7 +297,7 @@ void write_inode(struct inode *inode)
 
   inode_copy(dir_inode, inode);
   	  
-  if (sb_rd_only == false) {
+  if (config.read_only == false) {
 	  block_markdirty(bp);
 	}
   
@@ -324,7 +326,7 @@ void inode_copy(struct inode *dst, struct inode *src)
   dst->i_blocks	      = bswap4(be_cpu, src->i_blocks);
   dst->i_flags	      = bswap4(be_cpu, src->i_flags);
 
-  memcpy(&dst->osd1, &src->osd1, sizeof(dst->osd1));
+//  memcpy(&dst->osd1, &src->osd1, sizeof(dst->osd1));
 
   for (int i = 0; i < EXT2_N_BLOCKS; i++) {
 	  dst->i_block[i]   = bswap4(be_cpu, src->i_block[i]);
@@ -335,7 +337,7 @@ void inode_copy(struct inode *dst, struct inode *src)
   dst->i_dir_acl      = bswap4(be_cpu, src->i_dir_acl);
   dst->i_faddr	      = bswap4(be_cpu, src->i_faddr);
 
-  memcpy(&dst->osd2, &src->osd2, sizeof(dst->osd2));
+//  memcpy(&dst->osd2, &src->osd2, sizeof(dst->osd2));
 }
 
 

@@ -76,8 +76,8 @@ syscall_table:
                                                 // TODO: Add open_syslog() to get syslog handle for writing.
     .long sys_exec                      // 20   
      
-    .long sys_mount                     // 21 
-    .long 0xdeadbeaf                    // 22  TODO: Was sys_unmount(path, bool force);
+    .long sys_createmsgport             // 21 
+    .long sys_deprecatedsyscall         // 22  TODO: Was sys_unmount(path, bool force);
 
     // Replace with just Read/Write calls. No seek.  Write header then immediately the data.
     // Need listen(mount_fd) to create new listener handle (multiple for char device server)
@@ -110,7 +110,7 @@ syscall_table:
     .long sys_rename                    // 43
 
     .long sys_pipe                      // 44 Pipe
-    .long 0xdeadcaf3                    // 45 TODO: SocketPair (or generic socket creation call)
+    .long sys_deprecatedsyscall         // 45 TODO: SocketPair (or generic socket creation call)
 
     .long sys_chdir                     // 46
     .long sys_fchdir                    // 47       
@@ -157,7 +157,7 @@ syscall_table:
     .long sys_sigsuspend                // 78
     
     .long sys_mknod                     // 79
-    .long sys_movemount                 // 80
+    .long sys_renamemsgport             // 80
     
     .long sys_chroot                    // 81
 
@@ -171,11 +171,29 @@ syscall_table:
 		.long sys_getgroups									// 88
 		.long sys_getpriority	  						// 89
 		.long sys_setpriority								// 90
-		.long sys_sysconf										// 91
+		.long sys_deprecatedsyscall					// 91  FIXME: Was sys_sysconf
 		.long sys_fchmod										// 92
 		.long sys_fchown										// 93
 
+		.long sys_clock_gettime							// 94
+		
+		// Architecture-specific syscalls, likely to be moved out of kernel
+		// into "ring 1" "device manager" once we have multiple protection rings
+		// supported.
+		
+		.long sys_rpi_mailbox								// 95
+		.long sys_rpi_configure_gpio				// 96
+		.long sys_rpi_set_gpio							// 97
+
+		.long sys_clock_settime							// 98
+
+
     // .long sys_sigreturn
+
+    /*
+    .long sys_thread_event_signal
+    .long sys_thread_event_wait
+    */
 
     /*  
     .long sys_thread_create
@@ -202,15 +220,10 @@ syscall_table:
     /* Synchronous bitmap events
      */
      
-    /*
-    .long sys_thread_signalsem_alloc
-    .long sys_thread_signalsem_free
-    .long sys_thread_signalsem_wait
-    */
     
     
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 93
+#define MAX_SYSCALL                 98
 
 
 // @brief   System call entry point
@@ -252,6 +265,11 @@ swi_vector:
     cmp r7, #MAX_SYSCALL
     movgt r7, #UNKNOWN_SYSCALL
 
+#ifdef SYSCALL_TRACE
+		mov r0, r7
+		mov r1, sp
+		bl syscall_trace
+#endif
     ldr r0, [sp, #CONTEXT_R0]
     ldr r1, [sp, #CONTEXT_R1]
     ldr r2, [sp, #CONTEXT_R2]

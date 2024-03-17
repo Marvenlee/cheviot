@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-/*
- * Kernel initialization.
- */
-
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/arch.h>
 #include <kernel/board/boot.h>
@@ -59,6 +55,8 @@ void init_timer_registers(void)
 
 /* @brief   Special-case handling of timer interrupt
  *
+ * TODO: We may want to support sub-jiffy timer interrupts and/or go semi-tickless,
+ * to avoid waking up after every jiffy.
  */
 void interrupt_top_half_timer(void)
 {
@@ -69,18 +67,84 @@ void interrupt_top_half_timer(void)
 
   if (status & ST_CS_M3) {
     clo = hal_mmio_read(&timer_regs->clo);
-
     clo += MICROSECONDS_PER_JIFFY;
-
     hal_mmio_write(&timer_regs->c3, clo);
-
-    clo = hal_mmio_read(&timer_regs->clo);    
         
     hal_mmio_write(&timer_regs->cs, ST_CS_M3);
 
     TimerTopHalf();
-
-    clo = hal_mmio_read(&timer_regs->clo);    
   }
 }
+
+
+/* @brief		Read the 64-bit free running microsecond system timer
+ *
+ */
+uint64_t timer_read(void)
+{
+	volatile uint32_t chi1, chi2, clo;
+	
+  do {
+	  chi1 = hal_mmio_read(&timer_regs->chi);    
+	  clo = hal_mmio_read(&timer_regs->clo);    
+	  chi2 = hal_mmio_read(&timer_regs->chi);    			
+	} while (chi1 != chi2);
+	
+	return (uint64_t)chi2 << 32ULL | (uint64_t)clo; 
+}
+
+
+/* @brief		gettime handling of architecture-specific timer sources
+ *
+ * CLOCK_MONOTONIC_RAW:  This uses the microsecond, 64-bit free-running counter.
+ *                       There are approximately 2^44 seconds before the counter wraps around.
+ */
+int arch_clock_gettime(int clock_id, struct timespec *ts)
+{
+	int sc = 0;
+	uint64_t clock;
+	
+	Info("arch_clock_gettime");
+	
+	switch (clock_id) {
+		case CLOCK_MONOTONIC_RAW:
+			clock = timer_read();
+			ts->tv_sec = clock / 1000000ULL;
+			ts->tv_nsec = (clock * 1000) % 1000000000ULL;
+						
+			break;
+		default:
+			Error("arch_clock_gettime() -EINVAL");
+			sc = -EINVAL;
+	}
+	
+	return sc;
+}
+
+
+/* @brief		Handle nanosleep for sub-jiffy delays
+ *
+ * We use a spin-loop here to wait for short delays by repeatedly reading
+ * the microsecond system timer.
+ *
+ * Alternatively we could have a small pool of timers to support sub-jiffy delays
+ * using interrupts. If there are too many short delays then put them onto the
+ * normal timing wheel.
+ */
+int arch_spin_nanosleep(struct timespec *req)
+{
+	uint64_t start_clock;
+	uint64_t current_clock;
+	uint64_t timeout = req->tv_nsec / 1000;
+	
+	start_clock = timer_read();
+	
+	do
+	{
+		current_clock = timer_read();
+	}	while (current_clock - start_clock < timeout);
+		
+	return 0;
+}
+
 

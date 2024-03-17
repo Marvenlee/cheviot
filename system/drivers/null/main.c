@@ -27,6 +27,8 @@
 #include <sys/fsreq.h>
 #include <sys/debug.h>
 #include <sys/event.h>
+#include "null.h"
+#include "globals.h"
 
 
 /* @brief   The "/dev/null" device driver
@@ -34,32 +36,12 @@
 void main(int argc, char *argv[])
 {
   int sc;
-  int portid;
-  int kq;
   msgid_t msgid;
   struct fsreq req;
   int nevents;
   struct kevent ev;
-  struct stat stat;
-
-  stat.st_dev = 0; // FIXME: Use a known major/minor number for /dev/null
-  stat.st_ino = 0;
-  stat.st_mode = 0777 | S_IFCHR;
-  stat.st_uid = 0;
-  stat.st_gid = 0;
-  stat.st_blksize = 0;
-  stat.st_size = 0;
-  stat.st_blocks = 0;
-  
-  portid = mount("/dev/null", 0, &stat);
-  if (portid < 0) {
-    exit(EXIT_FAILURE);
-  }
-
-  kq = kqueue();
-  if (kq < 0) {
-    exit(EXIT_FAILURE);
-  }
+ 
+ 	init(argc, argv);
   
   EV_SET(&ev, portid, EVFILT_MSGPORT, EV_ADD | EV_ENABLE, 0, 0, 0); 
   kevent(kq, &ev, 1,  NULL, 0, NULL);
@@ -84,7 +66,8 @@ void main(int argc, char *argv[])
             break;
 
           default:
-            replymsg(portid, msgid, -ENOSYS, NULL, 0);
+            log_warn("null: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
             break;
         }
       }      

@@ -89,11 +89,12 @@ int read_superblock(void)
   sb_group_desc_block_count = (sb_groups_count + sb_desc_per_block - 1) / sb_desc_per_block;
   sb_gdt_position = (superblock.s_first_data_block + 1) * sb_block_size;
 
-  log_info("sb_inode_table_blocks_per_group  = %d", sb_inode_table_blocks_per_group);    
-  log_info("sb_desc_per_block = %d", sb_desc_per_block);    
-  log_info("sb_groups_count   = %d", sb_groups_count);  
-  log_info("sb_group_desc_block_count      = %d", sb_group_desc_block_count);  
-  log_info("sb_gdt_position   = %u (lower 32 bits)", (uint32_t)sb_gdt_position);  
+  log_info("extfs: sb_inode_table_blocks_per_group = %d", sb_inode_table_blocks_per_group);    
+  log_info("extfs: sb_desc_per_block = %d", sb_desc_per_block);    
+  log_info("extfs: sb_groups_count   = %d", sb_groups_count);  
+  log_info("extfs: sb_group_desc_block_count      = %d", sb_group_desc_block_count);  
+  log_info("extfs: sb_gdt_position   = %d (lower 32 bits)", (uint32_t)sb_gdt_position);  
+  log_info("extfs: sb_block_size  = %d ", (uint32_t)sb_block_size);  
   
   if(!(group_descs = virtualalloc(NULL, sb_groups_count * sizeof(struct group_desc), PROT_READWRITE))) {
 	  panic("extfs: can't allocate group desc array");
@@ -114,8 +115,6 @@ int read_superblock(void)
    * If sb=N was specified, then gdt is stored in N+1 block, the block number
    * here uses 1k units.
    */
-
-
   lseek64(block_fd, sb_gdt_position, SEEK_SET);
   sz = read(block_fd, (char *)ondisk_group_descs, sb_groups_count * sizeof(struct group_desc));
 
@@ -141,10 +140,16 @@ int read_superblock(void)
 	sb_addr_in_block2 = sb_addr_in_block * sb_addr_in_block;
 	sb_doub_ind_s = EXT2_NDIR_BLOCKS + sb_addr_in_block;
 	sb_triple_ind_s = sb_doub_ind_s + sb_addr_in_block2;
-	sb_out_range_s = sb_triple_ind_s + sb_addr_in_block2 * sb_addr_in_block;
 
-  // sb_dev = ?????;
-  
+#if 1
+	sb_out_range_s = 0xFFFF0000;		// FIXME: sb_out_range_s initialization
+#else
+	sb_out_range_s = sb_triple_ind_s + sb_addr_in_block2 * sb_addr_in_block;
+#endif
+
+	log_info("***sb_out_range_s: %08x", (uint32_t)sb_out_range_s);
+
+  // sb_dev = ?????;   // FIXME: set dev major/minor number
   return 0;
 }
 

@@ -99,7 +99,7 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 PROGRAMS = $(sbin_PROGRAMS)
 am_sdcard_OBJECTS = emmc.$(OBJEXT) globals.$(OBJEXT) init.$(OBJEXT) \
-	main.$(OBJEXT) mbox.$(OBJEXT) mmio.$(OBJEXT) timer.$(OBJEXT)
+	main.$(OBJEXT) mmio.$(OBJEXT) timer.$(OBJEXT)
 sdcard_OBJECTS = $(am_sdcard_OBJECTS)
 sdcard_DEPENDENCIES =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -118,8 +118,8 @@ DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/emmc.Po ./$(DEPDIR)/globals.Po \
-	./$(DEPDIR)/init.Po ./$(DEPDIR)/main.Po ./$(DEPDIR)/mbox.Po \
-	./$(DEPDIR)/mmio.Po ./$(DEPDIR)/timer.Po
+	./$(DEPDIR)/init.Po ./$(DEPDIR)/main.Po ./$(DEPDIR)/mmio.Po \
+	./$(DEPDIR)/timer.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -256,11 +256,10 @@ sdcard_SOURCES = \
   globals.c \
   init.c \
   main.c \
-  mbox.c \
   mmio.c \
   timer.c 
 
-sdcard_LDADD = -lrpihal
+sdcard_LDADD = -lrpimailbox -lrpigpio -lrpihal
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
 @BOARD_RASPBERRY_PI_4_TRUE@AM_CFLAGS = -O2 -std=c99 -g0
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CPPFLAGS = -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
@@ -357,7 +356,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/globals.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mbox.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mmio.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timer.Po@am__quote@ # am--include-marker
 
@@ -513,7 +511,6 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/globals.Po
 	-rm -f ./$(DEPDIR)/init.Po
 	-rm -f ./$(DEPDIR)/main.Po
-	-rm -f ./$(DEPDIR)/mbox.Po
 	-rm -f ./$(DEPDIR)/mmio.Po
 	-rm -f ./$(DEPDIR)/timer.Po
 	-rm -f Makefile
@@ -565,7 +562,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/globals.Po
 	-rm -f ./$(DEPDIR)/init.Po
 	-rm -f ./$(DEPDIR)/main.Po
-	-rm -f ./$(DEPDIR)/mbox.Po
 	-rm -f ./$(DEPDIR)/mmio.Po
 	-rm -f ./$(DEPDIR)/timer.Po
 	-rm -f Makefile

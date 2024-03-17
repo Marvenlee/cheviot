@@ -2,7 +2,6 @@
 .extern Main
 
 .global _start
-.global mailbuffer
 .global rootfs_image_offset
 .global rootfs_image_size
 
@@ -45,9 +44,4 @@ skip_magic:
 root_stack:
 .skip 4096
 root_stack_top:
-
-// FIXME: Is mailbuffer needed ?
-mailbuffer:
-.skip 256
-
 

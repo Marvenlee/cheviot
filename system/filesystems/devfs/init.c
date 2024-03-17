@@ -34,7 +34,8 @@
 /*
  *
  */
-void init (int argc, char *argv[]) {
+void init (int argc, char *argv[])
+{
   log_info("devfs - init");
 
   if (init_devfs() != 0) {
@@ -46,17 +47,59 @@ void init (int argc, char *argv[]) {
   }
 }
 
+
 /*
  *
  */
-int process_args(int argc, char *argv[]) {
+int process_args(int argc, char *argv[])
+{
+  int c;
+
+  config.uid = 0;
+  config.gid = 0;
+  config.dev = -1;
+  config.mode = 0777;
+  
+  if (argc <= 1) {
+    return -1;
+  }
+  
+  while ((c = getopt(argc, argv, "u:g:m:d:")) != -1) {
+    switch (c) {
+    case 'u':
+      config.uid = atoi(optarg);
+      break;
+
+    case 'g':
+      config.gid = atoi(optarg);
+      break;
+
+    case 'm':
+      config.mode = atoi(optarg);
+      break;
+
+    case 'd':
+      config.dev = atoi(optarg);
+      break;
+      
+    default:
+      break;
+    }
+  }
+
+  if (optind >= argc) {
+    return -1;
+  }
+
   return 0;
 }
 
-/**
+
+/*
  *
  */
-int init_devfs(void) {
+int init_devfs(void)
+{
   devfs_inode_table[0].inode_nr = 0;
   devfs_inode_table[0].parent_inode_nr = 0;    
   devfs_inode_table[0].name[0] = '\0';
@@ -73,19 +116,20 @@ int init_devfs(void) {
 /*
  *
  */
-int mount_device(void) {
-  struct stat stat;
+int mount_device(void)
+{
+  struct stat mnt_stat;
 
-  stat.st_dev = 0; // Get from config, or returned by Mount() (sb index?)
-  stat.st_ino = 0;
-  stat.st_mode = 0777 | _IFDIR; // default to read/write of device-driver uid/gid.
-  stat.st_uid = 0;   // default device driver uid
-  stat.st_gid = 0;   // default gid
-  stat.st_blksize = 512;
-  stat.st_size = 0;
-  stat.st_blocks = 0;
+  mnt_stat.st_dev = config.dev;
+  mnt_stat.st_ino = 0;
+  mnt_stat.st_mode = S_IFDIR | (config.mode & 0777);
+  mnt_stat.st_uid = config.uid;
+  mnt_stat.st_gid = config.gid;
+  mnt_stat.st_blksize = 512;
+  mnt_stat.st_size = 0;
+  mnt_stat.st_blocks = 0;
   
-  portid = mount("/dev", 0, &stat);
+  portid = createmsgport("/dev", 0, &mnt_stat, NMSG_BACKLOG);
   
   if (portid == -1) {
     log_error("Failed to mount /dev\n");

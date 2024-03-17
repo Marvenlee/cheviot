@@ -30,7 +30,7 @@ extern struct bdev_unit unit[5];
 /*
  *
  */
-extern uint32 mailbuffer[64];
+//extern uint32 mailbuffer[64];
 
 //extern volatile uint32 *gpio;
 

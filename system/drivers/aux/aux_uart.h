@@ -31,9 +31,10 @@
 #include <machine/cheviot_hal.h>
 
 
-//#define INO_NR 0
-//#define PAGE_SIZE 4096
-#define POLL_TIMEOUT 100000
+/*
+ */
+#define NMSG_BACKLOG 		3          // 1 read, 1 write and 1 ioctl/termios/synchronous command
+#define POLL_TIMEOUT 		100000
 
 
 /*
@@ -45,7 +46,8 @@ struct Config
   uid_t uid;
   gid_t gid;
   mode_t mode;
-
+	dev_t dev;
+	
   int baud;
   int flow_control;
   int stop_bits;

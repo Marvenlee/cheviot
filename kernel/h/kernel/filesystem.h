@@ -228,6 +228,7 @@ struct SuperBlock
   int dev;            // FIXME: Unique major/minor id?
 
   struct MsgPort msgport;
+  struct MsgBacklog msgbacklog;
 
   off64_t size;
   int block_size;     // start sector needs to be aligned with block size
@@ -501,6 +502,7 @@ int vfs_rename(struct VNode *src_dvnode, char *src_name, struct VNode *dst_dvnod
 int vfs_chmod(struct VNode *vnode, mode_t mode);
 int vfs_chown(struct VNode *vnode, uid_t uid, gid_t gid);
 int vfs_fsync(struct VNode *vnode);
+int vfs_isatty(struct VNode *vnode);
 
 /* fs/vnode.c */
 struct VNode *get_fd_vnode(struct Process *proc, int fd);

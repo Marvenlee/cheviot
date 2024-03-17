@@ -4,10 +4,11 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_ERROR
 
 #include "ext2.h"
 #include "globals.h"
+#include <sys/debug.h>
 
 
 /* @brief   Lookup an item in a directory
@@ -71,15 +72,20 @@ void ext2_lookup(struct fsreq *req)
  *
  * @param   fsreq, message header received by getmsg.
  */
+
+
+
 void ext2_readdir(struct fsreq *req)
 {
+	static char readdir_buf[512];
   struct fsreply reply;
   struct inode *dir_inode;
   uint32_t sz;
   off64_t cookie;
-  char dirents_buf[512];
   size_t dirents_sz;
   size_t dirents_read_sz;
+
+	log_info("readdir, ino_nr:%d", req->args.readdir.inode_nr);
 
   memset(&reply, 0, sizeof reply);
       
@@ -92,14 +98,25 @@ void ext2_readdir(struct fsreq *req)
 
   cookie = req->args.readdir.offset;  
   sz = req->args.readdir.sz;
-  dirents_sz = (sizeof dirents_buf < sz) ? sizeof dirents_buf : sz;  
-  dirents_read_sz = get_dirents(dir_inode, &cookie, dirents_buf, dirents_sz);
+  dirents_sz = (sizeof readdir_buf < sz) ? sizeof readdir_buf : sz;  
+
+	log_info("dirents buf to read sz: %d", dirents_sz);
+	log_info("cookie :%d", (uint32_t)cookie);
+	
+  dirents_read_sz = get_dirents(dir_inode, &cookie, readdir_buf, dirents_sz);
+
+	log_info("readdir dirents_read_sz:%d", dirents_read_sz);
   
   if (dirents_read_sz > 0) {
-   writemsg(portid, msgid, dirents_buf, dirents_read_sz, sizeof reply);
+    log_info("readdir writing reply");
+    writemsg(portid, msgid, readdir_buf, dirents_read_sz, sizeof reply);
   }
 
+  log_info("readdir putting inode %08x", (uint32_t)dir_inode);
+
   put_inode(dir_inode);  
+
+  log_info("readdir replying message");
 
   reply.args.readdir.offset = cookie;
   replymsg(portid, msgid, dirents_read_sz, &reply, sizeof reply);

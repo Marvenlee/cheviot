@@ -114,6 +114,12 @@ int pmap_enter(struct AddressSpace *as, vm_addr va, vm_addr pa, bits32_t flags)
   struct PmapVPTE *vpte;
   struct PmapVPTE *vpte_base;
 
+#if 1
+	if (va >= 0x0001C000 && va <= 0x00028000) {
+		Info ("pmap_enter(va:%08x, pa:%08x, flags:%08x)", va, pa, flags);
+	}
+#endif
+	
   if (va == 0) {
     return -EFAULT;
   }
@@ -135,9 +141,6 @@ int pmap_enter(struct AddressSpace *as, vm_addr va, vm_addr pa, bits32_t flags)
     pt = (uint32_t *)pmap_pa_to_va((vm_addr)phys_pt);
   }
 
-//  Info ("v_pdir=%08x, p_pdir=%08x", (uint32_t)pmap->l1_table, pmap_va_to_pa((vm_addr)pmap->l1_table)); 
-//  Info ("v_pt=%08x, p_pt=%08x", (uint32_t)pt, phys_pt); 
-
   pte_idx = (va & L2_ADDR_BITS) >> L2_IDX_SHIFT;
   vpte_base = (struct PmapVPTE *)((uint8_t *)pt + VPTE_TABLE_OFFS);
   vpte = vpte_base + pte_idx;
@@ -151,17 +154,21 @@ int pmap_enter(struct AddressSpace *as, vm_addr va, vm_addr pa, bits32_t flags)
 
   if ((flags & MEM_MASK) != MEM_PHYS) {
     pf = &pageframe_table[pa / PAGE_SIZE];
-    vpte->flags = flags;
-
     LIST_ADD_HEAD(&pf->pmap_pageframe.vpte_list, vpte, link);
-    pt[pte_idx] = pa | pa_bits;
-  } else {
-    vpte->flags = flags;
-    pt[pte_idx] = pa | pa_bits;
   }
   
+  vpte->flags = flags;
+  pt[pte_idx] = pa | pa_bits;
+
+#if 1
+	if (va >= 0x0001C000 && va <= 0x00028000) {
+		Info ("pmap_enter(va:%08x, pte:%08x, vpte->flgs:%08x)", va, pt[pte_idx], vpte->flags);
+	}
+#endif
+		      
+	// TODO: Need IPI once we add or remove pmap entries
 	hal_dsb();
-	hal_invalidate_tlb_va(va & ~0xfff);
+	hal_invalidate_tlb_va(va & 0xFFFFF000);
   hal_invalidate_branch();
   hal_invalidate_icache();
   hal_dsb();
@@ -188,6 +195,13 @@ int pmap_remove(struct AddressSpace *as, vm_addr va)
   struct PmapVPTE *vpte;
   struct PmapVPTE *vpte_base;
 
+
+#if 1
+	if (va >= 0x0001C000 && va <= 0x00028000) {
+		Info ("pmap_remove(va:%08x)", va);
+	}
+#endif
+	
   // TODO : Check user base user ceiling
   if (va == 0) {
     return -EFAULT;
@@ -214,7 +228,7 @@ int pmap_remove(struct AddressSpace *as, vm_addr va)
     return -EINVAL;
   }
 
-  if ((vpte->flags & VPTE_PHYS) == 0) {
+  if ((vpte->flags & MEM_PHYS) == 0) {
     pf = pmap_pa_to_pf(current_paddr);
     LIST_REM_ENTRY(&pf->pmap_pageframe.vpte_list, vpte, link);
   }
@@ -230,11 +244,11 @@ int pmap_remove(struct AddressSpace *as, vm_addr va)
     pmap->l1_table[pde_idx] = L1_TYPE_INV;
   }
 
+	// TODO: Need IPI once we add or remove pmap entries
 	hal_dsb();
-	hal_invalidate_tlb_va(va & ~0xfff);
+	hal_invalidate_tlb_va(va & 0xFFFFF000);
   hal_invalidate_branch();
   hal_invalidate_icache();
-
   hal_dsb();
   hal_isb();
 
@@ -255,6 +269,12 @@ int pmap_protect(struct AddressSpace *as, vm_addr va, bits32_t flags)
   uint32_t pa_bits;
   vm_addr pa;
 
+#if 1
+	if (va >= 0x0001C000 && va <= 0x00028000) {
+		Info ("pmap_protect(va:%08x, flags:%08x)", va, flags);
+	}
+#endif
+	
   pmap = &as->pmap;
 
   if (va == 0) {
@@ -264,7 +284,8 @@ int pmap_protect(struct AddressSpace *as, vm_addr va, bits32_t flags)
   pde_idx = (va & L1_ADDR_BITS) >> L1_IDX_SHIFT;
 
   if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
-    return -1;
+    Error("******** pmap_protect failed ******");
+  	KernelPanic();
   }
 
   phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
@@ -276,19 +297,18 @@ int pmap_protect(struct AddressSpace *as, vm_addr va, bits32_t flags)
   pa = pt[pte_idx] & L2_ADDR_MASK;
 
   if ((pt[pte_idx] & L2_TYPE_MASK) == L2_TYPE_INV) {
-    return -1;
+    Error("******** pmap_protect failed ******");
+    KernelPanic();
   }
 
   vpte->flags = flags;
   pa_bits = pmap_calc_pa_bits(vpte->flags);
   pt[pte_idx] = pa | pa_bits;
 
-
 	hal_dsb();
-	hal_invalidate_tlb_va(va & ~0xfff);
+	hal_invalidate_tlb_va(va & 0xFFFFF000);
   hal_invalidate_branch();
   hal_invalidate_icache();
-
   hal_dsb();
   hal_isb();
 
@@ -367,6 +387,11 @@ bool pmap_is_page_present(struct AddressSpace *as, vm_addr addr)
   pde_idx = (addr & L1_ADDR_BITS) >> L1_IDX_SHIFT;
 
   if ((pmap->l1_table[pde_idx] & L1_TYPE_MASK) == L1_TYPE_INV) {
+		if (addr >= 0x0001C000 && addr <= 0x00028000) {
+	  	Error("page table not present addr:%08x, pde_idx=%d", addr, pde_idx);
+		}
+
+  	
     return false;
   } else {
     phys_pt = (uint32_t *)(pmap->l1_table[pde_idx] & L1_C_ADDR_MASK);
@@ -375,8 +400,20 @@ bool pmap_is_page_present(struct AddressSpace *as, vm_addr addr)
     pte_idx = (addr & L2_ADDR_BITS) >> L2_IDX_SHIFT;
 
     if ((pt[pte_idx] & L2_TYPE_MASK) != L2_TYPE_INV) {
+
+			if (addr >= 0x0001C000 && addr <= 0x00028000) {
+				Error("pt entry addr:%08x, pte_idx=%d", addr, pte_idx);
+		  	Error("pt=%08x, pte=%08x", (uint32_t)pt, (uint32_t)pt[pte_idx]);
+			}
+
       return true; 
+
     } else {
+			if (addr >= 0x0001C000 && addr <= 0x00028000) {
+				Error("pt entry not present addr:%08x, pte_idx=%d", addr, pte_idx);
+		  	Error("pt=%08x, pte=%08x", (uint32_t)pt, (uint32_t)pt[pte_idx]);
+			}
+
       return false;
     }
   }
@@ -399,6 +436,8 @@ uint32_t *pmap_alloc_pagetable(void)
   
   pt = (uint32_t *)pmap_pf_to_va(pf);
 
+	memset(pt, 0, VPAGETABLE_SZ);
+	
   for (t = 0; t < 256; t++) {
     *(pt + t) = L2_TYPE_INV;
   }
@@ -438,6 +477,7 @@ int pmap_create(struct AddressSpace *as)
   int t;
   struct Pageframe *pf;
 
+	
   if ((pf = alloc_pageframe(PAGEDIR_SZ)) == NULL) {
     Error("PmapCreate failed to alloc pageframe");
     return -1;
@@ -575,6 +615,7 @@ void pmap_switch(struct Process *next, struct Process *current)
   hal_invalidate_icache();  
 
 	hal_dsb();
+	hal_isb();
 }
 
 
@@ -595,6 +636,8 @@ int pmap_cache_enter(vm_addr addr, vm_addr paddr)
   struct Pageframe *pf;
   struct PmapVPTE *vpte;
   struct PmapVPTE *vpte_base;
+
+	Info("pmap_cache_enter(addr:%08x, paddr:%08x", addr, paddr);
 
   pa_bits = L2_TYPE_S;
   pa_bits |= L2_AP_RWK;   // read/write kernel-only
@@ -617,6 +660,14 @@ int pmap_cache_enter(vm_addr addr, vm_addr paddr)
   // TODO: Increment/Decrement pf reference cnt or not?
 
   pt[pte_idx] = paddr | pa_bits;
+
+	hal_dsb();
+	hal_invalidate_tlb_va(addr & 0xFFFFF000);
+  hal_invalidate_branch();
+  hal_invalidate_icache();
+  hal_dsb();
+  hal_isb();
+
   return 0;
 }
 
@@ -652,6 +703,12 @@ int pmap_cache_remove(vm_addr va)
   pt[pte_idx] = L2_TYPE_INV;
 
   // TODO: Increment/Decrement pf reference cnt or not?
+	hal_dsb();
+	hal_invalidate_tlb_va(va & 0xFFFFF000);
+  hal_invalidate_branch();
+  hal_invalidate_icache();
+  hal_dsb();
+  hal_isb();
 
   return 0;
 }

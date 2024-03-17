@@ -45,28 +45,49 @@ int page_fault(vm_addr addr, bits32_t access)
   vm_addr real_addr;
 
   Info("page_fault(addr:%08x, access:%08x)", addr, access);
+	if (access & PROT_WRITE) {
+		Info("access = WRITE");
+	} else {
+		Info("access = READ");
+	}
+	
 
   current = get_current_process();
  
   real_addr = addr;
   addr = ALIGN_DOWN(addr, PAGE_SIZE);
+  
+#if 1
+  pmap_is_page_present(&current->as, addr);
+#endif    
     
   if (pmap_extract(&current->as, addr, &paddr, &page_flags) != 0) {
     // Page is not present
     return -1;
   }
+	
+	Info("extract paddr:%08x, page_flags:%08x", paddr, page_flags);
+
 
   if ((page_flags & MEM_MASK) == MEM_PHYS) {
+  	Info("fault page flags MEM_PHYS");
     return -1;
   } else if ((page_flags & MEM_MASK) != MEM_ALLOC) {
+  	Info("fault on page flags not MEM_ALLOC");
     return -1;
   } else if (!(access & PROT_WRITE)) {
+  	Info("fault when access not writing");
+
     // FIXME: Make prefetch protection PROT_EXEC ??????
     // Add additional if-else test  ??????
     return -1;
   } else if ((page_flags & (PROT_WRITE | MAP_COW)) == PROT_WRITE) {
+  	Info("fault page flags WRITE is not COW");
+
     return -1;
   } else if ((page_flags & (PROT_WRITE | MAP_COW)) != (PROT_WRITE | MAP_COW)) {
+  	Info("fault page flags WRITE | COW != write|cow");
+
     return -1;
   }
 
@@ -80,12 +101,14 @@ int page_fault(vm_addr addr, bits32_t access)
     // FIXME: Make pmap_remove return void
 
     if (pmap_remove(&current->as, addr) != 0) {
+      Info("pmap_remove failed");
       return -1;
     }
 
     // Now new page frame
 
     if ((pf = alloc_pageframe(PAGE_SIZE)) == NULL) {
+      Info("alloc_pageframe failed");
       return -1;
     }
 
@@ -98,6 +121,7 @@ int page_fault(vm_addr addr, bits32_t access)
 
     if (pmap_enter(&current->as, addr, pf->physical_addr, page_flags) != 0) {
       free_pageframe(pf);
+      Info("pmap_enter failed");
       return -1;
     }
 
@@ -108,6 +132,8 @@ int page_fault(vm_addr addr, bits32_t access)
     
     // FIXME: Make pmap_remove return void
     if (pmap_remove(&current->as, addr) != 0) {
+      Info("pmap_remove on  refcnt==1 failed");
+
       return -1;
     }
 
@@ -116,6 +142,9 @@ int page_fault(vm_addr addr, bits32_t access)
     if (pmap_enter(&current->as, addr, paddr, page_flags) != 0) {
       pf->reference_cnt--;
       
+      
+      Info("pmap_enter failed on refcnt==1");
+
       // TODO: Free page
       return -1;
     }

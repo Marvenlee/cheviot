@@ -167,7 +167,7 @@ void *sys_virtualallocphys(void *_addr, size_t len, bits32_t flags,
   }
 
   for (va = addr, pa = paddr; va < addr + len; va += PAGE_SIZE, pa += PAGE_SIZE) {
-    Info("phys mapping va:%08x, pa:%08x, flags:%08x", va, pa, flags);
+//    Info("phys mapping va:%08x, pa:%08x, flags:%08x", va, pa, flags);
     if (pmap_enter(as, va, pa, flags) != 0) {
       Warn("pmap_enter in VirtualAllocPhys failed");
       goto cleanup;
@@ -235,6 +235,10 @@ int sys_virtualprotect(void *_addr, size_t len, bits32_t flags)
   vm_addr va;
   vm_addr pa;
 
+#if 1
+	return 0;		// FIXME: virtualprotect COW
+#endif	
+
   current = get_current_process();
   as = &current->as;
   addr = ALIGN_DOWN((vm_addr)_addr, PAGE_SIZE);
@@ -251,7 +255,11 @@ int sys_virtualprotect(void *_addr, size_t len, bits32_t flags)
 
     if ((flags & MEM_PHYS) != MEM_PHYS && (flags & PROT_WRITE)) {
       // Read-Write mapping
-      flags |= MAP_COW;
+
+#if 0
+      flags |= MAP_COW;			// FIXME: Could be single ref page
+#endif
+      
       if (pmap_protect(as, va, flags) != 0) {
         break;
       }

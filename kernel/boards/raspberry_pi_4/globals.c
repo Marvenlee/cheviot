@@ -77,11 +77,17 @@ struct bcm2711_gic_cpu_iface_registers *gic_cpu_iface_regs;
 vm_addr _heap_base;
 vm_addr _heap_current;
 
+vm_addr core_pagetable_base;
+vm_addr core_pagetable_ceiling;
+
 vm_addr boot_base;
 vm_addr boot_ceiling;
 
 uint32_t *root_pagedir;
 uint32_t *io_pagetable;
 uint32_t *cache_pagetable;
+
+uint32_t *mailbuffer;
+uint32_t *mailbuffer_pa;
 
 

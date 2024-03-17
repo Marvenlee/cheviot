@@ -29,8 +29,10 @@
 #include <sys/syscalls.h>
 #include "peripheral_base.h"
 
-
-#define BUF_SZ    (4096)      // Buffer size used to read and write
+/*
+ */
+#define NMSG_BACKLOG 				1
+#define BUF_SZ    			 4096      // Buffer size used to read and write
 
 typedef uint64_t  block64_t;
 
@@ -67,8 +69,9 @@ struct Config
 {
   char pathname[PATH_MAX + 1];
   uid_t uid;
-  gid_t gid;
+  gid_t gid;  
   mode_t mode;
+  dev_t dev;
 };
 
 
@@ -101,6 +104,7 @@ int sd_write(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t b
 // init.c
 void init(int argc, char *argv[]);
 int process_args(int argc, char *argv[]);
+int enable_power_and_clocks(void);
 int map_io_registers(void);
 int create_device_mount(void);
 int create_partition_mounts(void);

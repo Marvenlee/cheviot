@@ -368,7 +368,7 @@ int sys_sigpending(sigset_t *set_out)
 	
 	set = current->signal.sig_pending & ~current->signal.sig_mask;	
 
-	if (CopyOut (set_out, &set, sizeof (sigset_t)) != 0) {
+	if (CopyOut(set_out, &set, sizeof (sigset_t)) != 0) {
 	  return -EFAULT;
 	}
 	

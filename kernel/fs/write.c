@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// #define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -69,6 +69,7 @@ ssize_t sys_write(int fd, void *src, size_t sz)
     xfered = write_to_block(vnode, src, sz, &filp->offset);
   } else if (S_ISFIFO(vnode->mode)) {
     xfered = write_to_pipe(vnode, src, sz);
+    Info("*** %d write_to_pipe(src:%08x, sz:%u)", xfered, (uint32_t)src, sz);
   } else {
     Error("sys_write fd:%d unknown type -EINVAL", fd);
     xfered = -EINVAL;

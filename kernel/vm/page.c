@@ -82,6 +82,8 @@ struct Pageframe *alloc_pageframe(vm_size size)
   struct Pageframe *head = NULL;
   int t;
 
+//	Info("alloc_pageframe(%d)", size);
+
   if (size == 4096) {
     head = LIST_HEAD(&free_4k_pf_list);
 
@@ -113,25 +115,25 @@ struct Pageframe *alloc_pageframe(vm_size size)
 
   // Split 64k slabs if needed into 4k or 16k allocations.
   if (head->size == 65536 && size == 16384) {
-    for (t = 0; t < 4; t++) {
-    
+    for (t = 3; t > 0; t--) {    
       head[t*4].size = 16384;
       head[t*4].flags = 0;
-      
-      if (t>0) {
-        LIST_ADD_HEAD(&free_16k_pf_list, &head[t*4], link);
-      }
+			LIST_ADD_HEAD(&free_16k_pf_list, &head[t*4], link);
     }
     
+		head[0].size = 16384;
+		head[0].flags = 0;
+
+    
   } else if (head->size == 65536 && size == 4096) {
-    for (t = 0; t < 16; t++) {
+    for (t = 15; t > 0; t--) {
       head[t].size = 4096;
       head[t].flags = 0;
-
-      if (t>0) {
-        LIST_ADD_HEAD(&free_4k_pf_list, &head[t], link);
-      }
-    }
+	    LIST_ADD_HEAD(&free_4k_pf_list, &head[t], link);
+		}
+		
+		head[0].size = 4096;
+    head[0].flags = 0;
   }
   
   head->flags = PGF_INUSE;
@@ -140,6 +142,8 @@ struct Pageframe *alloc_pageframe(vm_size size)
   pmap_pageframe_init(&head->pmap_pageframe);
 
   vm_addr va = pmap_pa_to_va(head->physical_addr);
+
+//	Info("..pf va:%08x, pa:%08x, pf:%08x, sz:%d", va, head->physical_addr, (uint32_t)head, size);
 
   // TODO: Add flag to clear page
   memset((void *)va, 0, size);
@@ -164,6 +168,10 @@ int dup_pageframe(struct Pageframe *pf)
  */
 void free_pageframe(struct Pageframe *pf)
 {
+#if 1
+	return;
+#endif
+
   KASSERT(pf != NULL);
   KASSERT((pf - pageframe_table) < max_pageframe);
   KASSERT(pf->size == 65536 || pf->size == 16384 || pf->size == 4096);

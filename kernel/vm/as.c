@@ -45,6 +45,7 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
   struct Pageframe *pf;
 
   Info ("fork address space");
+	Info("new as:%08x, current as:%08x", (uint32_t)new_as, (uint32_t)old_as);
 
   KASSERT(new_as != NULL);
   KASSERT(old_as != NULL);
@@ -55,18 +56,30 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
   }
 
   new_as->segment_cnt = old_as->segment_cnt;
+  
+  Info("as:%08x segment_cnt = %d", (uint32_t)new_as, new_as->segment_cnt);
+  
   for (int t = 0; t <= new_as->segment_cnt; t++) {
     new_as->segment_table[t] = old_as->segment_table[t];
+    
+//    Info("as:%08x segment_table[%d]=%08x", (uint32_t)new_as, t, new_as->segment_table[t]);    
   }
 
-  for (vpt = VM_USER_BASE; vpt < VM_USER_CEILING;
+  for (vpt = VM_USER_BASE_PAGETABLE_ALIGNED; vpt < VM_USER_CEILING;
        vpt += PAGE_SIZE * N_PAGETABLE_PTE) {
+    
+//    Info("vpt: %08x", vpt);
+    
     if (pmap_is_pagetable_present(old_as, vpt) == false) {
+//    	Info ("vpt: %08x pagetable not present in old_as", vpt);
       continue;
     }
 
     for (va = vpt; va < vpt + PAGE_SIZE * N_PAGETABLE_PTE; va += PAGE_SIZE) {
+//      Info ("va=vpt+c : %08x", va);
+       
       if (pmap_is_page_present(old_as, va) == false) {
+//        Info("page va:%08x not present in old_as", va);
         continue;
       }
 
@@ -96,7 +109,7 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
         // TODO: Should flags also map it as COW?
         // Read-only mapping
 //        Info (".. va:%08x, read-only, anon", (uint32_t)va);
-        
+
         if (pmap_enter(new_as, va, pa, flags) != 0) {
           goto cleanup;
         }
@@ -105,16 +118,20 @@ int fork_address_space(struct AddressSpace *new_as, struct AddressSpace *old_as)
         pf->reference_cnt++;
       } else {
         // Physical Mapping
-//        Info (".. va:%08x, phys", (uint32_t)va);
+//        Info(".. va:%08x, phys mapping, pa:%08x", (uint32_t)va, (uint32_t)pa);
+
+#if 1        
+      	flags =	MEM_PHYS | PROT_READ | PROT_WRITE;
+#endif        
         
         if (pmap_enter(new_as, va, pa, flags) != 0) {
+        	Error("**** Phys pmap enter failed *****");
           goto cleanup;
         }
       }
     }
   }
 
-  //pmap_flush_tlbs();
   return 0;
 
 cleanup:
@@ -137,9 +154,9 @@ void cleanup_address_space(struct AddressSpace *as)
   vm_addr va;
   uint32_t flags;
 
-  Info("cleanup_address_space");
+  Info("*** cleanup_address_space *****");
 
-  for (vpt = VM_USER_BASE; vpt <= VM_USER_CEILING; vpt += PAGE_SIZE * N_PAGETABLE_PTE) {
+  for (vpt = VM_USER_BASE_PAGETABLE_ALIGNED; vpt <= VM_USER_CEILING; vpt += PAGE_SIZE * N_PAGETABLE_PTE) {
     if (pmap_is_pagetable_present(as, vpt) == false) {
       continue;
     }

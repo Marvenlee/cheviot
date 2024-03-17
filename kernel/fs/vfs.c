@@ -567,3 +567,27 @@ int vfs_fsync(struct VNode *vnode)
 }
 
 
+/*
+ *
+ */
+int vfs_isatty(struct VNode *vnode)
+{
+  struct fsreq req = {0};
+  struct SuperBlock *sb;
+  struct IOV siov[1];
+  int sc;
+  
+  sb = vnode->superblock;
+
+  memset(&req, 0, sizeof req);
+
+  req.cmd = CMD_ISATTY;
+  req.args.isatty.inode_nr = vnode->inode_nr;
+
+  siov[0].addr = &req;
+  siov[0].size = sizeof req;
+  
+  sc = ksendmsg(&sb->msgport, NELEM(siov), siov, 0, NULL);
+  return sc;
+}
+

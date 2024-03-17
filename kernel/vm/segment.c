@@ -18,6 +18,8 @@
  * functions for managing spans of virtual memory.
  */
 
+//#define KDEBUG
+
 #include <kernel/arch.h>
 #include <kernel/dbg.h>
 #include <kernel/error.h>
@@ -39,6 +41,13 @@ vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
   vm_addr *seg;
   vm_addr base;
   int t;
+
+	Info("segment_create(addr:%08x, sz:%08x, type:%d, flags:%08x", (uint32_t)addr, size, type, flags);
+
+	if(as->segment_cnt >= NSEGMENT-3) {
+		Warn("out of segments");
+		return (vm_addr)NULL;
+	}
 
 //  addr = ALIGN_DOWN(addr, 4096);
 //  size = ALIGN_UP(size, 4096);
@@ -72,9 +81,9 @@ vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
     *seg = (*seg & ~SEG_TYPE_MASK) | (type & SEG_TYPE_MASK);
   } else if ((*seg & SEG_ADDR_MASK) < addr &&
              (*(seg + 1) & SEG_ADDR_MASK) > addr + size) {
-    /* In the middle, between two parts */
-
+    /* In the middle, between two parts */		
     base = *seg & SEG_ADDR_MASK;
+		Info("segment: segment in middle: base:%08x", base);
 
     segment_insert(as, t, 2);
 
@@ -84,8 +93,8 @@ vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
   } else if ((*seg & SEG_ADDR_MASK) == addr &&
              (*(seg + 1) & SEG_ADDR_MASK) > addr + size) {
     /* Starts at bottom of area */
-
     base = *seg & SEG_ADDR_MASK;
+		Info("segment: segment at bottom: base:%08x", base);
 
     segment_insert(as, t, 1);
 
@@ -93,8 +102,8 @@ vm_addr segment_create(struct AddressSpace *as, vm_offset addr, vm_size size,
     *(seg + 1) = (addr + size) | SEG_TYPE_FREE;
   } else {
     /* Starts at top of area */
-
     base = *seg & SEG_ADDR_MASK;
+		Info("segment: segment at top: base:%08x", base);
 
     segment_insert(as, t, 1);
 
@@ -112,6 +121,8 @@ void segment_free(struct AddressSpace *as, vm_addr base, vm_size size)
 {
   int lo;
   int hi;
+  
+  Info("segment_free as:%08x, base:%08x, size:%08x", (uint32_t)as, base, size);
   
   if (base == (vm_addr)NULL) {
     return;
@@ -140,6 +151,10 @@ void segment_free(struct AddressSpace *as, vm_addr base, vm_size size)
  */
 void segment_insert(struct AddressSpace *as, int index, int cnt)
 {
+	Info("segment_insert: as:%08x, idx:%d, cnt:%d", index, cnt);
+	KASSERT(index >= 0);
+	KASSERT(cnt >= 0);
+	
   for (int t = as->segment_cnt - 1 + cnt; t >= (index + cnt); t--) {
     as->segment_table[t] = as->segment_table[t - cnt];
   }

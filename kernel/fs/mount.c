@@ -58,10 +58,10 @@ int sys_mknod(char *_path, uint32_t flags, struct stat *_stat)
 }
 
 
-/* @brief   Mount a filesystem or special device
+/* @brief   Create a named msgport (mount point) in the file system namespace
  *
  * @param   _path, path to mount root of new filesystem at
- * @param   _config, configuration settings to apply to this mount point
+ * @param   _stat, configuration settings to apply to this msgport (mount point).
  * @return  file descriptor on success, negative errno on failure
  *
  * This mounts a filesystem on top of an existing vnode. A file handle
@@ -71,7 +71,7 @@ int sys_mknod(char *_path, uint32_t flags, struct stat *_stat)
  * sys_writemsg system calls are available to servers to process file
  * system requests.
  */ 
-int sys_mount(char *_path, uint32_t flags, struct stat *_stat)
+int sys_createmsgport(char *_path, uint32_t flags, struct stat *_stat, int backlog_sz)
 {
   struct lookupdata ld;
   struct stat stat;
@@ -140,10 +140,11 @@ int sys_mount(char *_path, uint32_t flags, struct stat *_stat)
   }
 
   InitRendez(&sb->rendez);
-  init_msgport(&sb->msgport);
 
+  init_msgport(&sb->msgport);
+  init_msgbacklog(&sb->msgbacklog, backlog_sz);
   sb->msgport.context = sb;
-  
+
   sb->root = mount_root_vnode;
   sb->flags = flags;
   sb->reference_cnt = 1;
@@ -212,18 +213,20 @@ exit:
 }
 
 
-/* @brief   Move a mount point to another location.
+/* @brief   Move a msgport to another location in the filesystem namespace.
  *
  * Used in conjunction with sys_pivotroot to move the /dev mount on the IFS 
  * to /dev on the new root moumt 
  */
-int sys_movemount(char *_new_path, char *_old_path)
+int sys_renamemsgport(char *_new_path, char *_old_path)
 {
   struct lookupdata ld;
   struct VNode *new_vnode;
   struct VNode *old_vnode;
+  struct VNode *covered_vnode;
   int error;
   
+  Info("sys_renamemsgport");
   
   if ((error = lookup(_new_path, 0, &ld)) != 0) {
     Error("Failed to find new path");
@@ -245,8 +248,18 @@ int sys_movemount(char *_new_path, char *_old_path)
   old_vnode = ld.vnode;
     
   if (old_vnode->vnode_mounted_here == NULL) {
-    Error("old vnode not a mount point\n");
-    goto exit;
+    if (old_vnode->vnode_covered == NULL) {
+	    Error("old vnode not a mount point\n");
+	    goto exit;
+	  }
+	  
+	  covered_vnode = old_vnode->vnode_covered;
+
+	  vnode_inc_ref(covered_vnode);
+	  vnode_put(old_vnode);
+	  old_vnode = covered_vnode;
+	  
+
   }
   
   // Only support directories?
@@ -257,9 +270,12 @@ int sys_movemount(char *_new_path, char *_old_path)
   new_vnode->vnode_mounted_here->vnode_covered = new_vnode;  
   old_vnode->vnode_mounted_here = NULL;
     
+//  dname_purge_all();     FIXME:
+
   vnode_put (old_vnode);   // release 
   vnode_put (new_vnode);   // release
 
+  Info("sys_movemount DONE");
   return 0;
   
 exit:
@@ -278,7 +294,19 @@ int sys_pivotroot(char *_new_root, char *_old_root)
   struct VNode *current_root_vnode;
   int sc;
 
+  Info("sys_pivotroot");
   // TODO: Check these are directories (ROOT ones)
+	// TODO: Acquire old_root first, as this may be subdir of new root
+	// and would cause deadlock due to new_root's busy flag being set.
+	// Unless we unlock it (but it remains in memory due to ref cnt
+	
+  if ((sc = lookup(_old_root, 0, &ld)) != 0) {
+    Error("PivotRoot lookup _old_root failed");
+    return sc;
+  }
+
+  old_root_vnode = ld.vnode;
+
 
   if ((sc = lookup(_new_root, 0, &ld)) != 0) {
     Error("PivotRoot lookup _new_root failed");
@@ -291,13 +319,6 @@ int sys_pivotroot(char *_new_root, char *_old_root)
     Error("PivotRoot failed new_root -ENOENT");
     return -ENOENT;
   }
-
-  if ((sc = lookup(_old_root, 0, &ld)) != 0) {
-    Error("PivotRoot lookup _old_root failed");
-    return sc;
-  }
-
-  old_root_vnode = ld.vnode;
 
   if (old_root_vnode == NULL) {
     Error("PivotRoot lookup _old_root -ENOENT");
@@ -315,10 +336,12 @@ int sys_pivotroot(char *_new_root, char *_old_root)
 
   // TODO: Do we need to do any reference counting tricks, esp for current_vnode?
   
-  dname_purge_all();  
+//  dname_purge_all();     FIXME:
   vnode_put (old_root_vnode);
   vnode_put (new_root_vnode);
 
+  Info("sys_pivotroot DONE");
+  
   return 0;
 }
 

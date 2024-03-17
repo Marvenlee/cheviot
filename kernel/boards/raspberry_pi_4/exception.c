@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/board/arm.h>
 #include <kernel/board/globals.h>
@@ -59,18 +59,36 @@ void fiq_handler(void)
   KernelPanic();
 }
 
+
 /*
  *
  */
-
 void sys_unknownsyscallhandler(struct UserContext *context)
 {
   struct Process *current;
+
+	Error("Unknown syscall called");
   
   current = get_current_process();
   current->signal.si_code[SIGSYS-1] = 0;
   sys_kill(current->pid, SIGSYS);
 }
+
+
+/*
+ *
+ */
+void sys_deprecatedsyscall(void)
+{
+  struct Process *current;
+
+	Error("deprecated syscall called");
+
+  current = get_current_process();
+  current->signal.si_code[SIGSYS-1] = 0;
+  sys_kill(current->pid, SIGSYS);
+}
+
 
 /*
  *
@@ -178,6 +196,8 @@ void data_abort_handler(struct UserContext *context)
   bits32_t access;
   vm_addr fault_addr;
   uint32_t mode;
+  uint32_t status;
+  
   struct Process *current;
   
 //  Info ("data_abort_handler");
@@ -187,7 +207,26 @@ void data_abort_handler(struct UserContext *context)
   dfsr = hal_get_dfsr();
   fault_addr = hal_get_far();
 
+//	Info("CPSR=%08x", (uint32_t)context->cpsr);
+//	Info("SCTLR=%08x", (uint32_t)hal_get_sctlr());
+	
   // FIXME: Must not enable interrupts before getting above registers?
+
+#if 1
+	if (fault_addr >= 0x0001C000 && fault_addr <= 0x00028000) {
+		Info("DFSR=%08x", (uint32_t)dfsr);
+
+		status = DFSR_STATUS(dfsr);
+
+		Info("dfsr status: %d", status);
+
+		if (status == DFSR_ALIGNMENT_FAULT) {
+			Info("alignment fault");
+		} else if (status == DFSR_PERMISSION_FAULT) {
+			Info("permission fault");
+		}
+	}
+#endif
 
   mode = context->cpsr & CPSR_MODE_MASK;
   if (mode == USR_MODE || mode == SYS_MODE) {
@@ -207,6 +246,8 @@ void data_abort_handler(struct UserContext *context)
   if (page_fault(fault_addr, access) != 0) {
     if (mode == SVC_MODE && current->catch_state.pc != 0xdeadbeef) {
       Error("Page fault failed during copyin/copyout");
+      Error("fault_addr: %08x, access:%08x", fault_addr, access);
+      
       context->pc = current->catch_state.pc;
       current->catch_state.pc = 0xdeadbeef;
     } else if (mode == USR_MODE || mode == SYS_MODE) {

@@ -182,6 +182,7 @@ void arch_init_exec(struct Process *proc, void *entry_point,
 void arch_free_process(struct Process *proc);
 struct Process *create_process(void (*entry)(void), int policy, int priority, bits32_t flags, struct CPU *cpu);
 
+int arch_clock_gettime(int clock_id, struct timespec *ts);
 
 // Static assertions
 // STATIC_ASSERT(sizeof(struct Process) < PAGE_SIZE - KERNEL_STACK_MIN_SZ, "struct Process to large");

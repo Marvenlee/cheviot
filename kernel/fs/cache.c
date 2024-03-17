@@ -37,48 +37,73 @@
 ssize_t read_from_cache(struct VNode *vnode, void *dst, size_t sz, off64_t *offset, bool inkernel)
 {
   struct Buf *buf;
-  off_t cluster_base;
-  off_t cluster_offset;
-  size_t nbytes_xfered;
-  size_t nbytes_remaining;
+  off64_t cluster_base;
+  off64_t cluster_offset;
+  size_t nbytes_xfer;
+  size_t nbytes_total;
+  size_t remaining_in_file;
+  size_t nbytes_to_read;
+  size_t remaining_to_xfer;  
+  size_t remaining_in_cluster;  
+  
   struct Process *current;
+
+	Info("read_from_cache(sz:%u, offset:%u)", (uint32_t)sz, (uint32_t)*offset);
 
   current = get_current_process();
 
   if (*offset >= vnode->size) {
+  	Info("offset > vnode->size, returning 0");
     return 0;
   }
 
-  nbytes_remaining = (vnode->size - *offset < sz) ? vnode->size - *offset : sz;
+	if (*offset >= vnode->size) {
+		Info("End-of-file: vnode->size:%u",(uint32_t) vnode->size);
+		return 0;
+	}
 
-  while (nbytes_remaining > 0) {  
+	remaining_in_file = vnode->size - *offset;
+	
+	nbytes_total = 0;
+  nbytes_to_read = (remaining_in_file < sz) ? remaining_in_file : sz;
+
+  while (nbytes_total < nbytes_to_read) {  
     cluster_base = ALIGN_DOWN(*offset, CLUSTER_SZ);
     cluster_offset = *offset % CLUSTER_SZ;
 
-    nbytes_xfered = (CLUSTER_SZ - cluster_offset < nbytes_remaining)
-                        ? CLUSTER_SZ - cluster_offset
-                        : nbytes_remaining;
-
+		remaining_to_xfer = nbytes_to_read - nbytes_total;
+		remaining_in_cluster = CLUSTER_SZ - cluster_offset;
+		nbytes_xfer = (remaining_to_xfer < remaining_in_cluster) ? remaining_to_xfer : remaining_in_cluster;
+		
     buf = bread(vnode, cluster_base);
 
     if (buf == NULL) {
+    	Info("***** bread buf is null  *****");
       break;
     }
 
+		Info("copyout(dst:%08x, clus_offs:%d, xfer:%d)", (uint32_t)dst,
+						(uint32_t)cluster_offset, (uint32_t)nbytes_xfer);
+
+		Info("buf:%08x, buf->data:%08x", (uint32_t)buf, (uint32_t)buf->data);
+
     if (inkernel == true) {
-        memcpy(dst, buf->data + cluster_offset, nbytes_xfered);
+        memcpy(dst, buf->data + cluster_offset, nbytes_xfer);
     } else {    
-        CopyOut(dst, buf->data + cluster_offset, nbytes_xfered);
+        if (CopyOut(dst, buf->data + cluster_offset, nbytes_xfer) != 0) {
+        	break;
+        }
     }
     
     brelse(buf);
 
-    dst += nbytes_xfered;
-    *offset += nbytes_xfered;
-    nbytes_remaining -= nbytes_xfered;
+    dst += nbytes_xfer;
+    *offset += nbytes_xfer;
+    nbytes_total += nbytes_xfer;
   }
 
-  return sz - nbytes_remaining;
+	Info("read_from_cache() total= %d", nbytes_total);
+  return nbytes_total;
 }
 
 
@@ -100,6 +125,8 @@ ssize_t write_to_cache(struct VNode *vnode, void *src, size_t sz, off64_t *offse
   size_t nbytes_xfered;
   size_t nbytes_remaining;
   struct Process *current;
+  
+  Info("**** write_to_cache ****");
   
   current = get_current_process();
 
@@ -136,7 +163,8 @@ ssize_t write_to_cache(struct VNode *vnode, void *src, size_t sz, off64_t *offse
     }    
   }
 
-  return sz - nbytes_remaining;
+
+  return sz - nbytes_remaining;  // FIXME: This is probably wrong, see read_from_cache
 }
 
 
@@ -206,6 +234,7 @@ struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset)
         free_pageframe(pf);
       }
 
+/*
       if (cluster_offset >= vnode->size) {
         cluster_size = 0;
       } else if (vnode->size - cluster_offset < CLUSTER_SZ) {
@@ -213,8 +242,9 @@ struct Buf *getblk(struct VNode *vnode, uint64_t cluster_offset)
       } else {
         cluster_size = CLUSTER_SZ;
       }
+*/
 
-      for (int t = 0; t < cluster_size / PAGE_SIZE; t++) {
+      for (int t = 0; t < (CLUSTER_SZ / PAGE_SIZE); t++) {
         pf = alloc_pageframe(PAGE_SIZE);
         pmap_cache_enter((vm_addr)buf->data + t * PAGE_SIZE, pf->physical_addr);
       }
@@ -296,15 +326,15 @@ struct Buf *findblk(struct VNode *vnode, uint64_t cluster_offset)
  * file the remaining bytes after the end will be zero.
  *
  */
-struct Buf *bread(struct VNode *vnode, uint64_t cluster_offset)
+struct Buf *bread(struct VNode *vnode, uint64_t cluster_base)
 {
   struct Buf *buf;
   ssize_t xfered;
 
-  Info ("bread");
+//  Info ("bread cluster_base:%u", (uint32_t)cluster_base);
   // FIXME: What if offset equal to or past end of file?
   
-  buf = getblk(vnode, cluster_offset);
+  buf = getblk(vnode, cluster_base);
 
   if (buf->flags & B_VALID) {
     return buf;
@@ -312,17 +342,13 @@ struct Buf *bread(struct VNode *vnode, uint64_t cluster_offset)
 
   buf->flags = (buf->flags | B_READ) & ~(B_WRITE | B_ASYNC);
 
-  xfered = vfs_read(vnode, buf->data, CLUSTER_SZ, &cluster_offset);
+  xfered = vfs_read(vnode, buf->data, CLUSTER_SZ, &cluster_base);
 
-  if (xfered != CLUSTER_SZ) {
-    Warn("Partial block read");
-    
-    // TODO: Check if this is the end of file    
-    //  buf->flags |= B_ERROR;
-    
-    // TODO: Clear to end of cluster
-    // 
-    
+	if (xfered <= 0) {
+		Error("**** bread error: %d ****", xfered);
+		buf->flags |= B_ERROR;
+	} else if (xfered != CLUSTER_SZ) {
+		memset(buf->data + xfered, 0, CLUSTER_SZ - xfered);				
   }
   
   if (buf->flags & B_ERROR) {

@@ -34,6 +34,10 @@
 #define MBOX_BASE_OFFSET      0x880                             /* Offset within page aligned base */
 
 #define GIC400_BASE           0xFF840000
+#define GICD_BASE             (GIC400_BASE+0x00001000)          // + 4K 
+#define GICC_BASE             (GIC400_BASE+0x00002000)          // + 8K
+
+#define GIC400_BASE           0xFF840000
 #define ARM_LOCAL_BASE        0xFF800000
 
 

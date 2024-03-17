@@ -1,5 +1,5 @@
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_ERROR
 
 #include "sys/debug.h"
 #include <dirent.h>
@@ -18,6 +18,8 @@
 #include <sys/event.h>
 #include "sdcard.h"
 #include "globals.h"
+#include <sys/rpi_mailbox.h>
+#include <sys/rpi_gpio.h>
 
 
 /* @brief   The SDCard block device driver
@@ -38,18 +40,18 @@ int main(int argc, char *argv[])
   msgid_t msgid;
   struct bdev_unit *unit;
    
+  log_info("*** sdcard: main");
+   
   init(argc, argv);  
 
   while (1) {
     kevent(kq, NULL, 0, &ev, 1, NULL);
-
+		
     portid = ev.ident;
     unit = ev.udata;
     
     if (ev.filter == EVFILT_MSGPORT) {
       while ((sc = getmsg(portid, &msgid, &req, sizeof req)) == sizeof req) {
-//        log_info("sdcard getmsg:sc=%d", sc);
-//        log_info("sdcard unit:%08x", (uint32_t)unit);
         switch (req.cmd) {
           case CMD_READ:
             sdcard_read(unit, msgid, &req);
@@ -60,8 +62,9 @@ int main(int argc, char *argv[])
             break;
 
           default:
-            log_error("sdcard unknown command: %d", req.cmd);
-            exit(EXIT_FAILURE);
+            log_warn("sdcard: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
+            break;
         }
       }
       
@@ -100,6 +103,8 @@ void sdcard_read(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req)
   xfered = 0;
   offset = req->args.read.offset;
   remaining = req->args.read.sz;  
+  
+  log_info("sdcard_read offset:%08x, sz:%d", (uint32_t)offset, (uint32_t)remaining);
   
   while (remaining > 0) {
       block_no = ((off64_t)unit->start + (offset / 512));
@@ -158,7 +163,7 @@ void sdcard_write(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req)
       
       readmsg(unit->portid, msgid, buf+chunk_start, chunk_size, xfered);
 
-      sc = sd_read(bdev, buf, 512, block_no);
+//FIXME:      sc = sd_write(bdev, buf, 512, block_no);
 
       xfered += chunk_size;
       offset += chunk_size;

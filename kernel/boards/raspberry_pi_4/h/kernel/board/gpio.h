@@ -20,6 +20,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/*
+ * Raspberry Pi 4 number of GPIOs
+ */
+#define MAX_GPIO_PIN		64
+
 
 /* BCM2711 GPIO Register block
  */
@@ -50,7 +55,6 @@ struct bcm2711_gpio_registers
   uint32_t resvd11[21];     // 0x90  
   uint32_t pup_pdn_cntrl[4];  // 0xE4
 
-  
 //  uint32_t pud;         // 0x94
 //  uint32_t pud_clk[2];  // 0x98
 };
@@ -68,6 +72,7 @@ enum FSel
     FN1     = 5,
     FN2     = 6,
     FN3     = 7,
+    MAX_FSEL
 };
 
 
@@ -77,7 +82,8 @@ enum PullUpDown
 {
     PULL_NONE = 0,
     PULL_UP   = 1,
-    PULL_DOWN = 2
+    PULL_DOWN = 2,
+    MAX_PUPDN
 };
 
 

@@ -103,8 +103,9 @@ void taskmain(int argc, char *argv[])
             break;
 
           default:
-            log_error("serial: unknown command: %d", req.cmd);
-            exit(EXIT_FAILURE);
+            log_warn("serial: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
+            break;
         }
       }      
       

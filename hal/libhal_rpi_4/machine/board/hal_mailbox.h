@@ -35,6 +35,9 @@
 #define MBOX_SENDER   0x14    // 0x2000B894
 #define MBOX_CONFIG   0x1C    // 0x2000B89C
 
+#define MBOX1_WRITE		0x20		// Why is this same as MBOX_WRITE?
+#define MBOX1_STATUS 	0x38		// But why is this not
+
 
 // Mailbox channels
 #define MBOX_FB       1

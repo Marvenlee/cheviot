@@ -20,7 +20,7 @@
 
 
 // Mailbox registers
-static uint32_t *mbox_base;
+static uint8_t *mbox_base;
 
 
 
@@ -55,9 +55,9 @@ uint32_t hal_mbox_read(uint8_t channel)
  */
 void hal_mbox_write(uint8_t channel, uint32_t data)
 {
-  while (hal_mmio_read(mbox_base + MBOX_STATUS) & MBOX_FULL);
+  while (hal_mmio_read(mbox_base + MBOX1_STATUS) & MBOX_FULL);
   
-  hal_mmio_write(mbox_base + MBOX_WRITE,
+  hal_mmio_write(mbox_base + MBOX1_WRITE,
              (data & 0xfffffff0) | (uint32_t)(channel & 0xf));
 }
 

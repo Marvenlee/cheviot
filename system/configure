@@ -4384,7 +4384,7 @@ else
 fi
 
 
-ac_config_files="$ac_config_files Makefile etc/Makefile boot/Makefile drivers/Makefile drivers/aux/Makefile drivers/null/Makefile drivers/random/Makefile drivers/sdcard/Makefile drivers/serial/Makefile filesystems/Makefile filesystems/devfs/Makefile filesystems/extfs/Makefile filesystems/fatfs/Makefile filesystems/ifs/Makefile init/Makefile"
+ac_config_files="$ac_config_files Makefile etc/Makefile boot/Makefile drivers/Makefile drivers/aux/Makefile drivers/null/Makefile drivers/random/Makefile drivers/sdcard/Makefile drivers/serial/Makefile filesystems/Makefile filesystems/devfs/Makefile filesystems/extfs/Makefile filesystems/fatfs/Makefile filesystems/ifs/Makefile init/Makefile readfile/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -5151,6 +5151,7 @@ do
     "filesystems/fatfs/Makefile") CONFIG_FILES="$CONFIG_FILES filesystems/fatfs/Makefile" ;;
     "filesystems/ifs/Makefile") CONFIG_FILES="$CONFIG_FILES filesystems/ifs/Makefile" ;;
     "init/Makefile") CONFIG_FILES="$CONFIG_FILES init/Makefile" ;;
+    "readfile/Makefile") CONFIG_FILES="$CONFIG_FILES readfile/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

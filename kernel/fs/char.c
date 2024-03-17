@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+
 //#define KDEBUG
 
 #include <kernel/types.h>
@@ -73,6 +74,8 @@ ssize_t read_from_char(struct VNode *vnode, void *dst, size_t sz)
   vnode->reader_cnt = 0;
   TaskWakeupAll(&vnode->rendez);
 
+  Info("** read_from_char(sz:%d) xfered = %d", sz, xfered);
+
   return xfered;
 }
 
@@ -87,6 +90,8 @@ ssize_t write_to_char(struct VNode *vnode, void *src, size_t sz)
   size_t xfer = 0;
   struct Process *current;
 
+  Info("write_to_char(src:%08x, sz:%d)", (uint32_t)src, sz);
+
   current = get_current_process();
 
   while (vnode->writer_cnt != 0) {
@@ -98,13 +103,14 @@ ssize_t write_to_char(struct VNode *vnode, void *src, size_t sz)
   xfer = (sz < sizeof buf) ? sz : sizeof buf;
 
   if (xfer > 0) {      
-
     CopyIn (buf, src, xfer);
     xfered = vfs_write(vnode, buf, xfer, NULL);
   }
     
   vnode->writer_cnt = 0;
   TaskWakeupAll(&vnode->rendez);    
+
+  Info("** write_to_char(sz:%d) xfered = %d", sz, xfered);
 
   return xfered;
 }
@@ -133,8 +139,34 @@ int sys_tcgetattr (int fd, struct termios *_termios)
  */
 int sys_isatty(int fd)
 {
-  // TODO: determine if handle is to a TTY instead of always true
-  return 1;
+  struct Filp *filp;
+  struct VNode *vnode;
+  struct Process *current;
+  int sc;
+  
+  current = get_current_process();
+  filp = get_filp(current, fd);
+  vnode = get_fd_vnode(current, fd);
+
+  if (vnode == NULL) {
+    return -EINVAL;
+  }
+
+  if (is_allowed(vnode, R_OK) != 0) {
+    return -EACCES;
+  }
+
+  vnode_lock(vnode);
+
+  if (S_ISCHR(vnode->mode)) {
+    sc = vfs_isatty (vnode);    
+  } else {
+  	sc = 0;
+  }
+  
+  vnode_unlock(vnode);
+
+  return sc;
 }
  
  

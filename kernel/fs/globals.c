@@ -52,8 +52,8 @@ struct Process *bdflush_process;
 int max_buf;
 struct Buf *buf_table;
 
-size_t cluster_size;
-int nclusters;    // FIXME: Different to max_buf ?
+//size_t cluster_size;
+//int nclusters;    // FIXME: Different to max_buf ?
 struct Rendez buf_list_rendez;
 
 buf_list_t buf_hash[BUF_HASH];
@@ -83,13 +83,7 @@ knote_list_t knote_hash[KNOTE_HASH_SZ];
  */
 struct VNode *logger_vnode = NULL;
 
-/*
- * MsgID table management
- */
- 
-msgid_t unique_msgid_counter = 0; 
-msg_list_t msgid_hash[MSGID_HASH_SZ];
-
+superblock_list_t writable_filesystem_list;
 
 
 

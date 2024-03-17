@@ -31,11 +31,11 @@ int cmdWaitfor (void);
 int cmdSleep (void);
 int cmdSettty (void);
 int cmdPivot (void);
-int cmdRemount (void);
+int cmdRenameMount (void);
 int cmdSetEnv(void);
+void cmdPrintGreeting(void);
 char *tokenize(char *line);
 char *readLine(void);
-void PrintGreeting(void);
 
 
 #endif

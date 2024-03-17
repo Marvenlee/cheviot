@@ -4,7 +4,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_ERROR
 
 #include "ext2.h"
 #include "globals.h"
@@ -27,7 +27,9 @@ void ext2_read(struct fsreq *req)
   count = req->args.read.sz;
   
   nbytes_read = read_file(ino_nr, count, offset);
-    
+  
+  log_info("ext2_read has read %d bytes", nbytes_read);
+  
   replymsg(portid, msgid, nbytes_read, NULL, 0);
 }
 

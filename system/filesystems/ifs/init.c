@@ -45,15 +45,21 @@ void init_ifs(int argc, char *argv[])
   }
 
   log_info("argv[1] = %s", argv[1]);
-  log_info("argv[2] = $s", argv[2]);
+  log_info("argv[2] = %s", argv[2]);
 
-  ifs_image = (void *)strtoul(argv[1], NULL, 16);
+  ifs_image_phys = (void *)strtoul(argv[1], NULL, 16);
   ifs_image_size = strtoul(argv[2], NULL, 10);
 
-  log_info("ifs image = %08x", (uint32_t)ifs_image);
+  log_info("ifs image phys = %08x", (uint32_t)ifs_image_phys);
   log_info("ifs image size = %u", (uint32_t)ifs_image_size);
 
   
+  if ((ifs_image = virtualallocphys((void *)0x20000000, ifs_image_size, 
+  																  PROT_READ, ifs_image_phys)) == NULL) {
+  	log_info("Failed to map IFS image into process");
+  	exit(EXIT_FAILURE);
+  }
+    
   ifs_header = (struct IFSHeader *) ifs_image;
   
   if (ifs_header->magic[0] != 'M' || ifs_header->magic[1] != 'A' ||
@@ -77,18 +83,18 @@ void init_ifs(int argc, char *argv[])
  */
 void mount_root(void)
 {
-  struct stat stat;
+  struct stat mnt_stat;
 
-  stat.st_dev = 0;              // Get from config, or returned by Mount() (sb index?)
-  stat.st_ino = 0;
-  stat.st_mode = 0777 | _IFDIR; // default to read/write of device-driver uid/gid.
-  stat.st_uid = 0;              // default device driver uid
-  stat.st_gid = 0;              // default gid
-  stat.st_blksize = 512;
-  stat.st_size = 0;
-  stat.st_blocks = stat.st_size / stat.st_blksize;
+  mnt_stat.st_dev = 0;
+  mnt_stat.st_ino = 0;
+  mnt_stat.st_mode = 0777 | _IFDIR;
+  mnt_stat.st_uid = 0;
+  mnt_stat.st_gid = 0;
+  mnt_stat.st_blksize = 512;
+  mnt_stat.st_size = 0;
+  mnt_stat.st_blocks = mnt_stat.st_size / mnt_stat.st_blksize;
 
-  portid = mount("/", 0, &stat);
+  portid = createmsgport("/", 0, &mnt_stat, NMSG_BACKLOG);
   
   if (portid < 0) {
     log_error("failed to mount ifs as root");

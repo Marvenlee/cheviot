@@ -96,7 +96,9 @@ _start:
     ldr   r3, =_ebss
     ldr   r2, =_sbss
     cmp   r2, r3
-    bcs   2f         // FIXME: Why is this jumping past the initialization of bootinfo arg?
+    bcs   2f
+    
+    // Clear the BSS section as it's size > 1.
     sub   r3, r2, #1
     ldr   r1, =_ebss
     sub   r1, r1, #1
@@ -106,9 +108,9 @@ _start:
     cmp   r3, r1
     bne   1b
 
+2:
     ldr r4, =bootinfo
     str r0, [r4]
-2:
 
 
 # FIXME: Add or remove this floating point initialization.

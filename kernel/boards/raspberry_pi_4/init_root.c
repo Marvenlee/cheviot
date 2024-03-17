@@ -77,12 +77,14 @@ void BootstrapRootProcess(void) {
   
 //  CleanupAddressSpace(&current->as);
 
+/*
   Info ("Map IFS image to 0x00400000");
 
   if ((ifs_base = MapIFS((void *)0x00400000, bootinfo->ifs_image_size, (void *)bootinfo->ifs_image, PROT_READWRITE)) == NULL) {
     Info("Root map IFS image failed");
     KernelPanic();
   }
+*/
 
 /*
   if ((ifs_base = MapIFS((void *)0x00400000, 0x10000, (void *)0x00008000, PROT_READWRITE)) == NULL) {
@@ -95,21 +97,9 @@ void BootstrapRootProcess(void) {
   Info ("ifs_exe_base phys = %08x", (vm_addr)bootinfo->ifs_exe_base);  
   Info ("ifs_image_size    = %08x", (vm_addr)bootinfo->ifs_image_size);  
 
-  ifs_exe_base = ifs_base + (bootinfo->ifs_exe_base - bootinfo->ifs_image);
-
-  Info ("ifs_base = %08x", ifs_base);  
-  Info ("ifs_exe_base = %08x", ifs_exe_base);
-
-  /*
+  ifs_exe_base = (void *)pmap_pa_to_va((vm_addr)bootinfo->ifs_exe_base);
   
-  uint8_t tmp[32];
-  for (uint32_t taddr = 0x00400000; taddr < 0x00400000 + bootinfo->ifs_image_size; taddr += PAGE_SIZE)
-  {
-    Info ("test mem read taddr:%08x", taddr);
-    tmp[1] = *(uint8_t *)taddr;
-    Info ("val = %02x", tmp[1]);  
-  }
-  */
+  Info("ifs_exe_base kernel va:%08x", (uint32_t)ifs_exe_base); 
   
   if (LoadRootElf(ifs_exe_base, &entry_point) != 0) {
     Info("LoadProcess failed");
@@ -126,13 +116,13 @@ void BootstrapRootProcess(void) {
   }
 
   
-  InitRootArgv(pool, &args, "/sbin/ifs", ifs_base, bootinfo->ifs_image_size);
+  InitRootArgv(pool, &args, "/sbin/ifs", (void *)bootinfo->ifs_image, bootinfo->ifs_image_size);
   
   copy_out_argv(stack_base, USER_STACK_SZ, &args);
   
   free_arg_pool(pool);
    
-  stack_pointer = stack_base + USER_STACK_SZ - ALIGN_UP(args.total_size, 16) - 16;
+  stack_pointer = stack_base + USER_STACK_SZ - ALIGN_UP(args.total_size, 32) - 32;
   
   Info ("Stack base   : %08x", stack_base);
   Info ("Stack Pointer: %08x", stack_pointer);
@@ -267,56 +257,6 @@ int LoadRootElf(void *file_base, void **entry_point)
 }
 
 
-/* @brief   Map in the IFS image to root address space
- *
- * Note: Pageframes of IFS are reserved in init_vm
- */
-static void *MapIFS(void *vaddr, vm_size sz, void *paddr, bits32_t flags)
-{
-  struct Process *current;
-  struct AddressSpace *as;
-  vm_addr va, pa;
-  vm_addr ceiling;
-  struct Pageframe *pf;
-
-  current = get_current_process();
-  as = &current->as;
-  vaddr = (void *)ALIGN_DOWN((vm_addr)vaddr, PAGE_SIZE);
-  sz = ALIGN_UP(sz, PAGE_SIZE);
-  flags = (flags & ~VM_SYSTEM_MASK) | MEM_ALLOC;
-
-  Info("MapIFS (va:%08x, pa:%08x sz:%08x, f:%08x", vaddr, paddr, sz, flags);
-
-  vaddr = (void *)segment_create(as, (vm_addr)vaddr, sz, SEG_TYPE_ALLOC, flags);
-
-  if (vaddr == NULL) {
-    Info ("vaddr == null");
-    KernelPanic();
-  }
-
-  for (va = (vm_addr)vaddr, pa = (vm_addr)paddr; va < (vm_addr)vaddr + sz; va += PAGE_SIZE, pa += PAGE_SIZE) {
-    
-    pf = pmap_pa_to_pf(pa);
-    
-    if (pf == NULL) {
-      Info ("Cannot find PF pa:%08x", pa);
-      KernelPanic();
-    }
-
-
-    if (pmap_enter(as, va, pa, flags) != 0) {
-      Info ("Cannot PmapEnter pa:%08x", pa);
-      KernelPanic();
-    }
-    
-        
-    pf->reference_cnt = 1;
-  }
-
-  pmap_flush_tlbs();
-
-  return (void *)vaddr;
-}
 
 /*
  *
@@ -329,7 +269,7 @@ static int InitRootArgv(char *pool, struct execargs *args, char *exe_name, void 
   char *src;
   char *dst;
   int sz;
-  char tmp[16];
+  char tmp[32];
   
   argv = (char **)pool;
   envv = (char **)((uint8_t *)argv + (3 + 1) * sizeof(char *));
@@ -360,12 +300,23 @@ static int InitRootArgv(char *pool, struct execargs *args, char *exe_name, void 
   Info ("... argv[2] = %08x", ifs_size);  
   argv[2] = dst;
   Snprintf(tmp, sizeof tmp, "%u", ifs_size);
+
+	Info ("... tmp:%s", tmp);  
+  Info ("dst:%08x, tmp:%08x, remaining:%d", (uint32_t)dst, (uint32_t)tmp, remaining);
   StrLCpy(dst, tmp, remaining);
+	char *argv_ifs_sz = dst;
+	
+  sz = StrLen(dst) + 1;
+  dst += sz;
+  remaining -= sz;
+  
+
+	Info ("argv[2] user ifs_sz: %s", argv_ifs_sz);
 
   args->argc = 3;
   args->envc = 0;
 
-  argv[args->argc] = NULL; 
+  argv[args->argc] = NULL; 		// null for last element of argv
   envv[0] = NULL;
 
   args->total_size = dst - pool;

@@ -73,13 +73,14 @@ int process_args(int argc, char *argv[])
 
   config.uid = 0;
   config.gid = 0;
-  config.mode = S_IFCHR;
+  config.dev = -1;
+  config.mode = 0777 | S_IFCHR;
   
   if (argc <= 1) {
     return -1;
   }
   
-  while ((c = getopt(argc, argv, "u:g:m:")) != -1) {
+  while ((c = getopt(argc, argv, "u:g:m:d:")) != -1) {
     switch (c) {
     case 'u':
       config.uid = atoi(optarg);
@@ -91,6 +92,10 @@ int process_args(int argc, char *argv[])
 
     case 'm':
       config.mode = atoi(optarg);
+      break;
+
+    case 'd':
+      config.dev = atoi(optarg);
       break;
       
     default:
@@ -112,20 +117,20 @@ int process_args(int argc, char *argv[])
  */
 int mount_device(void)
 {
-  struct stat stat;
+  struct stat mnt_stat;
 
-  stat.st_dev = 0; // Get from config, or returned by Mount() (sb index?)
-  stat.st_ino = 0;
-  stat.st_mode = 0777 | S_IFCHR;
+  mnt_stat.st_dev = config.dev; // Get from config, or returned by Mount() (sb index?)
+  mnt_stat.st_ino = 0;
+  mnt_stat.st_mode = S_IFCHR | (config.mode & 0777);
 
   // default to read/write of device-driver uid/gid.
-  stat.st_uid = 0;   // default device driver uid
-  stat.st_gid = 0;   // default gid
-  stat.st_blksize = 0;
-  stat.st_size = 0;
-  stat.st_blocks = 0;
+  mnt_stat.st_uid = config.uid;   // default device driver uid
+  mnt_stat.st_gid = config.gid;   // default gid
+  mnt_stat.st_blksize = 0;
+  mnt_stat.st_size = 0;
+  mnt_stat.st_blocks = 0;
   
-  portid = mount(config.pathname, 0, &stat);
+  portid = createmsgport(config.pathname, 0, &mnt_stat, NMSG_BACKLOG);
   
   if (portid < 0) {
     return -1;

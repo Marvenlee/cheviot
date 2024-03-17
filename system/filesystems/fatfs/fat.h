@@ -33,9 +33,12 @@
 #include <sys/stat.h>
 #include <sys/syscalls.h>
 #include <unistd.h>
+
+
 /*
  * Constants
  */
+#define NMSG_BACKLOG 			8 
 
 #define FAT_TIME_CREATE 0
 #define FAT_TIME_MODIFY 1

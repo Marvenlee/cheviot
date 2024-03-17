@@ -6,11 +6,10 @@ sdcard_SOURCES = \
   globals.c \
   init.c \
   main.c \
-  mbox.c \
   mmio.c \
   timer.c 
 
-sdcard_LDADD = -lrpihal
+sdcard_LDADD = -lrpimailbox -lrpigpio -lrpihal
 
 if BOARD_RASPBERRY_PI_1
 AM_CFLAGS = -O2 -std=c99 -g0

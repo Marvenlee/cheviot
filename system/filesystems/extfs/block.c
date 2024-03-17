@@ -7,7 +7,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_ERROR
 
 #include "ext2.h"
 #include "globals.h"
@@ -42,7 +42,7 @@ struct buf *new_block(struct inode *inode, off_t position)
   }
 
   if ((bp = get_block(cache, block, BLK_CLEAR)) == NULL) {
-  	panic("extfs: error getting block:%u, sc:%d", block, sc);
+  	panic("extfs: error getting block:%d, sc:%d", block, sc);
   }
   
   return bp;
@@ -62,18 +62,29 @@ block_t read_map_entry(struct inode *inode, uint64_t position)
   struct buf *bp;
   block_t block;
   uint32_t block_pos;
-  uint32_t offs[4];
+  static uint32_t offs[8];
   int depth;
   
+  log_info("read_map_entry");
+  
   block_pos = position / sb_block_size;
-  depth = calc_block_indirection_offsets(block_pos, offs);
+
+  log_info("call calc_block_indirection_offsets");
+
+  depth = calc_block_indirection_offsets(position, &offs[0]);
 
   if (depth < 0) {
+    log_info("read_map_entry: NO_BLOCK");
+		log_info("depth = %d", depth);
     return NO_BLOCK;
   } else if (depth == 0) {
+    log_info("read_map_entry: offs[0]");
+
     return inode->i_block[offs[0]];   
   } 
   
+  log_info("call get_toplevel_indirect_block_entry");
+
   block = get_toplevel_indirect_block_entry(inode, depth);
         
   for (int t=1; t <= depth && block != NO_BLOCK; t++) {
@@ -81,6 +92,8 @@ block_t read_map_entry(struct inode *inode, uint64_t position)
     block = read_indirect_block_entry(bp, offs[t]);    
     put_block(cache, bp);
   }
+
+  log_info("read_map_entry ret: %d", (uint32_t)block);
   
   return block;
 }
@@ -103,7 +116,7 @@ int enter_map_entry(struct inode *inode, off_t position, block_t new_block)
   struct buf *new_bp;
   
   block_pos = position / sb_block_size;
-  depth = calc_block_indirection_offsets (block_pos, offs);
+  depth = calc_block_indirection_offsets (position, offs);
 
   if (depth < 0) {
     return -EINVAL;
@@ -144,7 +157,7 @@ int enter_map_entry(struct inode *inode, off_t position, block_t new_block)
       if (block == NO_BLOCK) {
         return -ENOSPC;
       }
-
+      
       new_bp = get_block(cache, block, BLK_CLEAR);
       block_markdirty(new_bp);
       put_block(cache, new_bp);
@@ -198,7 +211,7 @@ int delete_map_entry(struct inode *inode, off_t position)
   
   block_pos = position / sb_block_size;
 
-  depth = calc_block_indirection_offsets(block_pos, offs);
+  depth = calc_block_indirection_offsets(position, offs);
 
   if (depth < 0) {
     return -EINVAL;
@@ -288,17 +301,24 @@ int delete_map_entry(struct inode *inode, off_t position)
             double indirect and triple indirect blocks
  * @return  depth of indirect blocks for this file position
  */
-int calc_block_indirection_offsets(uint32_t position, uint32_t offs[4])
+int calc_block_indirection_offsets(uint32_t position, uint32_t *offs)
 {
+  log_info("calc_block_indirection_offsets");
+  
   uint32_t block_pos = position / sb_block_size;
 	int depth;
 
+  log_info("after divide");
+
+	log_info("position = %08x", (uint32_t)position);
+
   if (block_pos >= sb_out_range_s) {
+  	log_info("block_pos:%08x, sb_out:%08x", (uint32_t)block_pos, (uint32_t)sb_out_range_s);
   	return -EINVAL;
   	
   } else if (block_pos < EXT2_NDIR_BLOCKS) {
     // direct block
-		offs[0] = block_pos;		
+		offs[0] = block_pos;
   	depth = 0;
   	
   } else if (block_pos < sb_doub_ind_s) {

@@ -291,7 +291,7 @@ extfs_SOURCES = \
   write.c
 
 extfs_LDADD = -lblockdev
-AM_CFLAGS = -O2 -std=c99 -g0 
+AM_CFLAGS = -O0 -std=c99 -g2 -march=armv8-a
 all: all-am
 
 .SUFFIXES:
@@ -676,6 +676,7 @@ uninstall-am: uninstall-sbinPROGRAMS
 
 .PRECIOUS: Makefile
 
+#-march=armv7ve
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -6,20 +6,21 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-// types
+
+/* Constants
+ */
+#define NMSG_BACKLOG 			8
+#define DEVFS_MAX_INODE 	128
+#define DIRENTS_BUF_SZ 		4096
 
 
-// Constants
-
-#define DEVFS_MAX_INODE 128
-
-#define DIRENTS_BUF_SZ 4096
-
+/*
+ *
+ */
 #define ALIGN_UP(val, alignment)                                \
     ((((val) + (alignment) - 1)/(alignment))*(alignment))
 #define ALIGN_DOWN(val, alignment)                              \
             ((val) - ((val) % (alignment)))
-
 
 /*
  *
@@ -37,22 +38,23 @@ struct DevfsNode {
 
 
 
+/*
+ * Driver Configuration settings
+ */
+struct Config
+{
+  uid_t uid;
+  gid_t gid;
+  mode_t mode;
+  dev_t dev;
+};
 
-
-// globals
-extern int fd;
 
 // prototypes
 void init (int argc, char *argv[]);
 int process_args(int argc, char *argv[]);
 int init_devfs(void);
 int mount_device(void);
-
-
-
-
-
-
 
 
 #endif

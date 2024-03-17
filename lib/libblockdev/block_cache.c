@@ -18,6 +18,7 @@
  * Move into a blockcache library and cleanup.
  */
 
+#define LOG_LEVEL_ERROR
 
 #include <assert.h>
 #include <dirent.h>
@@ -120,7 +121,7 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
 	
 	hash = block % BUF_HASH_CNT;
 	buf = LIST_HEAD (&cache->hash_list[hash]);
-		
+
 	while (buf != NULL) {		
 		if (buf->block == block) {			
 			break;
@@ -128,24 +129,28 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
 		
 		buf = LIST_NEXT (buf, hash_link);
 	}
-					
+
+						
 	if (buf == NULL) {
 		buf = LIST_HEAD (&cache->free_list);
 						
-		if (buf == NULL) {
+		if (buf != NULL) {
+	  	LIST_REM_HEAD (&cache->free_list, free_link);
+  			
+		} else {
 			buf = LIST_HEAD (&cache->lru_list);
 
 			if (buf == NULL) {
-				panic("extfs: no bufs available");
+				panic("lblockdev: no bufs available");
 			}			
-		} else {
+
+			// if it's on the LRU list it is valid, it is also hashed.
 			hash = buf->block % BUF_HASH_CNT;
+			// assert(buf->valid)
 			LIST_REM_HEAD (&cache->lru_list, lru_link);
 			LIST_REM_ENTRY (&cache->hash_list[hash], buf, hash_link);
 		}
-
-  	LIST_REM_HEAD (&cache->free_list, free_link);
-    		
+		
 		buf->block = block;
 		buf->dirty = false;
 		buf->in_use = true;
@@ -168,7 +173,7 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
 		return buf;
 		
 	} else {
-	  buf->in_use = true;						
+	  buf->in_use = true;
 		return buf;
 	}
 }

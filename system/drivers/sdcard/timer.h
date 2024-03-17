@@ -29,21 +29,32 @@
 
 
 struct timer_wait {
-  uint32_t trigger_value;
-  int rollover;
+		struct timespec start_ts;
+    uint32_t timeout_nsec;
 };
 
-int delay_microsecs(int usec);
-struct timer_wait register_timer(useconds_t usec);
-int compare_timer(struct timer_wait tw);
 
+extern struct timer_wait tw;
+
+
+int delay_microsecs(int usec);
+uint32_t read_microsecond_timer(void);
+void register_timer(struct timer_wait * tw, unsigned int usec);
+int compare_timer(struct timer_wait * tw);
+
+/*
+ * Macro to repeatedly poll a "stop_if_true" test until satisfied or the
+ * timeout in microseconds elapses. This busy-waits, we could add code to 
+ * yield to other tasks/processes.
+ */
 #define TIMEOUT_WAIT(stop_if_true, usec)                                       \
   do {                                                                         \
-    struct timer_wait tw = register_timer(usec);                               \
+    register_timer(&tw, usec);                                                 \
     do {                                                                       \
       if (stop_if_true)                                                        \
         break;                                                                 \
-    } while (!compare_timer(tw));                                              \
+    } while (!compare_timer(&tw));                                             \
   } while (0);
 
 #endif
+

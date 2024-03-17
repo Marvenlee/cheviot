@@ -85,11 +85,12 @@ int sys_knotei(int fd, int ino_nr, long hint)
  * TODO: Revert msgid to sender's process ID + thread ID, change type to endpoint_t.
  * 
  */
-int sys_getmsg(int fd, msgid_t *msgid, void *addr, size_t buf_sz)
+int sys_getmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz)
 {
   struct SuperBlock *sb;  
   struct MsgPort *msgport;
   struct Msg *msg;
+  msgid_t msgid;
   off_t offset;
   int nbytes_read;
   int nbytes_to_xfer;
@@ -106,13 +107,24 @@ int sys_getmsg(int fd, msgid_t *msgid, void *addr, size_t buf_sz)
   
   msgport = &sb->msgport;
   
+  // Check if we have a backlog slot free?
+  // Allocate msgid slot for backlog (sb->msgport_backlog_table);
+  msgid = alloc_msgid(&sb->msgbacklog);
+  
+  if (msgid < 0) {
+  	return -EAGAIN;
+  }
+  
   msg = kgetmsg(msgport);
 
   if (msg == NULL) {
+    free_msgid(&sb->msgbacklog, msgid);
     return 0;
   }  
   
-  CopyOut (msgid, &msg->msgid, sizeof *msgid);
+  assign_msgid(&sb->msgbacklog, msgid, msg);
+  
+  CopyOut (_msgid, &msgid, sizeof msgid);
 
   nbytes_read = 0;
   
@@ -137,30 +149,25 @@ int sys_getmsg(int fd, msgid_t *msgid, void *addr, size_t buf_sz)
 
 /* @brief   Reply to a message
  *
- * @param   fd, file descriptor of mounted file system created with sys_mount()
- * @param   msgid, unique message identifier returned by sys_receivemsg()
+ * @param   fd, file descriptor of mounted file system created with sys_createmsgport()
+ * @param   msgid, unique message identifier returned by sys_getmsg()
  * @param   status, error status to return to caller (0 on success or negative errno)
  * @param   addr, address of buffer to write from
  * @param   buf_sz, size of buffer to write from
  * @return  0 on success, negative errno on error 
  */
-int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
+int sys_replymsg(int fd, msgid_t msgid, int status, void *addr, size_t buf_sz)
 {
   struct Process *current;
   struct SuperBlock *sb;
   struct MsgPort *msgport;
   struct Msg *msg;
-  msgid_t msgid;
   int nbytes_to_write;
   int nbytes_written;
   int remaining;
   int iov_remaining;
   int i;
   int sc;
-
-  if (CopyIn(&msgid, _msgid, sizeof msgid) != 0) {
-    return -EFAULT;
-  }
     
   current = get_current_process();  
   sb = get_superblock(current, fd);
@@ -171,7 +178,7 @@ int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
   
   msgport = &sb->msgport;
 
-  if ((msg = msgid_to_msg(msgport, msgid)) == NULL) {
+  if ((msg = msgid_to_msg(&sb->msgbacklog, msgid)) == NULL) {
     return -EINVAL;
   }
 
@@ -202,6 +209,7 @@ int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
   }
   
   kreplymsg(msg);
+	free_msgid(&sb->msgbacklog, msgid);
 
   return 0;
 }
@@ -209,29 +217,24 @@ int sys_replymsg(int fd, msgid_t *_msgid, int status, void *addr, size_t buf_sz)
 
 /* @brief   Read from a message
  *
- * @param   fd, file descriptor of mounted file system created with sys_mount()
- * @param   msgid, unique message identifier returned by sys_receivemsg()
+ * @param   fd, file descriptor of mounted file system created with sys_createmsgport()
+ * @param   msgid, unique message identifier returned by sys_getmsg()
  * @param   addr, address of buffer to read into
  * @param   buf_sz, size of buffer to read into
  * @param   offset, offset within the message to read
  * @return  number of bytes read on success, negative errno on error 
  */
-int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset)
+int sys_readmsg(int fd, msgid_t msgid, void *addr, size_t buf_sz, off_t offset)
 {
   struct Process *current;
   struct SuperBlock *sb;
   struct MsgPort *msgport;
   struct Msg *msg;
-  msgid_t msgid;
   int nbytes_to_read;
   int nbytes_read;
-  int remaining;
+  int buf_remaining;
   int iov_remaining;
   int i;
-
-  if (CopyIn(&msgid, _msgid, sizeof msgid) != 0) {
-    return -EFAULT;
-  }
     
   current = get_current_process();  
   sb = get_superblock(current, fd);
@@ -242,7 +245,7 @@ int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset
   
   msgport = &sb->msgport;
 
-  if ((msg = msgid_to_msg(msgport, msgid)) == NULL) {
+  if ((msg = msgid_to_msg(&sb->msgbacklog, msgid)) == NULL) {
     return -EINVAL;
   }
   
@@ -254,8 +257,8 @@ int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset
     }
 
     while (i < msg->siov_cnt && nbytes_read < buf_sz) {
-      remaining = buf_sz - nbytes_read;
-      nbytes_to_read = (remaining < iov_remaining) ? remaining : iov_remaining;
+      buf_remaining = buf_sz - nbytes_read;
+      nbytes_to_read = (buf_remaining < iov_remaining) ? buf_remaining : iov_remaining;
 
       CopyOut(addr + nbytes_read,
               msg->siov[i].addr + msg->siov[i].size - iov_remaining,
@@ -273,30 +276,26 @@ int sys_readmsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset
 
 /* @brief   Write to a message
  *
- * @param   fd, file descriptor of mounted file system created with sys_mount()
- * @param   msgid, unique message identifier returned by sys_receivemsg()
+ * @param   fd, file descriptor of mounted file system created with sys_createmsgport()
+ * @param   msgid, unique message identifier returned by sys_getmsg()
  * @param   addr, address of buffer to write from
  * @param   buf_sz, size of buffer to write from
  * @param   offset, offset within the message to write
  * @return  number of bytes written on success, negative errno on error 
  */
-int sys_writemsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offset)
+int sys_writemsg(int fd, msgid_t msgid, void *addr, size_t buf_sz, off_t offset)
 {
   struct Process *current;
   struct SuperBlock *sb;
   struct MsgPort *msgport;
   struct Msg *msg;
-  msgid_t msgid;
   int nbytes_to_write;
   int nbytes_written;
-  int remaining;
+  int buf_remaining;
   int iov_remaining;
   int i;
   int sc;
 
-  if (CopyIn(&msgid, _msgid, sizeof msgid) != 0) {
-    return -EFAULT;
-  }
   
   current = get_current_process();  
   sb = get_superblock(current, fd);
@@ -307,14 +306,10 @@ int sys_writemsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offse
   
   msgport = &sb->msgport;
   
-  if ((msg = msgid_to_msg(msgport, msgid)) == NULL) {
+  if ((msg = msgid_to_msg(&sb->msgbacklog, msgid)) == NULL) {
     return -EINVAL;
   }
   
-  if (msg->port != msgport) {
-    return -EINVAL;
-  }
-
 	// FIXME: Check we have a valid riov (it can be null or zero length
   nbytes_written = 0;
 
@@ -324,8 +319,8 @@ int sys_writemsg(int fd, msgid_t *_msgid, void *addr, size_t buf_sz, off_t offse
     }
 
     while (i < msg->riov_cnt && nbytes_written < buf_sz) {
-      remaining = buf_sz - nbytes_written;
-      nbytes_to_write = (iov_remaining < remaining) ? iov_remaining : remaining;
+      buf_remaining = buf_sz - nbytes_written;
+      nbytes_to_write = (iov_remaining < buf_remaining) ? iov_remaining : buf_remaining;
 
       sc = CopyIn(msg->riov[i].addr + msg->riov[i].size - iov_remaining,
              addr + nbytes_written, nbytes_to_write);
@@ -365,13 +360,9 @@ int ksendmsg(struct MsgPort *msgport, int siov_cnt, struct IOV *siov, int riov_c
 {
   struct Process *current;
   struct Msg msg;
-  int msgid;
-  
+	
   current = get_current_process();
-  
-  msg.msgid = new_msgid();  
-  hash_msg(&msg);
-    
+      
   msg.reply_port = &current->reply_port;  
   msg.siov_cnt = siov_cnt;
   msg.siov = siov;
@@ -382,8 +373,7 @@ int ksendmsg(struct MsgPort *msgport, int siov_cnt, struct IOV *siov, int riov_c
   kputmsg(msgport, &msg);   
   kwaitport(&current->reply_port, NULL);  
   kgetmsg(&current->reply_port);
-  unhash_msg(&msg);
-
+	
   return msg.reply_status;
 }
 
@@ -494,73 +484,100 @@ int init_msgport(struct MsgPort *msgport)
  * 
  * TODO: Reply to any pending or in progress messages
  */
-int fini_msgport(struct MsgPort *msgport) {
+int fini_msgport(struct MsgPort *msgport)
+{
   return 0;
 } 
 
 
+/* @brief   Initialize a message backlog
+ *
+ * @param   msgbacklog, message backlog structure to initialize
+ * @param		backlog, maximum number of concurrent messages to allow.
+ * @return  0 on success, negative errno on error
+ */
+int init_msgbacklog(struct MsgBacklog *backlog, int backlog_sz)
+{
+	backlog->backlog_sz = backlog_sz;
+	backlog->free_bitmap = 0;
+	
+	for (int t=0; t<backlog_sz; t++) {
+		backlog->free_bitmap |= (1<<t);
+	}
+		
+	for (int t=0; t< MAX_MSG_BACKLOG; t++) {
+		backlog->msg[t] = NULL;
+	}
+	
+  return 0;
+}
+
+
+/* @brief		Assign a msgid to a message in the backlog table
+ *
+ */
+void assign_msgid(struct MsgBacklog *backlog, msgid_t msgid, struct Msg *msg)
+{
+	backlog->msg[msgid] = msg;
+}
+
+
 /* @brief   Get a pointer to message from the message ID.
  *
- * @param   port, the message port this message was sent to
+ * @param   backlog, the message backlog the message is on
  * @param   msgid, message ID of the message to lookup.
  * @return  Pointer to message structure, or NULL on failure
  *
- * A server could possibly receive connections from thousands of client threads.
- * In this case it is up to the server to return -EAGAIN if it cannot handle that
- * many messages. This applies to character devices such as terminals and serial
- * ports that may have many threads performing reads, writes and ioctls. 
+ * A named message port (mount point) allows a limited number of 
+ * concurrent connections that are assigned when sys_getmsg is called.
+ * A unique msgid is assigned from a pool of size "backlog", specified
+ * when creating the msg port with sys_createmsgport().
  */
-struct Msg *msgid_to_msg(struct MsgPort *msgport, msgid_t msgid)
+struct Msg *msgid_to_msg(struct MsgBacklog *backlog, msgid_t msgid)
 {
-  struct Msg *msg;
-  uint32_t hash;
-  
-  hash = msgid % MSGID_HASH_SZ;
-  
-  msg = LIST_HEAD(&msgid_hash[hash]);
-  
-  while (msg != NULL) {
-    if (msg->msgid == msgid && msg->port == msgport) {
-      break;
-    }
-    
-    msg = LIST_NEXT(msg, link);
+  if (msgid < 0 || msgid >= backlog->backlog_sz) {
+  	return NULL;
   }
   
-  return msg;
-}
-
-
-/*
- *
- */
-msgid_t new_msgid(void)
-{
-  return unique_msgid_counter++;
-}
-
-
-/*
- *
- */
-void hash_msg(struct Msg *msg)
-{
-  int hash;
+  if ((backlog->free_bitmap & (1<<msgid)) != 0) {
+  	return NULL;
+  }
   
-  hash = msg->msgid % MSGID_HASH_SZ;
-  LIST_ADD_TAIL(&msgid_hash[hash], msg, link);
+ return backlog->msg[msgid];
 }
 
 
 /*
  *
  */
-void unhash_msg(struct Msg *msg)
+msgid_t alloc_msgid(struct MsgBacklog *backlog)
 {
-  int hash;
+	if (backlog->free_bitmap == 0) {
+		return -1;
+	}
+	
+	for (int t=0; t<backlog->backlog_sz; t++) {
+		if ((backlog->free_bitmap & (1<<t)) != 0) {
+			backlog->free_bitmap &= ~(1<<t);
+			return t;
+		}
+	}
+	
+	return -1;
+}
+
+
+/*
+ *
+ */
+void free_msgid(struct MsgBacklog *backlog, msgid_t msgid)
+{
+  if (msgid < 0 || msgid >= backlog->backlog_sz) {
+  	return;
+  }
   
-  hash = msg->msgid % MSGID_HASH_SZ;
-  LIST_REM_ENTRY(&msgid_hash[hash], msg, link);
+  backlog->free_bitmap |= (1<<msgid);
+  backlog->msg[msgid] = NULL;
 }
 
 
@@ -577,8 +594,7 @@ int seekiov(int iov_cnt, struct IOV *iov, off_t offset, int *i, size_t *iov_rema
 
   
   for (*i = 0; *i < iov_cnt; (*i)++) {
-    if (offset >= base_offset &&
-        offset < base_offset + iov[*i].size) {
+    if (offset >= base_offset && offset < base_offset + iov[*i].size) {
       *iov_remaining = base_offset + iov[*i].size - offset;
       break;
     }

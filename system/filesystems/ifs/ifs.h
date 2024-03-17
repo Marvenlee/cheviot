@@ -23,9 +23,14 @@
 #include <stdint.h>
 
 
-// Constants
-#define DIRENTS_BUF_SZ 4096
+/* Constants
+ */
+#define NMSG_BACKLOG 			8
+#define DIRENTS_BUF_SZ 		4096
 
+
+/*
+ */
 #define ALIGN_UP(val, alignment)                                \
     ((((val) + (alignment) - 1)/(alignment))*(alignment))
 #define ALIGN_DOWN(val, alignment)                              \

@@ -18,11 +18,11 @@
 #define BOARDS_RASPBERRY_PI_4_COMMON_H
 
 #include "peripheral_base.h"
-#include "memory.h"
 #include "debug.h"
 #include "bootstrap.h"
 
 void board_init(void);
+void bootstrap_kernel(vm_addr kernel_ceiling);
 
 #endif
 

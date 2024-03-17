@@ -9,6 +9,8 @@
 #include "ext2.h"
 #include "globals.h"
 
+struct Config config;
+
 int block_fd;                       /* file descriptor of block-special device filesystem is on */
 int portid;                         /* msgport created by mount() */
 int kq;                             /* kqueue for receiving events */
@@ -37,24 +39,22 @@ uint32_t  sb_max_size;             /* maximum file size on this device */
 uint32_t  sb_dirs_counter;
 uint64_t  sb_gdt_position;
 
-// Additional fields from command line settings
-dev_t     sb_dev;                  /* superblock dev number */
-bool      sb_rd_only;              /* set to true if filesystem is to be read-only */
-int       sb_uid;
-int       sb_gid;
-int       sb_mode;
-char      *sb_mount_path;
-char      *sb_device_path;
-
 // Computed values for searching indirect block tables
-long      sb_addr_in_block;
-long      sb_addr_in_block2;
-long      sb_doub_ind_s;
-long      sb_triple_ind_s;
-long      sb_out_range_s;
+
+uint32_t  global_canary1[128];
+
+uint32_t  sb_addr_in_block;
+uint32_t  sb_addr_in_block2;
+uint32_t  sb_doub_ind_s;
+uint32_t  sb_triple_ind_s;
+uint32_t  sb_out_range_s;
+
+uint32_t  global_canary2[128];
 
 uint32_t  sb_first_ino;
 size_t    sb_inode_size;
+
+uint32_t  global_canary3[128];
 
 bool      sb_group_descriptors_dirty;
 

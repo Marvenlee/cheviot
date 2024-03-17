@@ -6,7 +6,7 @@ aux_SOURCES = \
   main.c
   
 aux_LDADD = -ltask -lrpihal
-AM_CFLAGS = -O0 -std=c99 -g2
+AM_CFLAGS = -O0 -std=c99 -g2 -march=armv7ve
 
 if BOARD_RASPBERRY_PI_1
 aux_SOURCES += boards/raspberry_pi_1/aux_uart.c \

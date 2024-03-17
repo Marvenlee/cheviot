@@ -120,10 +120,12 @@ sbin_PROGRAMS = kernel$(EXEEXT)
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/init_root.c     \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/init_vm.c       \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/interrupt.c     \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/mailbox.c       \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/main.c          \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/pmap.c          \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/proc.c          \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/signals.c       \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/syscall_trace.c \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/timer.c         \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@  boards/raspberry_pi_4/vectors.S
 
@@ -169,10 +171,12 @@ am__kernel_SOURCES_DIST = proc/globals.c proc/interrupt.c proc/proc.c \
 	boards/raspberry_pi_4/init_proc.c \
 	boards/raspberry_pi_4/init_root.c \
 	boards/raspberry_pi_4/init_vm.c \
-	boards/raspberry_pi_4/interrupt.c boards/raspberry_pi_4/main.c \
+	boards/raspberry_pi_4/interrupt.c \
+	boards/raspberry_pi_4/mailbox.c boards/raspberry_pi_4/main.c \
 	boards/raspberry_pi_4/pmap.c boards/raspberry_pi_4/proc.c \
-	boards/raspberry_pi_4/signals.c boards/raspberry_pi_4/timer.c \
-	boards/raspberry_pi_4/vectors.S
+	boards/raspberry_pi_4/signals.c \
+	boards/raspberry_pi_4/syscall_trace.c \
+	boards/raspberry_pi_4/timer.c boards/raspberry_pi_4/vectors.S
 am__dirstamp = $(am__leading_dot)dirstamp
 @BOARD_RASPBERRY_PI_1_TRUE@am__objects_1 = boards/raspberry_pi_1/arm.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_TRUE@	boards/raspberry_pi_1/aux_uart.$(OBJEXT) \
@@ -204,10 +208,12 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init_root.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/init_vm.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/interrupt.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/mailbox.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/main.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/pmap.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/proc.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/signals.$(OBJEXT) \
+@BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/syscall_trace.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/timer.$(OBJEXT) \
 @BOARD_RASPBERRY_PI_1_FALSE@@BOARD_RASPBERRY_PI_4_TRUE@	boards/raspberry_pi_4/vectors.$(OBJEXT)
 am_kernel_OBJECTS = proc/globals.$(OBJEXT) proc/interrupt.$(OBJEXT) \
@@ -276,10 +282,12 @@ am__depfiles_remade = boards/raspberry_pi_1/$(DEPDIR)/arm.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/init_root.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/mailbox.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/main.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/pmap.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/proc.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/signals.Po \
+	boards/raspberry_pi_4/$(DEPDIR)/syscall_trace.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/timer.Po \
 	boards/raspberry_pi_4/$(DEPDIR)/vectors.Po \
 	fs/$(DEPDIR)/access.Po fs/$(DEPDIR)/block.Po \
@@ -752,6 +760,9 @@ boards/raspberry_pi_4/init_vm.$(OBJEXT):  \
 boards/raspberry_pi_4/interrupt.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/mailbox.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_4/main.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
@@ -762,6 +773,9 @@ boards/raspberry_pi_4/proc.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_4/signals.$(OBJEXT):  \
+	boards/raspberry_pi_4/$(am__dirstamp) \
+	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
+boards/raspberry_pi_4/syscall_trace.$(OBJEXT):  \
 	boards/raspberry_pi_4/$(am__dirstamp) \
 	boards/raspberry_pi_4/$(DEPDIR)/$(am__dirstamp)
 boards/raspberry_pi_4/timer.$(OBJEXT):  \
@@ -817,10 +831,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init_root.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/mailbox.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/main.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/pmap.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/proc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/signals.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/syscall_trace.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/timer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@boards/raspberry_pi_4/$(DEPDIR)/vectors.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@fs/$(DEPDIR)/access.Po@am__quote@ # am--include-marker
@@ -1222,10 +1238,12 @@ distclean: distclean-am
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_root.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/mailbox.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/main.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/pmap.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/proc.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/signals.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/syscall_trace.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/timer.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/vectors.Po
 	-rm -f fs/$(DEPDIR)/access.Po
@@ -1350,10 +1368,12 @@ maintainer-clean: maintainer-clean-am
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_root.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/init_vm.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/interrupt.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/mailbox.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/main.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/pmap.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/proc.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/signals.Po
+	-rm -f boards/raspberry_pi_4/$(DEPDIR)/syscall_trace.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/timer.Po
 	-rm -f boards/raspberry_pi_4/$(DEPDIR)/vectors.Po
 	-rm -f fs/$(DEPDIR)/access.Po

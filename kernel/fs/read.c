@@ -40,7 +40,7 @@ ssize_t sys_read(int fd, void *dst, size_t sz)
   ssize_t xfered;
   struct Process *current;
   
-  Info("sys_read");
+  Info("\n\nsys_read");
   
   current = get_current_process();
   filp = get_filp(current, fd);
@@ -48,7 +48,7 @@ ssize_t sys_read(int fd, void *dst, size_t sz)
 
   if (vnode == NULL) {
     Error("sys_read fd:%d vnode null -EINVAL", fd);
-    return -EINVAL;
+    return -EBADF;
   }
 
   if (is_allowed(vnode, R_OK) != 0) {
@@ -76,18 +76,20 @@ ssize_t sys_read(int fd, void *dst, size_t sz)
     xfered = read_from_block (vnode, dst, sz, &filp->offset);
   } else if (S_ISDIR(vnode->mode)) {
     Error("sys_read fd:%d is a dir -EINVAL", fd);
-    xfered = -EINVAL;
+    xfered = -EBADF;
   } else if (S_ISSOCK(vnode->mode)) {
     Error("sys_read fd:%d is a sock -EINVAL", fd);
-    xfered = -EINVAL;
+    xfered = -EBADF;
   } else {
     Error("sys_read fd:%d is unknown -EINVAL", fd);
-    xfered = -EINVAL;
+    xfered = -EBADF;
   }
   
   // Update accesss timestamps
   
   vnode_unlock(vnode);
+
+  Info("sys_read done: %d\n", xfered);
   
   return xfered;
 }
@@ -107,7 +109,7 @@ ssize_t kread(int fd, void *dst, size_t sz) {
   vnode = get_fd_vnode(current, fd);
 
   if (vnode == NULL) {
-    return -EINVAL;
+    return -EBADF;
   }
   
   if (is_allowed(vnode, R_OK) != 0) {
@@ -119,7 +121,7 @@ ssize_t kread(int fd, void *dst, size_t sz) {
   if (S_ISREG(vnode->mode)) {
     xfered = read_from_cache (vnode, dst, sz, &filp->offset, true);
   } else {
-    xfered = -EINVAL;
+    xfered = -EBADF;
   }
   
   vnode_unlock(vnode);

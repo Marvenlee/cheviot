@@ -39,8 +39,11 @@
 
 
 // Variables
-static char klog_entry[KLOG_WIDTH];
+static uint32_t lcanary1 = 0xdeadbeef;
+static char klog_entry[KLOG_WIDTH + 1];
+static uint32_t lcanary2 = 0xcafef00d;
 static char debug_buf[256];
+static uint32_t lcanary3 = 0x5ea1dead;
 
 bool processes_initialized = false;
 bool debug_initialized = false;
@@ -73,7 +76,7 @@ void ProcessesInitialized(void)
  */
 void sys_debug(char *s)
 {
-  CopyInString (debug_buf, s, sizeof debug_buf);
+  CopyInString (debug_buf, s, sizeof debug_buf - 1);
   debug_buf[sizeof debug_buf - 1] = '\0';
 
   Info("PID %4d: %s:", GetPid(), &debug_buf[0]);
@@ -104,6 +107,10 @@ void DoLog(const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
+
+	if (lcanary1 != 0xdeadbeef || lcanary2 != 0xcafef00d || lcanary3 != 0x5ea1dead) {
+		Info("***sys_debug :can1: %08x, can2:%08x, can3:08x ***", lcanary1, lcanary2,lcanary3);
+	}	
 
   if (processes_initialized) {
     Snprintf(&klog_entry[0], 5, "%4d:", GetPid());

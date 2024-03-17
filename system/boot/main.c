@@ -1,14 +1,12 @@
 #include <string.h>
-#include "bootstrap.h"
 #include "debug.h"
 #include "elf.h"
 #include "globals.h"
-#include "memory.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include "machine/cheviot_hal.h"
-
+#include "common.h"
 
 // Macros for address alignment. TODO: Replace with libc roundup and rounddown
 #define ALIGN_UP(val, alignment)                                               \
@@ -54,7 +52,6 @@ void Main(void) {
 
   boot_log_info("Bootloader");
 
-  bootinfo.mem_size = get_physical_mem_size();
   ifs_image = ALIGN_DOWN((bootinfo.mem_size - rootfs_image_size), 0x10000);
 
   memcpy((void *)ifs_image, (uint8_t *)0x8000 + rootfs_image_offset,
@@ -67,10 +64,7 @@ void Main(void) {
   if (elf_find((void *)ifs_image, rootfs_image_size, "sbin", "ifs",  &ifs_exe_base, &ifs_exe_size) == -1) {
     boot_panic("cannot find IFS.exe in IFS image");
   }
-  bootinfo.screen_buf = screen_buf;
-  bootinfo.screen_width = screen_width;
-  bootinfo.screen_height = screen_height;
-  bootinfo.screen_pitch = screen_pitch;
+
   bootinfo.ifs_image = ifs_image;
   bootinfo.ifs_image_size = rootfs_image_size;
   bootinfo.ifs_exe_base = ifs_exe_base;
@@ -80,7 +74,7 @@ void Main(void) {
  
   boot_log_info("kernel_entry: %08x", (uint32_t)kernel_entry_point);
  
-  BootstrapKernel(kernel_ceiling);
+  bootstrap_kernel(kernel_ceiling);
   
   boot_log_info("Calling kernel_entry_point %08x",(uint32_t)kernel_entry_point);
   

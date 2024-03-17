@@ -42,6 +42,8 @@ int sys_fork(void)
   struct Process *current;
   struct Process *proc;
 
+	Info("sys_fork()");
+
   current = get_current_process();
 
   if ((proc = AllocProcess()) == NULL) {
@@ -50,11 +52,13 @@ int sys_fork(void)
 
   fork_process_fds(proc, current);
 
+	Info("new proc:%08x, current:%08x", (uint32_t)proc, (uint32_t)current);
+
   if (arch_fork_process(proc, current) != 0) {
     fini_fproc(proc);
     FreeProcess(proc);
     return -ENOMEM;
-  }
+  }	
 
   if (fork_address_space(&proc->as, &current->as) != 0) {
     fini_fproc(proc);

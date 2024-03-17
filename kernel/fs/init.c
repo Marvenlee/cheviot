@@ -93,10 +93,6 @@ static void InitFSLists(void)
   for (int t = 0; t < KNOTE_HASH_SZ; t++) {
     LIST_INIT(&knote_hash[t]);
   }  
-  
-  for (int t = 0; t < MSGID_HASH_SZ; t++) {
-    LIST_INIT(&msgid_hash[t]);
-  }  
 }
 
 

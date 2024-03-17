@@ -11,14 +11,16 @@
 #include <sys/types.h>
 #include "ext2.h"
 
+extern struct Config config;
+
 extern int block_fd;                /* file descriptor of block-special device filesystem is on */
 extern int portid;                  /* msgport created by mount() */
 extern int kq;                      /* kqueue for receiving events */
 extern msgid_t msgid;               /* msgid of current message */
 
-bool be_cpu;                        /* true if cpu is big-endian and we should byte-swap fields */
+extern bool be_cpu;                        /* true if cpu is big-endian and we should byte-swap fields */
 
-struct block_cache *cache;          /* file system block cache */
+extern struct block_cache *cache;          /* file system block cache */
 extern struct superblock superblock;
 extern struct superblock ondisk_superblock;
 
@@ -51,11 +53,11 @@ extern char      *sb_mount_path;
 extern char      *sb_device_path;
 
 // Computed values for searching indirect block tables
-extern long      sb_addr_in_block;
-extern long      sb_addr_in_block2;
-extern long      sb_doub_ind_s;
-extern long      sb_triple_ind_s;
-extern long      sb_out_range_s;
+extern uint32_t  sb_addr_in_block;
+extern uint32_t  sb_addr_in_block2;
+extern uint32_t  sb_doub_ind_s;
+extern uint32_t  sb_triple_ind_s;
+extern uint32_t  sb_out_range_s;
 
 extern uint32_t  sb_first_ino;
 extern size_t    sb_inode_size;

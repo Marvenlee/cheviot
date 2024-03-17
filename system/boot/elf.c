@@ -230,9 +230,9 @@ int elf_load(void *ifs_image, size_t ifs_size, char *filename, Elf32_EHdr *ehdr,
       return -1;
     }
     
-    segment_base = ALIGN_DOWN(phdr->p_vaddr, 4096) - KERNEL_BASE_VA;
+    segment_base = ALIGN_DOWN(phdr->p_vaddr, 4096) - VM_KERNEL_BASE;
     segment_ceiling =
-        ALIGN_UP(phdr->p_vaddr + phdr->p_memsz, 4096) - KERNEL_BASE_VA;
+        ALIGN_UP(phdr->p_vaddr + phdr->p_memsz, 4096) - VM_KERNEL_BASE;
 
     boot_log_info("segment %d base: %08x, ceil: %08x", t, segment_base, segment_ceiling);
     boot_log_info("memsz: %d, filesz: %d", phdr->p_memsz, phdr->p_filesz);
@@ -247,7 +247,7 @@ int elf_load(void *ifs_image, size_t ifs_size, char *filename, Elf32_EHdr *ehdr,
     if (phdr->p_filesz != 0) {
       elf_seek(phdr->p_offset);
 
-      if (elf_read((void *)(phdr->p_vaddr - KERNEL_BASE_VA), phdr->p_filesz) != phdr->p_filesz) {
+      if (elf_read((void *)(phdr->p_vaddr - VM_KERNEL_BASE), phdr->p_filesz) != phdr->p_filesz) {
         boot_log_info("elf_read failed");
         return -1;
       }

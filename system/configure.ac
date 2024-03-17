@@ -26,6 +26,7 @@ AC_CONFIG_FILES([
   filesystems/fatfs/Makefile  
   filesystems/ifs/Makefile
   init/Makefile  
+  readfile/Makefile  
   ])
   
 AC_OUTPUT

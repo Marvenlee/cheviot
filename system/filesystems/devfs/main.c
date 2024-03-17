@@ -85,8 +85,9 @@ int main(int argc, char *argv[])
             break;
 
           default:
-            log_error("sdcard unknown command: %d", req.cmd);
-            exit(EXIT_FAILURE);
+            log_warn("devfs: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
+            break;
         }
       }
       

@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
   int sc;
   int nevents;
   
-  log_info("ext2fs started");
+  log_info("**** ext2fs: main");
   
   init(argc, argv);
   
@@ -88,7 +88,9 @@ int main(int argc, char *argv[])
           // TODO: Add VNODEATTR
 
           default:
-            exit(EXIT_FAILURE);
+            log_warn("extfs: unknown command: %d", req.cmd);
+            replymsg(portid, msgid, -ENOTSUP, NULL, 0);
+            break;
         }
       }
 

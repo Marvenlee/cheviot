@@ -82,5 +82,8 @@ extern uint32_t *root_pagedir;
 extern uint32_t *io_pagetable;
 extern uint32_t *cache_pagetable;
 
+extern uint32_t *mailbuffer;
+extern uint32_t *mailbuffer_pa;
+
 
 #endif

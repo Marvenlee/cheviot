@@ -6,5 +6,5 @@ devfs_SOURCES = \
   init.c \
   main.c
 
-AM_CFLAGS = -O2 -std=c99 -g0
+#AM_CFLAGS = -O2 -std=c99 -g0
 

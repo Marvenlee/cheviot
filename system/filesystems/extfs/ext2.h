@@ -31,6 +31,8 @@
 #include <sys/blockdev.h>
 #include <unistd.h>
 
+
+
 /*
  * Types
  */
@@ -38,8 +40,23 @@ typedef uint32_t bitchunk_t;
 LIST_TYPE(inode, inode_list_t, inode_link_t);
 
 /*
+ * Driver Configuration settings
+ */
+struct Config
+{
+  uid_t uid;
+  gid_t gid;
+  mode_t mode;
+  bool read_only;  
+  char *mount_path;
+	char *device_path;
+};
+
+
+/*
  * Config settings, tweak as needed
  */
+#define NMSG_BACKLOG 							1					/* Number of inflight messages this driver can handle */
 #define NR_CACHE_BLOCKS          64         /* Keep 64 blocks in the local block cache */
 #define NR_INODES                64         /* size of cached inode table */
 #define INODE_HASH_SIZE         128
@@ -323,6 +340,10 @@ struct inode
   uint16_t  i_links_count;        /* 26, Links count */
   uint32_t  i_blocks;             /* 28, Blocks count (512-byte blocks) */
   uint32_t  i_flags;              /* 32, File flags */
+
+#if 1
+	uint32_t l_i_reserved1;
+#else
   union {
     struct {
       uint32_t  l_i_reserved1;    /* 36, */
@@ -334,12 +355,17 @@ struct inode
       uint32_t  m_i_reserved1;    /* 36, */
     } masix1;
   } osd1;                         /* 36, osd1 */
+#endif
   
   uint32_t  i_block[EXT2_N_BLOCKS]; /* 40, Pointers to blocks (15 * uin32t_t) */
   uint32_t  i_generation;         /* 100, File version (for NFS) */
   uint32_t  i_file_acl;           /* 104, File ACL */
   uint32_t  i_dir_acl;            /* 108, Directory ACL */
   uint32_t  i_faddr;              /* 112, Fragment address */
+
+#if 1
+	uint32_t l_i_reserved_osd2[3];
+#else
   union {
     struct {
       uint8_t   l_i_frag;         /* 116, Fragment number */
@@ -364,6 +390,8 @@ struct inode
       uint32_t  m_i_reserved2[2]; /* 120, */
     } masix2;
   } osd2;                         /* 116, osd2 */
+#endif
+
 
   /* Total size, 128 bytes for above on disk inode fields */  
 
@@ -372,13 +400,22 @@ struct inode
   inode_link_t    i_hash_link;    /* hash list */
   inode_link_t    i_unused_link;  /* free and unused list */
 
+#if 0
+  uint32_t   i_ino;                  /* inode number */
+
+  uint32_t     i_count;                /* Reference count of in-memory inode */
+
+  uint32_t     i_update;               /* ATIME, CTIME and MTIME to update when writing inode to disk */
+  uint32_t     i_dirty;                /* inode is dirty */
+
+#else
   ino_t   i_ino;                  /* inode number */
 
   int     i_count;                /* Reference count of in-memory inode */
 
   int     i_update;               /* ATIME, CTIME and MTIME to update when writing inode to disk */
   int     i_dirty;                /* inode is dirty */
-
+#endif
 } __attribute__ ((packed));
 
 
@@ -505,7 +542,7 @@ struct buf *new_block(struct inode *inode, off_t position);
 block_t read_map_entry(struct inode *inode, uint64_t position);
 int enter_map_entry(struct inode *inode, off_t position, block_t new_block);
 int delete_map_entry(struct inode *inode, off_t position);
-int calc_block_indirection_offsets(uint32_t position, uint32_t offs[4]);
+int calc_block_indirection_offsets(uint32_t position, uint32_t *offs);
 int get_indirect_blocks(struct inode *inode, int depth, uint32_t offs[4], uint32_t block[4]);
 uint32_t get_toplevel_indirect_block_entry(struct inode *inode, int depth);
 void set_toplevel_indirect_block_entry(struct inode *inode, int depth, uint32_t block);
@@ -520,7 +557,7 @@ void check_block_number(struct group_desc *gd, block_t block);
 // dir.c
 ssize_t get_dirents(struct inode *dino_nr, off64_t *cookie, char *buf, ssize_t sz);
 struct buf *get_dir_block(struct inode *inode, off64_t position);
-struct dir_entry *seek_to_valid_dirent(struct buf *bp, off_t temp_pos, off_t pos);
+struct dir_entry *seek_to_valid_dirent(struct buf *bp, off_t pos);
 bool fill_dirent_buf(struct buf *bp, struct dir_entry **d_desc, struct dirent_buf *db);
 unsigned int get_dtype(struct dir_entry *dp);
 void dirent_buf_init(struct dirent_buf *db, void *data, size_t sz);

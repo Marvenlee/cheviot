@@ -69,9 +69,12 @@ void Main(void)
   memcpy(&bootinfo_kernel, bootinfo, sizeof bootinfo_kernel);
   bootinfo = &bootinfo_kernel;
 
+//  aux_regs = (void *)AUX_BASE;   // Move into init_io_addresses
 
-  aux_regs = (void *)AUX_BASE;
-/*
+  mem_size = bootinfo->mem_size;
+
+  init_io_addresses();     // Rename to init_early_vm()
+
   aux_uart_write_byte('H');
   aux_uart_write_byte('E');
   aux_uart_write_byte('L');
@@ -80,9 +83,6 @@ void Main(void)
   aux_uart_write_byte('!');
   aux_uart_write_byte('\n');
   aux_uart_write_byte('\n');
-*/
-
-  mem_size = bootinfo->mem_size;
 
   max_process = NPROCESS;
   max_pageframe = mem_size / PAGE_SIZE;
@@ -98,6 +98,7 @@ void Main(void)
   init_bootstrap_allocator();
 
   io_pagetable      = bootstrap_alloc(4096);
+  mailbuffer        = bootstrap_alloc(4096);
   cache_pagetable   = bootstrap_alloc(256 * 1024);  
   vector_table      = bootstrap_alloc(PAGE_SIZE);
   pageframe_table   = bootstrap_alloc(max_pageframe * sizeof(struct Pageframe));
@@ -111,8 +112,9 @@ void Main(void)
   knote_table       = bootstrap_alloc(max_knote * sizeof(struct KNote));
   isr_handler_table = bootstrap_alloc(max_isr_handler * sizeof(struct ISRHandler));
 
+	mailbuffer_pa = pmap_va_to_pa((vm_addr)mailbuffer);
+	
   Info("calling init_io_pagetables (updates pagedir)"); 
-
 
   Info ("bootloader_base     : %08x", bootinfo->bootloader_base);
   Info ("bootloader_ceiliing : %08x", bootinfo->bootloader_ceiling);
@@ -127,7 +129,6 @@ void Main(void)
   Info ("kernel heap base : %08x", _heap_base);
   Info ("kernel heap top : %08x", _heap_current);
   
-  init_io_pagetables();     // Rename to init_early_vm()
 
   Info("calling InitDebug"); 
 

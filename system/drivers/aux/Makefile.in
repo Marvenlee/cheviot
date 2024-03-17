@@ -277,7 +277,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 aux_SOURCES = globals.c init.c main.c $(am__append_1) $(am__append_2)
 aux_LDADD = -ltask -lrpihal
-AM_CFLAGS = -O0 -std=c99 -g2
+AM_CFLAGS = -O0 -std=c99 -g2 -march=armv7ve
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CPPFLAGS = -I$(srcdir) -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1
 @BOARD_RASPBERRY_PI_4_TRUE@AM_CPPFLAGS = -I$(srcdir) -I$(srcdir)/boards/raspberry_pi_4 -DBOARD_RASPBERRY_PI_4
 @BOARD_RASPBERRY_PI_1_TRUE@AM_CCASFLAGS = -r -I$(srcdir) -I$(srcdir)/boards/raspberry_pi_1 -DBOARD_RASPBERRY_PI_1

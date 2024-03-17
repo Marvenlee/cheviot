@@ -15,6 +15,6 @@ ExternalProject_Add (
 	INSTALL_DIR       ${CMAKE_CURRENT_BINARY_DIR}/build/native/
 	DEPENDS           newlib hal cheviot-libs 
 	BUILD_COMMAND     make
-	INSTALL_COMMAND   pseudo make install
+	INSTALL_COMMAND   make install
 )
 

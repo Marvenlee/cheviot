@@ -56,7 +56,7 @@ int sys_exec(char *filename, struct execargs *_args)
     return -ENOENT;
   }
   
-  /*
+  /* FIXME: is_allowed check
   filp = get_filp();
   vnode = filp->vnode;
   if (is_allowed(vnode, R_BIT | X_BIT) != 0)
@@ -191,6 +191,9 @@ int copy_in_argv(char *pool, struct execargs *args, struct execargs *_args) {
     goto cleanup;
   }
 
+	Info("copy_in_argv(pool:%08x, execargs:%08x, _args:%08x",
+				(uint32_t)pool, (uint32_t)args, (uint32_t)_args);
+
   // TODO : Ensure less than sizeof MAX_ARGS_SZ
   argv = (char **)pool;
   envv = (char **)((uint8_t *)argv + (args->argc + 1) * sizeof(char *));
@@ -261,6 +264,9 @@ int copy_out_argv(void *stack_base, int stack_size, struct execargs *args) {
   void *args_base;
   vm_size difference;
 
+	Info("copy_out_argv(stack_base:%08x, stack_size:%d, execargs:%08x",
+											(uint32_t)stack_base, stack_size, (uint32_t)args);
+
   args_base = stack_base + stack_size - ALIGN_UP(args->total_size, 16);
   difference = (vm_addr)execargs_buf - (vm_addr) args_base;
 
@@ -272,7 +278,10 @@ int copy_out_argv(void *stack_base, int stack_size, struct execargs *args) {
     args->envv[t] = (char *)((vm_addr)args->envv[t] - difference);
   }
 
+	Info("copy_out_argv");
+	Info("args_base:%08x, execargs_buf:%08x", (uint32_t)args_base, (uint32_t)execargs_buf);
   CopyOut((void *)args_base, execargs_buf, args->total_size);
+	Info("copy_out_argv done");
 
   args->argv = (char **)((vm_addr)args->argv - difference);
   args->envv = (char **)((vm_addr)args->envv - difference);
@@ -345,8 +354,6 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
   vm_size sec_mem_sz;
   uint32_t sec_prot;
   void *ret_addr;
-  void *segment_base;
-  void *segment_ceiling;
   Elf32_EHdr ehdr;
   Elf32_PHdr phdr;
   
@@ -393,9 +400,7 @@ static int load_process(struct Process *proc, int fd, void **entry_point) {
     if (phdr.p_flags & PF_W)
       sec_prot |= PROT_WRITE;
 
-    segment_base = (void *)phdr.p_vaddr;
-    segment_ceiling = (void *)phdr.p_vaddr + phdr.p_memsz;
-    sec_mem_sz = segment_ceiling - segment_base;
+		Info ("section sec_addr:%08x sec_mem_sz:%08x", sec_addr, sec_mem_sz);
 
     if (sec_mem_sz != 0) {
       ret_addr = sys_virtualalloc(sec_addr, sec_mem_sz, PROT_READWRITE | PROT_EXEC | MAP_FIXED);
@@ -429,11 +434,16 @@ ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
+  Info("exec: read_file(offset:%08x, vaddr:%08x, sz:%d", (uint32_t)offset, (uint32_t)vaddr, sz);
+
   if (sys_lseek(fd, offset, SEEK_SET) == -1) {
     return -1;
   }
 
   nbytes_read = sys_read(fd, vaddr, sz);
+
+	Info("exec: nbytes_read: %d", nbytes_read);
+  
   return nbytes_read;
 }
 
@@ -445,11 +455,16 @@ ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
+  Info("exec: kread_file(offset:%08x, vaddr:%08x, sz:%d", (uint32_t)offset, (uint32_t)vaddr, sz);
+    
   if (sys_lseek(fd, offset, SEEK_SET) == -1) {
     return -1;
   }
 
   nbytes_read = kread(fd, vaddr, sz);  
+
+	Info("exec: nbytes_read: %d", nbytes_read);
+
   return nbytes_read;
 }
 

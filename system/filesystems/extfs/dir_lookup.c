@@ -10,7 +10,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_ERROR
 
 #include "ext2.h"
 #include "globals.h"

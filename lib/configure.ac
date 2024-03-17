@@ -22,6 +22,8 @@ AC_CONFIG_FILES([
   libblockdev/Makefile
   libcurses/Makefile
   libtermcap/Makefile
+  librpimailbox/Makefile
+  librpigpio/Makefile
   ])
   
 AC_OUTPUT

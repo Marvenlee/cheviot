@@ -23,7 +23,6 @@
 #include "aux_uart.h"
 #include "debug.h"
 #include "gpio.h"
-#include "led.h"
 #include "peripheral_base.h"
 
 // Macros for address alignment. TODO: Replace with libc roundup and rounddown
@@ -33,17 +32,24 @@
 #define ALIGN_DOWN(val, alignment) ((val) - ((val) % (alignment)))
 
 
+vm_addr io_map_base;
+vm_addr io_map_current;
+
+void *aux_regs_va;
 
 // Variables
-uint32_t *root_pagetables;
 uint32_t *root_pagedir;
+uint32_t *bootloader_pagetables;
 uint32_t *kernel_pagetables;
+uint32_t *io_pagetable;
 
 // Prototypes
-extern void *memset(void *dst, int value, size_t sz);
-void InitPageDirectory(void);
-void InitKernelPagetables(void);
-void InitRootPagetables(void);
+//extern void *memset(void *dst, int value, size_t sz);
+void init_page_directory(void);
+void init_kernel_pagetables(void);
+void init_bootloader_pagetables(void);
+void init_io_pagetable(void);
+void *io_map(vm_addr pa, size_t sz);
 
 
 /* @brief   Pulls the kernel up by its boot laces.
@@ -55,7 +61,7 @@ void InitRootPagetables(void);
  * IO memory for screen, timer, interrupt and gpios are mapped at 0xA0000000.
  * Bootloader and loaded modules are identity mapped from 4k upto 478k.
  */
-void BootstrapKernel(vm_addr kernel_ceiling)
+void bootstrap_kernel(vm_addr kernel_ceiling)
 {
   vm_addr pagetable_base;
   vm_addr pagetable_ceiling;
@@ -64,39 +70,47 @@ void BootstrapKernel(vm_addr kernel_ceiling)
   heap_ptr = ALIGN_UP(kernel_ceiling, (16384));
   kernel_ceiling = heap_ptr;
 
+	// Reserve pages for kernel pagetables and pagetables for bootloader
+  pagetable_base = kernel_ceiling;
+
   root_pagedir = (uint32_t *)heap_ptr;
   heap_ptr += 16384;
 
-  root_pagetables = (uint32_t *)heap_ptr;
+  bootloader_pagetables = (uint32_t *)heap_ptr;
   heap_ptr += 4096;
 
   kernel_pagetables = (uint32_t *)heap_ptr;
-  heap_ptr += 524288;
+  heap_ptr += 2097152;				// TODO: Scale this based on amount of memory
 
-  pagetable_base = kernel_ceiling;
+	io_pagetable = (uint32_t *)heap_ptr;
+	heap_ptr += 4096;
+
   pagetable_ceiling = heap_ptr;
 
   boot_log_info("BootstrapKernel");
 
-  bootinfo.root_pagedir = (void *)((vm_addr)root_pagedir + KERNEL_BASE_VA);
+  bootinfo.root_pagedir = (void *)((vm_addr)root_pagedir + VM_KERNEL_BASE);
   bootinfo.kernel_pagetables =
-      (void *)((vm_addr)kernel_pagetables + KERNEL_BASE_VA);
-  bootinfo.root_pagetables =
-      (void *)((vm_addr)root_pagetables + KERNEL_BASE_VA);
-  bootinfo.pagetable_base = pagetable_base + KERNEL_BASE_VA;
-  bootinfo.pagetable_ceiling = pagetable_ceiling + KERNEL_BASE_VA;
+      (void *)((vm_addr)kernel_pagetables + VM_KERNEL_BASE);
+  bootinfo.bootloader_pagetables =
+      (void *)((vm_addr)bootloader_pagetables + VM_KERNEL_BASE);
+  bootinfo.pagetable_base = pagetable_base + VM_KERNEL_BASE;
+  bootinfo.pagetable_ceiling = pagetable_ceiling + VM_KERNEL_BASE;
 
   boot_log_info("root_pagedir = %08x", (vm_addr)root_pagedir);
   boot_log_info("bi.root_pagedir = %08x", (vm_addr)bootinfo.root_pagedir);
   boot_log_info("bi.kernel_pagetables = %08x", (vm_addr)bootinfo.kernel_pagetables);
-  boot_log_info("bi.root_pagetables = %08x", (vm_addr)bootinfo.root_pagetables);
+  boot_log_info("bi.bootloader_pagetables = %08x", (vm_addr)bootinfo.bootloader_pagetables);
   boot_log_info("bi.pagetable_base = %08x", (vm_addr)bootinfo.pagetable_base);
   boot_log_info("bi.pagetable_ceiling = %08x", (vm_addr)bootinfo.pagetable_ceiling);
 
-  InitPageDirectory();
-  InitKernelPagetables();
-  InitRootPagetables();
+	boot_log_info("io_pagetable: %08x", (vm_addr)io_pagetable);
 
+  init_page_directory();
+  init_kernel_pagetables();
+  init_bootloader_pagetables();
+	init_io_pagetable();
+	
   uint32_t sctlr = hal_get_sctlr();
   uint32_t ttbcr = hal_get_ttbcr();
   uint32_t ttbr0 = hal_get_ttbr0();
@@ -108,16 +122,21 @@ void BootstrapKernel(vm_addr kernel_ceiling)
   boot_log_info("ttbr0 = %08x", ttbr0);
   boot_log_info("---");
 
-
   boot_log_info("enable paging...");
 
+
+
   hal_set_ttbcr(0);
-  hal_set_dacr(0x01);
+  hal_set_dacr(0x01);  // FIXME: Set all domains with 0x55555555
   hal_set_ttbr0((uint32_t)root_pagedir);
 
   sctlr = hal_get_sctlr();
-  sctlr |= SCTLR_M;    
+  sctlr |= SCTLR_M | SCTLR_C | SCTLR_I;    
   hal_set_sctlr(sctlr);
+  hal_dsb();
+  hal_isb();
+
+	aux_regs = aux_regs_va;
 
   boot_log_info(".. paging enabled");
 }
@@ -128,48 +147,38 @@ void BootstrapKernel(vm_addr kernel_ceiling)
  * Bootloader and IO pagetables have entries marked as not present
  * and a partially populated later.
  */
-void InitPageDirectory(void) {
+void init_page_directory(void)
+{
   uint32_t t;
   uint32_t *phys_pt;
   uint32_t pa;
   
-  for (t = 0; t < 4096; t++) {
+  for (t = 0; t < N_PAGEDIR_PDE; t++) {
     root_pagedir[t] = L1_TYPE_INV;
   }
 
-#if 1
-  // For debugging we identity map the peripherals including AUX uart registers
-  // so that we can continue to log to the serial port.
-  // Within the kernel we later remap the aux_uart to an address somewhere just
-  // above the kernel and these page tables.  We will eventually unmap these sections.
-  for (t = 3840, pa=0xF0000000; t < N_PAGEDIR_PDE; t++, pa+= (1024*1024)) {
-    root_pagedir[t] = pa | L1_TYPE_S | L1_S_AP_RWK;
-  }
-#endif
-
+  root_pagedir[0] = ((uint32_t)bootloader_pagetables) | L1_TYPE_C;
+  
   for (t = 0; t < KERNEL_PAGETABLES_CNT; t++) {
     phys_pt = kernel_pagetables + t * N_PAGETABLE_PTE;
     root_pagedir[KERNEL_PAGETABLES_PDE_BASE + t] = (uint32_t)phys_pt | L1_TYPE_C;
   }
-
-  for (int t = 0; t < ROOT_PAGETABLES_CNT; t++) {
-    root_pagedir[t] = ((uint32_t)root_pagetables + t * PAGE_SIZE) | L1_TYPE_C;
-  }
+  
+	root_pagedir[IO_PAGETABLES_PDE_BASE] = ((uint32_t)io_pagetable) | L1_TYPE_C;  
 }
 
 
 /*
  * Initialise the page table entries to map phyiscal memory from 0 to 512MB
  * into the kernel starting at 0x80000000.
- *
- * 
  */
-void InitKernelPagetables(void) {
+void init_kernel_pagetables(void)
+{
   uint32_t pa_bits;
   vm_addr pa;
 
   pa_bits = L2_TYPE_S | L2_AP_RWK;
-//  pa_bits |= L2_B | L2_C;
+	//  pa_bits |= L2_B | L2_C;			// FIXME
 
   for (pa = 0; pa < bootinfo.mem_size; pa += PAGE_SIZE) {
     kernel_pagetables[pa / PAGE_SIZE] = pa | pa_bits;
@@ -184,7 +193,7 @@ void InitKernelPagetables(void) {
  * use 4k pagetables with 1k being the actual hardware defined pagetable
  * and the remaining 3k holding virtual-PTEs, for each page table entry.
  */
-void InitRootPagetables(void)
+void init_bootloader_pagetables(void)
 {
   uint32_t pa_bits;
   vm_addr pa;
@@ -193,7 +202,7 @@ void InitRootPagetables(void)
   int pte_idx;
 
   // Clear root pagetables (ptes and vptes)
-  for (pde_idx = 0; pde_idx < ROOT_PAGETABLES_CNT; pde_idx++) {
+  for (pde_idx = 0; pde_idx < BOOTLOADER_PAGETABLES_CNT; pde_idx++) {
     pt = (uint32_t *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
 
     for (pte_idx = 0; pte_idx < N_PAGETABLE_PTE; pte_idx++) {
@@ -203,18 +212,90 @@ void InitRootPagetables(void)
     memset((uint8_t *)pt + VPTE_TABLE_OFFS, 0, PAGE_SIZE - VPTE_TABLE_OFFS);
   }
 
-  for (pa = 4096; pa < ROOT_CEILING_ADDR; pa += PAGE_SIZE) {
+  for (pa = 4096; pa < VM_BOOTLOADER_CEILING; pa += PAGE_SIZE) {
     pde_idx = (pa & L1_ADDR_BITS) >> L1_IDX_SHIFT;
     pt = (uint32_t *)(root_pagedir[pde_idx] & L1_C_ADDR_MASK);
 
     pte_idx = (pa & L2_ADDR_BITS) >> L2_IDX_SHIFT;
 
     pa_bits = L2_TYPE_S | L2_AP_RWKU;
-      
-//    pa_bits |= L2_B | L2_C;
-
+    // pa_bits |= L2_B | L2_C;   // FIXME:
     
     pt[pte_idx] = pa | pa_bits;
   }  
 }
+
+
+/* @brief   Initialize pagetable that maps IO registers used by kernel
+ *
+ */
+void init_io_pagetable(void)
+{
+  uint32_t *phys_pt;
+
+  for (int t = 0; t < N_PAGETABLE_PTE; t++) {
+    io_pagetable[t] = L2_TYPE_INV;
+  }
+
+  io_map_base = VM_IO_BASE;
+  io_map_current = io_map_base;
+  
+  bootinfo.timer_base = (vm_addr)io_map(TIMER_BASE, PAGE_SIZE);
+  bootinfo.gpio_base  = (vm_addr)io_map(GPIO_BASE, PAGE_SIZE);
+  bootinfo.aux_base   = (vm_addr)io_map(AUX_BASE, PAGE_SIZE);	
+  bootinfo.gicd_base  = (vm_addr)io_map(GICD_BASE, PAGE_SIZE);
+  bootinfo.gicc_base[0] = (vm_addr)io_map(GICC_BASE, PAGE_SIZE);
+	
+	aux_regs_va = (void *)bootinfo.aux_base;
+
+	vm_addr mbox_page = (MBOX_BASE / PAGE_SIZE) * PAGE_SIZE;
+	vm_addr mbox_page_offset = MBOX_BASE % PAGE_SIZE;	
+
+  void *mbox_base    = io_map(mbox_page, PAGE_SIZE);   
+	mbox_base = (uint8_t *)mbox_base + mbox_page_offset;
+
+	bootinfo.mailbox_base = (vm_addr)mbox_base;
+	hal_set_mbox_base(mbox_base);  
+
+	boot_log_info("bi.timer_base:   %08x", (uint32_t)bootinfo.timer_base);
+	boot_log_info("bi.gpio_base:    %08x", (uint32_t)bootinfo.gpio_base);
+	boot_log_info("bi.aux_base:     %08x", (uint32_t)bootinfo.aux_base);
+	boot_log_info("bi.gicd_base:    %08x", (uint32_t)bootinfo.gicd_base);
+	boot_log_info("bi.gicc_base[0]: %08x", (uint32_t)bootinfo.gicc_base[0]);
+	boot_log_info("bi.mailbox_base: %08x", (uint32_t)bootinfo.mailbox_base);
+
+}
+
+
+/* @brief   Map a region of memory into the IO region above 0xA0000000.
+ */
+void *io_map(vm_addr pa, size_t sz)
+{
+  int pte_idx;
+  uint32_t pa_bits;
+  vm_addr pa_base, pa_ceiling;
+  vm_addr va_base, va_ceiling;
+  vm_addr va;
+  
+  boot_log_info("map io, pa: %08x, sz:%08x", (uint32_t)pa, (uint32_t)sz);
+
+  pa_base = ALIGN_DOWN(pa, PAGE_SIZE);
+  pa_ceiling = ALIGN_UP(pa + sz, PAGE_SIZE);
+
+  va_base = ALIGN_UP(io_map_current, PAGE_SIZE);
+  va_ceiling = va_base + (pa_ceiling - pa_base);
+
+  pa_bits = L2_TYPE_S | L2_AP_RWK;    // read/write kernel-only
+  // pa_bits |= ;   TODO:  Do we need to set any bits cache/bufferable for i/o pages?
+
+  for (va = va_base, pa = pa_base; pa < pa_ceiling; va+= PAGE_SIZE, pa += PAGE_SIZE) {
+	  pte_idx = (va - io_map_base) / PAGE_SIZE;
+    io_pagetable[pte_idx] = pa | pa_bits;  
+  }
+
+  io_map_current = va_ceiling;
+
+  return (void *)va_base;
+}
+
 

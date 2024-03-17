@@ -33,6 +33,11 @@
 
 
 /*
+ */
+#define NMSG_BACKLOG 		1
+
+
+/*
  * Random driver Configuration settings
  */
 struct Config
@@ -41,6 +46,7 @@ struct Config
   uid_t uid;
   gid_t gid;
   mode_t mode;
+  dev_t dev;
 };
 
 

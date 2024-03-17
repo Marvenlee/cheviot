@@ -35,10 +35,13 @@ int sys_stat(char *_path, struct stat *_stat) {
   int sc;
 
   Info("sys_stat");
-
+	Info ("*** sizeof stat = %d", sizeof (struct stat));
+	
   if ((sc = lookup(_path, 0, &ld)) != 0) {
     return sc;
   }
+  
+  Info("mode = %o", ld.vnode->inode_nr);
 
   stat.st_dev = ld.vnode->superblock->dev;
   stat.st_ino = ld.vnode->inode_nr;
@@ -81,7 +84,8 @@ int sys_fstat(int fd, struct stat *_stat) {
   struct Process *current;
 
   Info("sys_fstat fd:%d", fd);
-  
+	Info ("*** sizeof stat = %d", sizeof (struct stat));
+	  
   current = get_current_process();
   filp = get_filp(current, fd);
   vnode = get_fd_vnode(current, fd);

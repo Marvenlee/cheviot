@@ -37,6 +37,7 @@ typedef uint32_t pde_t;
  * Page, Address Space and Pmap definitions
  */
 #define PAGE_SIZE           4096
+#define LARGE_PAGE_SIZE   	65536
 #define VPAGETABLE_SZ       4096
 #define VPTE_TABLE_OFFS     1024
 #define PAGEDIR_SZ          16384
@@ -44,22 +45,26 @@ typedef uint32_t pde_t;
 #define N_PAGEDIR_PDE       4096
 #define N_PAGETABLE_PTE     256
 
-#define VPTE_TABLE_OFFS     1024
+#define BOOTLOADER_PAGETABLES_PDE_BASE    0
+#define BOOTLOADER_PAGETABLES_CNT         1
 
-#define ROOT_PAGETABLES_CNT         1
-#define ROOT_PAGETABLES_PDE_BASE    0
-
-#define IO_PAGETABLES_CNT           16
-#define IO_PAGETABLES_PDE_BASE      2560
-
-#define KERNEL_PAGETABLES_CNT       512
 #define KERNEL_PAGETABLES_PDE_BASE  2048
+#define KERNEL_PAGETABLES_CNT       2047
 
-#define AUX_PAGETABLES_CNT          1
-#define AUX_PAGETABLES_PDE_BASE     2560
+#define IO_PAGETABLES_PDE_BASE      4095
+#define IO_PAGETABLES_CNT			      1
 
-#define ROOT_CEILING_ADDR           0x00010000
-#define KERNEL_BASE_VA              0x80000000
+#define VM_BOOTLOADER_CEILING		    		0x00010000
+
+#define VM_USER_BASE_PAGETABLE_ALIGNED 	0x00000000
+#define VM_USER_BASE      						 	0x00008000
+#define VM_USER_CEILING   							0x7F000000
+
+#define VM_KERNEL_BASE    							0x80000000
+#define VM_IO_BASE 											0xFFF00000
+
+
+
 
 
 /*
@@ -240,6 +245,9 @@ typedef uint32_t pde_t;
 #define DFSR_STS10        (1 << 10)
 #define DFSR_DOMAIN(v)    ((v & 0x00f0) >> 4)
 #define DFSR_STATUS(v)    (v & 0x000f)
+
+#define DFSR_ALIGNMENT_FAULT			0x1
+#define DFSR_PERMISSION_FAULT			0xD
 
 /* 
  * Domain Access Control Register (DACR) flags
