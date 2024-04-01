@@ -7,7 +7,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -30,14 +30,13 @@ ssize_t read_file(ino_t ino_nr, size_t nrbytes, off64_t position)
   struct inode *inode;  // inode of file to read from
   int res;              // result
 
-	log_info("read_file(ino:%d, sz:%d, pos:%d", (int)ino_nr, (uint32_t)nrbytes, (uint32_t)position);
 
   if ((inode = find_inode(ino_nr)) == NULL) {
-    log_error("extfs: read_file, inode not found");
+    log_warn("extfs: read_file, inode not found");
   	return -EINVAL;
   }
   
-  file_size = inode->i_size;
+  file_size = inode->odi.i_size;
   
   if (file_size < 0) {
     file_size = MAX_FILE_POS;
@@ -66,7 +65,6 @@ ssize_t read_file(ino_t ino_nr, size_t nrbytes, off64_t position)
 	  res = read_chunk(inode, position, off, chunk_size, total_xfered);
 
 	  if (res != 0) {
-	  	log_info("read_chunk res = %d, breaking", res);
 	    break;
     }
     
@@ -100,13 +98,8 @@ int read_chunk(struct inode *inode, off64_t position, size_t off, size_t chunk_s
   block_t block;
   int sc = 0;
 
-	log_info("read_chunk pos:%d blk_off:%d, chsz:%d, msg_off:%d", 
-						(uint32_t)position, off, chunk_size, msg_off);
-
   block = read_map_entry(inode, position);
 
-	log_info("read_chunk: block: %d", (uint32_t)block);
-  
   if (block == NO_BLOCK) {
 	  return read_nonexistent_block(msg_off, chunk_size);
   }
@@ -114,7 +107,6 @@ int read_chunk(struct inode *inode, off64_t position, size_t off, size_t chunk_s
   buf = get_block(cache, block, BLK_READ);  
   assert(buf != NULL);
   
-  log_info("writemsg: chunk_size:%d, msg_off:%d", chunk_size, msg_off);
   sc = writemsg(portid, msgid, (uint8_t *)buf->data+off, chunk_size, msg_off);
   put_block(cache, buf);
 
@@ -139,15 +131,13 @@ int read_nonexistent_block(size_t msg_off, size_t chunk_size)
   size_t nbytes_to_xfer;
   int sc;
  
- 	log_info("read_nonexistent_block(msg_off:%08x, chsz:%d)", (uint32_t)msg_off, chunk_size);
-  
   while (remaining > 0) {
     nbytes_to_xfer = (remaining < sizeof zero_block_data) ? remaining : sizeof zero_block_data;
 
   	sc = writemsg(portid, msgid, (void *)zero_block_data, nbytes_to_xfer, msg_off);
 
     if (sc != nbytes_to_xfer) {
-    	log_error("*** read_nonexistent_block -EIO");
+    	log_error("read_nonexistent_block -EIO");
       return -EIO;
     }
     

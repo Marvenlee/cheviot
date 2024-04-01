@@ -83,13 +83,13 @@ int sys_gettimeofday(struct timeval *tv_user)
 int sys_clock_gettime(int clock_id, struct timespec *_ts)
 {
 	int sc;
-	struct timespec ts;
+	volatile struct timespec ts;
   int_state_t int_state;
 
 	switch(clock_id)
 	{
 		case CLOCK_REALTIME:
-			// FIXME: For now return clock monotonic;
+			// TODO: return time sinc Unix epoch, Jan 1st, 1970 instead of time since boot
 			int_state = DisableInterrupts();
 			ts.tv_sec = hardclock_time / JIFFIES_PER_SECOND;
 			ts.tv_nsec = (hardclock_time % JIFFIES_PER_SECOND) * NANOSECONDS_PER_JIFFY; 
@@ -110,18 +110,20 @@ int sys_clock_gettime(int clock_id, struct timespec *_ts)
 			break;
 		
 		default:
+		  Info("clock_gettime undefined clock_id: %d", clock_id);
 			sc = -EINVAL;
 	}
 
-  if (sc != 0) {
+  if (sc != 0) {  
   	return sc;
   }
 
   if (CopyOut(_ts, &ts, sizeof(struct timespec)) != 0) {
+  	Error("clock_gettime fault");
   	return -EFAULT;
   }
 	
-	return sc;
+	return 0;
 }
 
 
@@ -292,21 +294,19 @@ int SetTimeout(int milliseconds, void (*callback)(struct Timer *), void *arg)
 }
 
 
-/* @brief   Determine if a softclock time has caught up with the hardclock
- *
- * @param   softclock, time to compare to the hardclock time
- * @return  true if the softclock time is less than the hardclock time, false otherwise 
+/*
+ * TODO: Replace with spinlockirqsave around hardclock fetch
  */
-bool softclock_trailing_hardclock(uint64_t softclock)
+uint64_t get_hardclock(void)
 {
   int_state_t int_state;
-  bool trailing;
+  uint64_t now;
   
   int_state = DisableInterrupts(); 
-  trailing = (softclock < hardclock_time);
+  now = hardclock_time;
   RestoreInterrupts(int_state);
 
-  return trailing;
+  return now;
 }
 
 
@@ -331,11 +331,9 @@ void TimerTopHalf(void)
 //    cpu_table[t].reschedule_request = true;     // Unused,
   }
 
-//  int_state = DisableInterrupts(); 
+//  int_state = DisableInterrupts(); 		// FIXME: Nested interrupts not supported, not needed
   hardclock_time++;
 //  RestoreInterrupts(int_state);
-  
-//  LedToggle();   // FIXME: System locks up early in init.exe when this added.
   
   TaskWakeupFromISR(&timer_rendez);
 }

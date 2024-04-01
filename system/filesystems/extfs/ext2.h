@@ -60,7 +60,7 @@ struct Config
 #define NR_CACHE_BLOCKS          64         /* Keep 64 blocks in the local block cache */
 #define NR_INODES                64         /* size of cached inode table */
 #define INODE_HASH_SIZE         128
-
+#define BDFLUSH_INTERVAL_SECS     10
 
 /*
  * Miscellaneous
@@ -325,9 +325,9 @@ struct group_desc
 
 
 /*
- * Structure of an inode
+ * Structure of an inode on disk
  */
-struct inode
+struct ondisk_inode
 {
   uint16_t  i_mode;               /* 0, File mode */
   uint16_t  i_uid;                /* 2, Low 16 bits of Owner Uid */
@@ -391,32 +391,25 @@ struct inode
     } masix2;
   } osd2;                         /* 116, osd2 */
 #endif
+} __attribute__((packed));
 
 
-  /* Total size, 128 bytes for above on disk inode fields */  
-
+/*
+ * structure of an in-memory inode, containing the on-disk inode structure
+ */
+struct inode
+{
+	struct ondisk_inode odi;
+	
   /* The following metadata items are not present on disk */
 
   inode_link_t    i_hash_link;    /* hash list */
   inode_link_t    i_unused_link;  /* free and unused list */
-
-#if 0
-  uint32_t   i_ino;                  /* inode number */
-
-  uint32_t     i_count;                /* Reference count of in-memory inode */
-
-  uint32_t     i_update;               /* ATIME, CTIME and MTIME to update when writing inode to disk */
-  uint32_t     i_dirty;                /* inode is dirty */
-
-#else
-  ino_t   i_ino;                  /* inode number */
-
-  int     i_count;                /* Reference count of in-memory inode */
-
-  int     i_update;               /* ATIME, CTIME and MTIME to update when writing inode to disk */
-  int     i_dirty;                /* inode is dirty */
-#endif
-} __attribute__ ((packed));
+  uint32_t				i_ino;                  /* inode number */
+  int     				i_count;                /* Reference count of in-memory inode */
+  int     				i_update;               /* ATIME, CTIME and MTIME to update when writing inode to disk */
+  int     				i_dirty;                /* inode is dirty */
+};
 
 
 /*
@@ -534,8 +527,8 @@ struct dirent_buf
  */
 
 // bitmap.c
-uint32_t alloc_bit(uint32_t *bitmap, uint32_t max_bits, uint32_t start_word);
-int clear_bit(uint32_t *bitmap, uint32_t index);
+int alloc_bit(uint32_t *bitmap, uint32_t max_bits, uint32_t start_word);
+int clear_bit(uint32_t *bitmap, int index);
 
 // block.c
 struct buf *new_block(struct inode *inode, off_t position);
@@ -626,7 +619,7 @@ void put_inode(struct inode *inode);
 void update_times(struct inode *inode);
 void read_inode(struct inode *inode);
 void write_inode(struct inode *inode);
-void inode_copy(struct inode *dst, struct inode *src);
+void inode_copy(struct ondisk_inode *dst, struct ondisk_inode *src);
 void inode_markdirty(struct inode *inode);
 void inode_markclean(struct inode *inode);
 

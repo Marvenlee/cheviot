@@ -5,7 +5,7 @@
  */
 
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -26,7 +26,7 @@ uint32_t ext2_count_dirs(struct superblock *sp)
   	  count += desc->g_used_dirs_count;
     }
   }
-
+  
   return count;
 }
 
@@ -39,10 +39,10 @@ uint32_t ext2_count_dirs(struct superblock *sp)
 struct group_desc *get_group_desc(unsigned int bnum)
 {
   if (bnum >= sb_groups_count) {
-	  log_error("extfs: get_group_desc: bnum invalid");
+	  log_error("extfs: get_group_desc: bnum out of range :%u", bnum);
 	  return NULL;
   }
-  
+
   return &group_descs[bnum];
 }
 

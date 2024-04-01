@@ -67,7 +67,6 @@ extern int max_process;
 extern struct Process *process_table;
 
 extern struct Process *root_process;
-extern struct Process *bdflush_process;
 
 /*
  * Scheduler
@@ -157,9 +156,6 @@ extern struct Buf *buf_table;
 
 extern buf_list_t buf_hash[BUF_HASH];
 extern buf_list_t buf_avail_list;
-
-extern superblock_list_t writable_filesystem_list;    
-
 
 
 

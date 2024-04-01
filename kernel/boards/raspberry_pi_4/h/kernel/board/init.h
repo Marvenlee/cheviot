@@ -53,7 +53,7 @@ void init_timer_registers(void);
 // arm/init_proc.c
 void init_processes(void);
 struct Process *create_process(void (*entry)(void), int policy, int priority,
-                               bits32_t flags, struct CPU *cpu);
+                               bits32_t flags, char *basename, struct CPU *cpu);
 
 // arm/init_vm.c
 void init_vm(void);

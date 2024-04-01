@@ -90,16 +90,21 @@ echo "second partition created"
 first_partition_offset=1048576
 bs=1024
 
-dd if=/dev/zero of="$img_file" bs="$bs" count=$((($first_partition_offset + $partition_size_1 + $partition_size_2)/$bs))
+dd if=/dev/zero of="$img" bs="$bs" count=$((($first_partition_offset + $partition_size_1 + $partition_size_2)/$bs))
 
 # Pass a partition table config to sfdisk to generate a blank image with the
 # MBR parition table populated.
+echo "
+label: dos
+unit: sectors
+size=$(($partition_size_1/$block_size)), type=4, bootable
+size=$(($partition_size_2/$block_size)), type=83"
+
 printf "
 label: dos
 unit: sectors
 size=$(($partition_size_1/$block_size)), type=4, bootable
-size=$(($partition_size_2/$block_size)), type=83
-" | sfdisk "$img"
+size=$(($partition_size_2/$block_size)), type=83" | sfdisk "$img"
 
 # Copy the boot and root partition images into the final disk image
 cur_offset=$(($first_partition_offset))

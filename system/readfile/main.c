@@ -43,7 +43,8 @@ int main(int argc, char **argv)
 	int fd;
 	ssize_t sz;
 	
-  printf("**** readfile ****\n");
+	
+  printf("**** readfile test ****\n");
   
   if (argc < 2) {
 		printf("args missing\n");
@@ -65,7 +66,8 @@ int main(int argc, char **argv)
   
 
   printf("stat file size = %d\n", st.st_size);
-    
+  
+#if 0      
   buf = malloc (st.st_size + 1);
 
 	sz = read(fd, buf, st.st_size);
@@ -83,6 +85,72 @@ int main(int argc, char **argv)
 	sleep(1);
 	fflush(stdout);
 	sleep(3);
+#else
+	uint32_t *buffer_original, *buffer_out, *buffer_readback;
+	
+	buffer_original = virtualalloc(0x40000000, 1024 * 32, PROT_READ | PROT_WRITE);
+	buffer_out = virtualalloc(0x40000000, 1024 * 32, PROT_READ | PROT_WRITE);
+	buffer_readback = virtualalloc(0x40000000, 1024 * 32, PROT_READ | PROT_WRITE);
+
+	
+	if (buffer_original == NULL || buffer_out == NULL || buffer_readback == NULL) {
+		printf("Failed to allocate buffer\n");
+		close(fd);
+		return 0;
+	}	
+	lseek64(fd, (uint64_t)2 * 1024 * 1024, SEEK_SET);	
+	sc = read(fd, buffer_original, 32 * 1024);
+	
+	if (sc != 32 * 1024) {
+		printf("Failed to read original :%d\n", sc);
+		close(fd);
+		return 0;	
+	}
+	
+	for (int t=0;t<8092; t++) {
+		buffer_out[t] = t | (t<<16);
+	}
+
+	printf("writing out test data\n");
+	
+	lseek64(fd, (uint64_t)2 * 1024 * 1024, SEEK_SET);
+	sc = write(fd, buffer_out, 32 * 1024);
+
+	if (sc != 32 * 1024) {
+		printf("Failed to write test data :%d\n", sc);
+		close(fd);
+		return 0;	
+	}
+
+
+	printf("readback test data\n");
+	
+	lseek64(fd, (uint64_t)2 * 1024 * 1024, SEEK_SET);	
+	sc = read(fd, buffer_readback, 32 * 1024);
+
+	for (int t=0;t<8092; t++) {
+		if (buffer_out[t] != buffer_readback[t]) {
+			printf("readback failed at: %d, expected:%08x, got:%08x\n", t, buffer_out[t], buffer_readback[t]);
+			close(fd);
+			return 0;	
+		}
+	}
+	
+	printf("writing back original data\n");	
+	lseek64(fd, (uint64_t)2 * 1024 * 1024, SEEK_SET);
+	sc = write(fd, buffer_original, 32 * 1024);
+
+	if (sc != 32 * 1024) {
+		printf("Failed to write back original data :%d\n", sc);
+		close(fd);
+		return 0;	
+	}
+
+#endif
+
+
+
+
 
 	printf("\n---- done ----\n");
 

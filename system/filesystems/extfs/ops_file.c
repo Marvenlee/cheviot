@@ -4,7 +4,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -27,9 +27,6 @@ void ext2_read(struct fsreq *req)
   count = req->args.read.sz;
   
   nbytes_read = read_file(ino_nr, count, offset);
-  
-  log_info("ext2_read has read %d bytes", nbytes_read);
-  
   replymsg(portid, msgid, nbytes_read, NULL, 0);
 }
 
@@ -48,9 +45,8 @@ void ext2_write(struct fsreq *req)
   ino_nr = req->args.write.inode_nr;
   offset = req->args.write.offset;
   count = req->args.write.sz;
-  
-  nbytes_written = write_file(ino_nr, count, offset);
 
+  nbytes_written = write_file(ino_nr, count, offset);
   replymsg(portid, msgid, nbytes_written, NULL, 0);
 }
 
@@ -61,7 +57,7 @@ void ext2_write(struct fsreq *req)
  */
 void ext2_create(struct fsreq *req)
 {
-  struct fsreply reply;
+  struct fsreply reply = {0};
   struct inode *dir_inode;
   struct inode *inode;
   mode_t mode;
@@ -70,8 +66,6 @@ void ext2_create(struct fsreq *req)
   gid_t gid;
   char name[NAME_MAX+1];
   int sc;
-  
-  memset(&reply, 0, sizeof reply);
         
   readmsg(portid, msgid, name, req->args.create.name_sz, sizeof *req);
   
@@ -81,7 +75,9 @@ void ext2_create(struct fsreq *req)
   }
 
   oflags = req->args.create.oflags;
-  mode = req->args.create.mode;
+  
+  // FIXME: ext2_create, assuming creation of regular files only
+  mode = S_IFREG | (req->args.create.mode & 0777);
   uid = req->args.create.uid;
   gid = req->args.create.gid;
   
@@ -93,12 +89,11 @@ void ext2_create(struct fsreq *req)
 	  return;
   }
 
-  /* Reply message */
   reply.args.create.inode_nr = inode->i_ino;
-  reply.args.create.mode = inode->i_mode;
-  reply.args.create.size = inode->i_size;
-  reply.args.create.uid = inode->i_uid;
-  reply.args.create.gid = inode->i_gid;
+  reply.args.create.mode = inode->odi.i_mode;
+  reply.args.create.size = inode->odi.i_size;
+  reply.args.create.uid = inode->odi.i_uid;
+  reply.args.create.gid = inode->odi.i_gid;
   reply.args.create.atime = 0;
   reply.args.create.mtime = 0;
   reply.args.create.ctime = 0;
@@ -115,10 +110,9 @@ void ext2_create(struct fsreq *req)
  * @param   fsreq, message header received by getmsg.
  */
 void ext2_truncate(struct fsreq *req)
-{
-  //  sc = truncate_inode(struct inode *rip, off_t len)
-
-  replymsg(portid, msgid, -EIO, NULL, 0);
+{  
+  // TODO: FIXME:  sc = truncate_inode(struct inode *rip, off_t len)
+  replymsg(portid, msgid, 0, NULL, 0);
 }
 
 

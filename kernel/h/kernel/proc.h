@@ -80,6 +80,7 @@ typedef struct SysInfo {
 #define NR_ISR_HANDLER  64
 #define MAX_TIMER       8
 
+#define PROC_BASENAME_SZ			16	// Characters in a process's stored basename
 
 /* @brief   Process state
  */
@@ -116,6 +117,7 @@ struct Process {
   bool eintr;
   
   int log_level;
+	char basename[PROC_BASENAME_SZ];
   
   struct Signal signal;
 
@@ -180,7 +182,7 @@ int arch_fork_process(struct Process *proc, struct Process *current);
 void arch_init_exec(struct Process *proc, void *entry_point,
                   void *stack_pointer, struct execargs *args);
 void arch_free_process(struct Process *proc);
-struct Process *create_process(void (*entry)(void), int policy, int priority, bits32_t flags, struct CPU *cpu);
+//struct Process *create_process(void (*entry)(void), int policy, int priority, bits32_t flags, struct CPU *cpu);
 
 int arch_clock_gettime(int clock_id, struct timespec *ts);
 

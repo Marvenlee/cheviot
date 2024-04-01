@@ -33,7 +33,7 @@ Drivers have been created for:
 Filesystems have been created for:
   * ifs - Initial File System, a simple file system image for bootstrapping the OS.
   * devfs - Simple file system mounted as /dev
-  * extfs - partially implemented
+  * extfs - partially implemented (based on Minix extfs driver)
   * fatfs - partially implemented (requires rewrite).
 
 

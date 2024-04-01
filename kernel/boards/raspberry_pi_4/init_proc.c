@@ -102,30 +102,27 @@ void init_processes(void)
   Info(".. cpu struct inited");
 
   root_process =
-      create_process(BootstrapRootProcess, SCHED_RR, 16, PROCF_USER, &cpu_table[0]);
+      create_process(BootstrapRootProcess, SCHED_RR, 16, PROCF_USER, "root", &cpu_table[0]);
 
   Info("root process created");
 
   timer_process =
-      create_process(TimerBottomHalf, SCHED_RR, 31, PROCF_KERNEL, &cpu_table[0]);
+      create_process(TimerBottomHalf, SCHED_RR, 31, PROCF_KERNEL, "timer", &cpu_table[0]);
 
-  Info("timer process created");
+  Info("timer process created, pid:%d", GetProcessPid(timer_process));
 
-//  interrupt_dpc_process =
-//      create_process(interrupt_dpc, SCHED_RR, 30, PROCF_KERNEL, &cpu_table[0]);
+#if 0 
+  interrupt_dpc_process =
+      create_process(interrupt_dpc, SCHED_RR, 30, PROCF_KERNEL, &cpu_table[0]);
 
   Info("interrupt dpc process created");
-
-//  bdflush_process =
-//      create_process(bdflush, SCHED_RR, 17, PROCF_KERNEL, &cpu_table[0]);
-
-  Info("bdflush process created");
+#endif
 
   // Can we not schedule a no-op bit of code if no processes running?
   // Do we really need an idle task in separate address-space ? 
-  cpu->idle_process = create_process(Idle, SCHED_IDLE, 0, PROCF_KERNEL, &cpu_table[0]);
+  cpu->idle_process = create_process(Idle, SCHED_IDLE, 0, PROCF_KERNEL, "idle", &cpu_table[0]);
 
-  Info("idle process created");
+  Info("idle process created pid:%d", GetProcessPid(cpu->idle_process));
 
   // Pick root process to run,  Switch To Root here  
   root_process->state = PROC_STATE_RUNNING;
@@ -155,7 +152,7 @@ void init_processes(void)
  * The root process page directory is switched to in InitProcesses.
  */
 struct Process *create_process(void (*entry)(void), int policy, int priority,
-                               bits32_t flags, struct CPU *cpu)
+                               bits32_t flags, char *basename, struct CPU *cpu)
 {
   struct Process *proc;
   int pid;
@@ -186,6 +183,8 @@ struct Process *create_process(void (*entry)(void), int policy, int priority,
   InitRendez(&proc->rendez);
   LIST_INIT(&proc->child_list);
 
+
+	strcpy(proc->basename, basename);
   proc->pid = pid;
   proc->parent = NULL;
   proc->in_use = true;  

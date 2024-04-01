@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define KDEBUG
+//#define KDEBUG
 
 #include <kernel/dbg.h>
 #include <kernel/filesystem.h>
@@ -36,14 +36,14 @@ ssize_t read_from_block (struct VNode *vnode, void *dst, size_t sz, off64_t *off
   uint8_t data[512];
   ssize_t xfered = 0;
   size_t xfer = 0;
-  size_t remaining = sz;
-
-  while (remaining > 0) {
-    xfer = (remaining < sizeof data) ? remaining : sizeof data;
+	size_t total_xfered = 0;
+	
+  while (total_xfered < sz) {
+    xfer = ((sz - total_xfered) < sizeof data) ? (sz - total_xfered) : sizeof data;
     xfered = vfs_read(vnode, data, xfer, offset);      
     
-    if (xfered == 0) {
-      return sz - remaining;
+    if (xfer == 0) {
+      return total_xfered;
     }
     
     if (xfered < 0) {
@@ -53,10 +53,10 @@ ssize_t read_from_block (struct VNode *vnode, void *dst, size_t sz, off64_t *off
 
     CopyOut(dst, data, xfered);
     dst += xfered;  
-    remaining -= xfered;
+    total_xfered += xfered;
   }
 
-  return sz - remaining;
+  return total_xfered;
 }
 
 
@@ -67,25 +67,26 @@ ssize_t write_to_block (struct VNode *vnode, void *src, size_t sz, off64_t *offs
   uint8_t data[512];
   ssize_t xfered = 0;
   size_t xfer = 0;
-  size_t remaining = sz;
+	size_t total_xfered = 0;
   
-  while (remaining > 0) {      
-    xfer = (remaining < sizeof data) ? remaining : sizeof data;
+  while (total_xfered < sz) {
+    xfer = ((sz - total_xfered) < sizeof data) ? (sz - total_xfered) : sizeof data;
     CopyIn(data, src, xfer);
     xfered = vfs_write(vnode, data, xfer, offset);      
 
-    if (xfered == 0) {
-      return sz - remaining;
+    if (xfer == 0) {
+      return total_xfered;
     }
-    
+        
     if (xfered < 0) {
+      Error("write_to_block err:%d", xfered);
       return xfered;
     }
 
     src += xfered;
-    remaining -= xfered;
+    total_xfered += xfered;
   }
-  
-  return sz - remaining;
+
+  return total_xfered;
 }
 

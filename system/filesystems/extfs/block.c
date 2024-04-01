@@ -7,7 +7,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -27,6 +27,7 @@ struct buf *new_block(struct inode *inode, off_t position)
   block_t block;
   int sc;
 
+	
   if ( (block = read_map_entry(inode, position)) == NO_BLOCK) {
 	  block_t goal = NO_BLOCK;
 
@@ -65,26 +66,16 @@ block_t read_map_entry(struct inode *inode, uint64_t position)
   static uint32_t offs[8];
   int depth;
   
-  log_info("read_map_entry");
-  
   block_pos = position / sb_block_size;
-
-  log_info("call calc_block_indirection_offsets");
 
   depth = calc_block_indirection_offsets(position, &offs[0]);
 
   if (depth < 0) {
-    log_info("read_map_entry: NO_BLOCK");
-		log_info("depth = %d", depth);
     return NO_BLOCK;
   } else if (depth == 0) {
-    log_info("read_map_entry: offs[0]");
-
-    return inode->i_block[offs[0]];   
+    return inode->odi.i_block[offs[0]];   
   } 
   
-  log_info("call get_toplevel_indirect_block_entry");
-
   block = get_toplevel_indirect_block_entry(inode, depth);
         
   for (int t=1; t <= depth && block != NO_BLOCK; t++) {
@@ -93,8 +84,6 @@ block_t read_map_entry(struct inode *inode, uint64_t position)
     put_block(cache, bp);
   }
 
-  log_info("read_map_entry ret: %d", (uint32_t)block);
-  
   return block;
 }
 
@@ -125,8 +114,8 @@ int enter_map_entry(struct inode *inode, off_t position, block_t new_block)
   inode_markdirty(inode);
 
   if (depth == 0) {
-    inode->i_block[offs[0]] = new_block;
-    inode->i_blocks += sb_sectors_in_block;
+    inode->odi.i_block[offs[0]] = new_block;
+    inode->odi.i_blocks += sb_sectors_in_block;
     return 0;    
   }
 
@@ -144,7 +133,7 @@ int enter_map_entry(struct inode *inode, off_t position, block_t new_block)
     put_block(cache, bp);
 
     set_toplevel_indirect_block_entry(inode, depth, block);
-    inode->i_blocks += sb_sectors_in_block;
+    inode->odi.i_blocks += sb_sectors_in_block;
   }
         
   for (int t=1; t < depth; t++) {
@@ -165,7 +154,7 @@ int enter_map_entry(struct inode *inode, off_t position, block_t new_block)
       write_indirect_block_entry(bp, offs[t], block);
       block_markdirty(bp);
 
-      inode->i_blocks += sb_sectors_in_block;
+      inode->odi.i_blocks += sb_sectors_in_block;
     }  
 
     put_block(cache, bp);
@@ -176,7 +165,7 @@ int enter_map_entry(struct inode *inode, off_t position, block_t new_block)
   write_indirect_block_entry(bp, offs[depth], new_block);
   block_markdirty(bp);
   put_block(cache, bp);
-  inode->i_blocks += sb_sectors_in_block;
+  inode->odi.i_blocks += sb_sectors_in_block;
   
   return 0;
 }
@@ -220,8 +209,8 @@ int delete_map_entry(struct inode *inode, off_t position)
   inode_markdirty(inode);
 
   if (depth == 0) {
-    inode->i_block[offs[0]] = NO_BLOCK;
-    inode->i_blocks -= sb_sectors_in_block;
+    inode->odi.i_block[offs[0]] = NO_BLOCK;
+    inode->odi.i_blocks -= sb_sectors_in_block;
     return 0;    
   }
 
@@ -249,7 +238,7 @@ int delete_map_entry(struct inode *inode, off_t position)
     write_indirect_block_entry(bp, offs[depth], NO_BLOCK);
     block_markdirty(bp);
     put_block(cache, bp);
-    inode->i_blocks -= sb_sectors_in_block;
+    inode->odi.i_blocks -= sb_sectors_in_block;
   }
   
   // Ascend the indirect blocks, check if it is empty, if so, mark it
@@ -271,7 +260,7 @@ int delete_map_entry(struct inode *inode, off_t position)
       // otherwise underlying block is freed, we crash, but parent indirect block still
       // points to it.
       free_block(indirect_blocks[t+1]);
-      inode->i_blocks -= sb_sectors_in_block;
+      inode->odi.i_blocks -= sb_sectors_in_block;
     }
     
     if (is_empty_indirect_block(bp)) {
@@ -287,7 +276,7 @@ int delete_map_entry(struct inode *inode, off_t position)
     set_toplevel_indirect_block_entry(inode, depth, NO_BLOCK);
     // FIXME: Really need to write inode before freeing indirect_blocks[1] block below      
     free_block(indirect_blocks[1]);    
-    inode->i_blocks -= sb_sectors_in_block;    
+    inode->odi.i_blocks -= sb_sectors_in_block;    
   }        
 
   return 0;
@@ -303,17 +292,17 @@ int delete_map_entry(struct inode *inode, off_t position)
  */
 int calc_block_indirection_offsets(uint32_t position, uint32_t *offs)
 {
-  log_info("calc_block_indirection_offsets");
+//  log_info("calc_block_indirection_offsets");
   
   uint32_t block_pos = position / sb_block_size;
 	int depth;
 
-  log_info("after divide");
+//  log_info("after divide");
 
-	log_info("position = %08x", (uint32_t)position);
+//	log_info("position = %08x", (uint32_t)position);
 
   if (block_pos >= sb_out_range_s) {
-  	log_info("block_pos:%08x, sb_out:%08x", (uint32_t)block_pos, (uint32_t)sb_out_range_s);
+//  	log_info("block_pos:%08x, sb_out:%08x", (uint32_t)block_pos, (uint32_t)sb_out_range_s);
   	return -EINVAL;
   	
   } else if (block_pos < EXT2_NDIR_BLOCKS) {
@@ -392,11 +381,11 @@ uint32_t get_toplevel_indirect_block_entry(struct inode *inode, int depth)
   uint32_t block;
   
   if (depth == 1) {
-    block = inode->i_block[EXT2_IND_BLOCK];
+    block = inode->odi.i_block[EXT2_IND_BLOCK];
   } else if (depth == 2) {
-    block = inode->i_block[EXT2_DIND_BLOCK];
+    block = inode->odi.i_block[EXT2_DIND_BLOCK];
   } else if (depth == 3) {
-    block = inode->i_block[EXT2_TIND_BLOCK];
+    block = inode->odi.i_block[EXT2_TIND_BLOCK];
   } else {
     panic("extfs: invalid indirect block depth: %d", depth);
   }
@@ -414,11 +403,11 @@ uint32_t get_toplevel_indirect_block_entry(struct inode *inode, int depth)
 void set_toplevel_indirect_block_entry(struct inode *inode, int depth, uint32_t block)
 {
   if (depth == 1) {
-    inode->i_block[EXT2_IND_BLOCK] = block;
+    inode->odi.i_block[EXT2_IND_BLOCK] = block;
   } else if (depth == 2) {
-    inode->i_block[EXT2_DIND_BLOCK] = block;
+    inode->odi.i_block[EXT2_DIND_BLOCK] = block;
   } else if (depth == 3) {
-    inode->i_block[EXT2_TIND_BLOCK] = block;
+    inode->odi.i_block[EXT2_TIND_BLOCK] = block;
   } else {
     panic("extfs: invalid indirect block depth: %d", depth);
   }
@@ -544,11 +533,10 @@ block_t alloc_block(struct inode *inode, block_t goal)
     
     bitmap = (uint32_t *)bp->data;
     
-    bit = alloc_bit(bitmap, superblock.s_blocks_per_group, word);
+    bit = alloc_bit(bitmap, superblock.s_blocks_per_group, 0); // FIXME: Search from word in initial look?
 
-    if (bit != NO_BLOCK) {
+    if (bit != -1) {    
 	    block = superblock.s_first_data_block + (group * superblock.s_blocks_per_group) + bit;
-
 	    check_block_number(gd, block);
 
 	    block_markdirty(bp);
@@ -601,10 +589,8 @@ void free_block(block_t block)
   	panic("extfs: can't get group_desc to alloc block");
   }
   
-  check_block_number(gd, block);
-  
+  check_block_number(gd, block);  
   bp = get_block(cache, gd->g_block_bitmap, BLK_READ);
-
   bitmap = (uint32_t *)bp->data;
 
   if (clear_bit(bitmap, bit)) {
@@ -617,8 +603,7 @@ void free_block(block_t block)
   gd->g_free_blocks_count++;
   superblock.s_free_blocks_count++;
 
-  group_descriptors_markdirty();
-  
+  group_descriptors_markdirty();  
   invalidate_block(cache, block);
 }
 
@@ -631,7 +616,13 @@ void free_block(block_t block)
 void check_block_number(struct group_desc *gd, block_t block)
 {
   if (block == gd->g_inode_bitmap || block == gd->g_block_bitmap ||
-      !(block >= gd->g_inode_table && block < (gd->g_inode_table + sb_inode_table_blocks_per_group))) {	
+      (block >= gd->g_inode_table && block < (gd->g_inode_table + sb_inode_table_blocks_per_group))) {	
+    log_error("check_block_number block:%u", (uint32_t)block);
+    log_error("gd->g_inode_bitmap:%u", (uint32_t)gd->g_inode_bitmap);
+    log_error("gd->g_block_bitmap:%u", (uint32_t)gd->g_block_bitmap);
+    log_error("gd->g_inode_table:%u", (uint32_t)gd->g_inode_table);
+    log_error("sb_inode_table_blocks_per_group:%u", (uint32_t)sb_inode_table_blocks_per_group);
+    
 	  panic("extfs: block allocator tried to return a system block");
   }
 

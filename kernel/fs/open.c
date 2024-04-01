@@ -92,6 +92,15 @@ static int do_open(struct lookupdata *ld, int oflags, mode_t mode) {
     stat.st_uid = current->uid;
     stat.st_gid = current->gid;
 
+		// TODO: Set timestamps.
+		
+		if (strcmp(".", ld->last_component) == 0 || strcmp("..", ld->last_component) == 0) {
+      Error("Cannot create . or .. named files");
+      vnode_put(dvnode);      
+      return err;
+    }
+
+
     if ((err = vfs_create(dvnode, ld->last_component, oflags, &stat, &vnode)) != 0) {
       Error("SysOpen vnode_put vfs_create");
       vnode_put(dvnode);      

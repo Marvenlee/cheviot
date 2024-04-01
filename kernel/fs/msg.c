@@ -208,9 +208,13 @@ int sys_replymsg(int fd, msgid_t msgid, int status, void *addr, size_t buf_sz)
     }
   }
   
-  kreplymsg(msg);
+  if (msg->reply_port != NULL) {
+  	kreplymsg(msg);
+ 	} else {
+ 		bdflush_brelse(msg);
+ 	}
+ 	
 	free_msgid(&sb->msgbacklog, msgid);
-
   return 0;
 }
 

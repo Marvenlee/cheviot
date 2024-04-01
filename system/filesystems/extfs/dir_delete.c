@@ -35,7 +35,7 @@ int dirent_delete(struct inode *dir_inode, char *name)
 	  return -ENAMETOOLONG;
   }
   
-  while(pos < dir_inode->i_size) {
+  while(pos < dir_inode->odi.i_size) {
 	  if(!(bp = get_dir_block(dir_inode, pos))) {
 		  panic("dirent_delete found a hole in a directory");
     }
@@ -108,7 +108,7 @@ void delete_dir_entry(struct inode *dir_inode, struct dir_entry *dp,
   dp->d_ino = NO_ENTRY;
   block_markdirty(bp);
 
-  dir_inode->i_flags &= ~EXT2_INDEX_FL;  
+  dir_inode->odi.i_flags &= ~EXT2_INDEX_FL;  
   dir_inode->i_update |= CTIME | MTIME;
   inode_markdirty(dir_inode);
 

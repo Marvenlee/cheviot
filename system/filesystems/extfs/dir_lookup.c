@@ -10,7 +10,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_INFO
 
 #include "ext2.h"
 #include "globals.h"
@@ -35,7 +35,7 @@ int lookup_dir(struct inode *dir_inode, char *name, ino_t *ino_nr)
 	  return -ENAMETOOLONG;
   }
   
-  while(pos < dir_inode->i_size) {
+  while(pos < dir_inode->odi.i_size) {
 	  if(!(bp = get_dir_block(dir_inode, pos))) {
 		  panic("lookup_dir found a hole in a directory");
     }

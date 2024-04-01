@@ -27,7 +27,7 @@ bool is_dir_empty(struct inode *dir_inode)
   off_t pos = 0;
   int r = 0;
   
-  while(pos < dir_inode->i_size) {
+  while(pos < dir_inode->odi.i_size) {
 	  if(!(bp = get_dir_block(dir_inode, pos))) {
 		  panic("extfs: is_dir_empty found a hole in a directory");
     }

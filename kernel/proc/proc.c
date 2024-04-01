@@ -52,6 +52,8 @@ int sys_fork(void)
 
   fork_process_fds(proc, current);
 
+	memcpy(proc->basename, current->basename, PROC_BASENAME_SZ);
+
 	Info("new proc:%08x, current:%08x", (uint32_t)proc, (uint32_t)current);
 
   if (arch_fork_process(proc, current) != 0) {
@@ -337,6 +339,7 @@ struct Process *AllocProcess(void) {
   }
   
   memset(proc, 0, PROCESS_SZ);
+  proc->basename[0] = '\0';
   proc->in_use = true;
   proc->pid = pid;
   proc->parent = current;

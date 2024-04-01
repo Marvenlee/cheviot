@@ -44,21 +44,16 @@ ssize_t read_from_cache(struct VNode *vnode, void *dst, size_t sz, off64_t *offs
   size_t remaining_in_file;
   size_t nbytes_to_read;
   size_t remaining_to_xfer;  
-  size_t remaining_in_cluster;  
-  
+  size_t remaining_in_cluster;    
   struct Process *current;
-
-	Info("read_from_cache(sz:%u, offset:%u)", (uint32_t)sz, (uint32_t)*offset);
 
   current = get_current_process();
 
   if (*offset >= vnode->size) {
-  	Info("offset > vnode->size, returning 0");
     return 0;
   }
 
 	if (*offset >= vnode->size) {
-		Info("End-of-file: vnode->size:%u",(uint32_t) vnode->size);
 		return 0;
 	}
 
@@ -78,14 +73,10 @@ ssize_t read_from_cache(struct VNode *vnode, void *dst, size_t sz, off64_t *offs
     buf = bread(vnode, cluster_base);
 
     if (buf == NULL) {
-    	Info("***** bread buf is null  *****");
+      Warn("bread buf is NULL");
+    	// TODO: Maybe return an IO error.
       break;
     }
-
-		Info("copyout(dst:%08x, clus_offs:%d, xfer:%d)", (uint32_t)dst,
-						(uint32_t)cluster_offset, (uint32_t)nbytes_xfer);
-
-		Info("buf:%08x, buf->data:%08x", (uint32_t)buf, (uint32_t)buf->data);
 
     if (inkernel == true) {
         memcpy(dst, buf->data + cluster_offset, nbytes_xfer);
@@ -102,7 +93,7 @@ ssize_t read_from_cache(struct VNode *vnode, void *dst, size_t sz, off64_t *offs
     nbytes_total += nbytes_xfer;
   }
 
-	Info("read_from_cache() total= %d", nbytes_total);
+//	Info("read_from_cache() total= %d", nbytes_total);
   return nbytes_total;
 }
 
@@ -122,49 +113,58 @@ ssize_t write_to_cache(struct VNode *vnode, void *src, size_t sz, off64_t *offse
   struct Buf *buf;
   off_t cluster_base;
   off_t cluster_offset;
-  size_t nbytes_xfered;
-  size_t nbytes_remaining;
+  size_t nbytes_xfer;
+  size_t nbytes_total;
+  size_t nbytes_to_write;
+  size_t remaining_to_xfer;  
+  size_t remaining_in_cluster;  
   struct Process *current;
   
-  Info("**** write_to_cache ****");
-  
+    
   current = get_current_process();
 
-  nbytes_remaining = sz;
+	nbytes_total = 0;
+  nbytes_to_write = sz;
 
-  while (nbytes_remaining > 0) {
+  while (nbytes_total < nbytes_to_write) {  
     cluster_base = ALIGN_DOWN(*offset, CLUSTER_SZ);
     cluster_offset = *offset % CLUSTER_SZ;
 
-    nbytes_xfered = (CLUSTER_SZ - cluster_offset < nbytes_remaining)
-                        ? CLUSTER_SZ - cluster_offset
-                        : nbytes_remaining;
+		remaining_to_xfer = nbytes_to_write - nbytes_total;
+		remaining_in_cluster = CLUSTER_SZ - cluster_offset;
+		nbytes_xfer = (remaining_to_xfer < remaining_in_cluster) ? remaining_to_xfer : remaining_in_cluster;
+		
+		if (cluster_base < vnode->size) {
+      buf = bread(vnode, cluster_base);
+    } else {
+      buf = bread_zero(vnode, cluster_base);
+    }
     
-    buf = bread(vnode, cluster_base);
-
     if (buf == NULL) {
+      Warn("bread buf is NULL");
+    	// TODO: Maybe return an IO error.
       break;
     }
 
-    CopyIn(buf->data + cluster_offset, src, nbytes_xfered);    
+    CopyIn(buf->data + cluster_offset, src, nbytes_xfer);    
+		 
+    src += nbytes_xfer;
+    *offset += nbytes_xfer;
+    nbytes_total += nbytes_xfer;
 
-    src += nbytes_xfered;
-    *offset += nbytes_xfered;
-    nbytes_remaining -= nbytes_xfered;
-
+    // Update file size if we have written past the end of file    
     if (*offset > vnode->size) {
       vnode->size = *offset;
     }
 
-    if (cluster_offset == CLUSTER_SZ) {
+    if ((*offset % CLUSTER_SZ) == 0) {
       bawrite(buf);
     } else {
       bdwrite(buf);
     }    
   }
 
-
-  return sz - nbytes_remaining;  // FIXME: This is probably wrong, see read_from_cache
+  return nbytes_total;
 }
 
 
@@ -331,9 +331,6 @@ struct Buf *bread(struct VNode *vnode, uint64_t cluster_base)
   struct Buf *buf;
   ssize_t xfered;
 
-//  Info ("bread cluster_base:%u", (uint32_t)cluster_base);
-  // FIXME: What if offset equal to or past end of file?
-  
   buf = getblk(vnode, cluster_base);
 
   if (buf->flags & B_VALID) {
@@ -344,20 +341,47 @@ struct Buf *bread(struct VNode *vnode, uint64_t cluster_base)
 
   xfered = vfs_read(vnode, buf->data, CLUSTER_SZ, &cluster_base);
 
+  if (xfered > CLUSTER_SZ) {
+    Error("bread > CLUSTER_SZ: %d", xfered);
+  }
+
 	if (xfered <= 0) {
-		Error("**** bread error: %d ****", xfered);
+		Error("bread error: %d", xfered);
 		buf->flags |= B_ERROR;
 	} else if (xfered != CLUSTER_SZ) {
 		memset(buf->data + xfered, 0, CLUSTER_SZ - xfered);				
   }
   
   if (buf->flags & B_ERROR) {
-    Info ("block read failed");
+    Error("block read failed");
     brelse(buf);
     return NULL;
   }
 
   buf->flags = (buf->flags | B_VALID) & ~B_READ;
+  return buf;
+}
+
+
+/*
+ *
+ */
+struct Buf *bread_zero(struct VNode *vnode, uint64_t cluster_base)
+{
+  struct Buf *buf;
+  ssize_t xfered;
+
+  buf = getblk(vnode, cluster_base);
+
+  if (buf->flags & B_VALID) {
+    Warn("bzero ok (cached) ???");
+    return buf;
+  }
+
+  memset(buf->data, 0, CLUSTER_SZ);
+
+  buf->flags = (buf->flags | B_VALID) & ~B_READ;
+
   return buf;
 }
 
@@ -419,14 +443,13 @@ int bawrite(struct Buf *buf)
 
   vnode = buf->vnode;
   sb = vnode->superblock;
-  
+    
   buf->flags = (buf->flags | B_WRITE | B_ASYNC) & ~(B_READ | B_DELWRI);
   buf->expiration_time = sb->softclock;
   
   hash = buf->expiration_time % NR_DELWRI_BUCKETS;
   LIST_ADD_TAIL(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
-
-  //  TaskWakeup(&bdflush_task->reply_port.rendez);
+  brelse(buf);
 
   return 0;
 }
@@ -442,6 +465,11 @@ int bawrite(struct Buf *buf)
  * short delay.
  *
  * This is called when a write does not cross into the next block.
+ * 
+  // TODO: Insert onto delwri queue 5 seconds from now
+  // If already on delayed write queue, reinsert it at time, so that
+  // it will eventually get flushed, if time has passed, insert it at
+  // the head so it will be written soon.
  */
 int bdwrite(struct Buf *buf)
 {
@@ -454,17 +482,12 @@ int bdwrite(struct Buf *buf)
 
   buf->flags = (buf->flags | B_WRITE | B_DELWRI) & ~(B_READ | B_ASYNC);
 
-  // TODO: Insert onto delwri queue 5 seconds from now
-  // If already on delayed write queue, reinsert it at time, so that
-  // it will eventually get flushed, if time has passed, insert it at
-  // the head so it will be written soon.
-
   buf->expiration_time = sb->softclock + DELWRI_DELAY_TICKS;
 
-  
   hash = buf->expiration_time % NR_DELWRI_BUCKETS;
   LIST_ADD_TAIL(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
-
+  brelse(buf);
+  
   return 0;
 }
 
@@ -532,29 +555,19 @@ size_t resize_cache(size_t free)
  */
 int init_superblock_bdflush(struct SuperBlock *sb)
 {
+	Info("init_superblock_bdflush");
+	
   sb->delwri_timing_wheel = kmalloc_page();
   
   if (sb->delwri_timing_wheel == NULL) {
     return -ENOMEM;
   }
-  
-  sb->delwrimsg_pool = kmalloc_page();
-  
-  if (sb->delwrimsg_pool == NULL) {
-    kfree_page(sb->delwri_timing_wheel);
-    return -ENOMEM;
-  }
-
-  
+    
   for (int t=0; t < NR_DELWRI_BUCKETS; t++) {
     LIST_INIT(&sb->delwri_timing_wheel[t]);
   }
   
-  LIST_INIT(&sb->free_delwri_msg_list);  
-  for (int t=0; t < NR_DELWRIMSG_PER_SB; t++) {
-    sb->delwrimsg_pool[t].superblock = sb;
-    LIST_ADD_TAIL(&sb->free_delwri_msg_list, &sb->delwrimsg_pool[t], link);
-  }  
+  sb->softclock = get_hardclock();
 }
 
 
@@ -563,11 +576,8 @@ int init_superblock_bdflush(struct SuperBlock *sb)
  */
 void deinit_superblock_bdflush(struct SuperBlock *sb)
 {
-  kfree_page(sb->delwrimsg_pool);
-  kfree_page(sb->delwri_timing_wheel);
-  
-  sb->delwrimsg_pool = NULL;
-  sb->delwri_timing_wheel = NULL;  
+  kfree_page(sb->delwri_timing_wheel);  
+  sb->delwri_timing_wheel = NULL;
 }
 
 
@@ -576,56 +586,48 @@ void deinit_superblock_bdflush(struct SuperBlock *sb)
  * @param   arg, unused
  * @return  0 on success when task terminates, negative errno on failure
  */
-int bdflush(void *arg)
+int sys_bdflush(int fd)
 {
-  struct Process *current;
   struct SuperBlock *sb;
   struct Buf *buf;
-  struct DelWriMsg *msg;
-  struct timespec timeout;
-  bool done;
-  
-  current = get_current_process();
-  
-  sb = LIST_HEAD(&writable_filesystem_list);
-
-  while (sb != NULL) {
-    done = false;
-    
-    while (!done && softclock_trailing_hardclock(sb->softclock)) { 
-      while((buf = find_delayed_write_buf(sb, sb->softclock)) != NULL) {
-          msg = alloc_delwri_msg(sb);
-        
-          if (msg != NULL) {
-              unhash_delayed_write_buf(sb, sb->softclock, buf);
-              vfs_write_async(sb, msg, buf);            
-          } else {
-            // There are still bufs to process, but no free strategy messages
-            // sp move on to next superblock
-            done = true;
-            break;
-          }
-      }
-     
-      if (buf == NULL) { 
-        // We've processed all the current softclock bufs
-        sb->softclock += BDFLUSH_SOFTCLOCK_TICKS;
-      }            
+  uint64_t now;
+	int count = 0;
+	struct Process *current;
+	
+	Info("bdflush(%d)", fd);
+	
+	current = get_current_process();
+	sb = get_superblock(current, fd);
+	
+	if (sb == NULL || sb->delwri_timing_wheel == NULL) {
+	  Info ("bdflush bad fd");
+		return -EBADF;
+	}
+	
+	now = get_hardclock();
+	
+  while (sb->softclock < now) { 
+    while((buf = find_delayed_write_buf(sb, sb->softclock)) != NULL) {
+       vfs_write_async(sb, buf);
+       count++;      
     }
-        
-    sb = LIST_NEXT(sb, writable_filesystem_link);
+   	
+    sb->softclock++; // = BDFLUSH_SOFTCLOCK_TICKS;  FIXME: Need to quantise expire and softclock
   }
-    
-  timeout.tv_sec = 0;
-  timeout.tv_nsec = BDFLUSH_WAKEUP_INTERVAL_MS * 1000;
-  kwaitport(&current->reply_port, &timeout);
 
-  // Release the buffers of the completed strategy commands  
-  while((msg = (struct DelWriMsg *)kgetmsg(&current->reply_port)) != NULL) {
-    brelse(msg->buf);
-    sb = msg->superblock;
-    free_delwri_msg(sb, msg);  
-  }
+  Info("bdflush count:%d", count);
+	return count;
+}
+
+
+/* @brief		Release any resources of a delayed write buffer during replymsg
+ *
+ *   // only do this if replyport is null
+
+ */
+int bdflush_brelse(struct Msg *msg)
+{
+  brelse((struct Buf *)msg);
 }
 
 
@@ -649,6 +651,8 @@ struct Buf *find_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock)
   
   while (buf != NULL) {  
     if (buf->expiration_time <= softclock) {
+		  LIST_REM_ENTRY(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
+		  buf->flags |= B_BUSY;
       return buf;
     }
     
@@ -657,53 +661,4 @@ struct Buf *find_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock)
   
   return NULL;
 }
-
-
-/* @brief   Removes a Buf from the delayed write timing wheel
- * 
- * @param   sb,
- * @param   softclock,
- * @param   buf,
- */
-void unhash_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock, struct Buf *buf)
-{
-  uint32_t hash;
-  
-  hash = softclock % NR_DELWRI_BUCKETS;
-  LIST_REM_ENTRY(&sb->delwri_timing_wheel[hash], buf, delwri_hash_link);
-
-  buf->flags |= B_BUSY;
-}
-
-
-/* @brief   Allocate a message from a superblock's pool of delayed-write messages
- *
- * @param   sb,
- * @return  pointer to newly allocated message or NULL if no messages available
- */
-struct DelWriMsg *alloc_delwri_msg(struct SuperBlock *sb)
-{
-  struct DelWriMsg *msg;
-  
-  msg = LIST_HEAD(&sb->free_delwri_msg_list);
-  
-  if (msg == NULL) {
-    return NULL;
-  }
-  
-  LIST_REM_HEAD(&sb->free_delwri_msg_list, link);
-  return msg;
-}
-
-
-/* @brief   Free a message to a superblock's pool of delayed-write messages
- * 
- * @oaram   sb,
- * @param   msg,
- */
-void free_delwri_msg(struct SuperBlock *sb, struct DelWriMsg *msg)
-{
-  LIST_ADD_HEAD(&sb->free_delwri_msg_list, msg, link);
-}
-
 

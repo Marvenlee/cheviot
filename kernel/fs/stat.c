@@ -35,7 +35,6 @@ int sys_stat(char *_path, struct stat *_stat) {
   int sc;
 
   Info("sys_stat");
-	Info ("*** sizeof stat = %d", sizeof (struct stat));
 	
   if ((sc = lookup(_path, 0, &ld)) != 0) {
     return sc;
@@ -54,8 +53,23 @@ int sys_stat(char *_path, struct stat *_stat) {
   stat.st_atime = ld.vnode->atime;
   stat.st_mtime = ld.vnode->mtime;
   stat.st_ctime = ld.vnode->ctime;
+
+	// TODO: Handle st_blocks and st_blocksize correctly 
+	// Update these on reads, writes or truncate operations.
+	// special case return zeros for char and other non-block devices?
+
+#if 0  
   stat.st_blocks = ld.vnode->blocks;
   stat.st_blksize = ld.vnode->blksize;
+#else
+	if (ld.vnode->superblock->block_size != 0) {
+		stat.st_blocks = ld.vnode->size / ld.vnode->superblock->block_size;
+		stat.st_blksize = ld.vnode->superblock->block_size;
+	} else {
+		stat.st_blocks = 0;
+		stat.st_blksize = 0;
+	}
+#endif
 
   vnode_put(ld.vnode);
 
@@ -84,7 +98,6 @@ int sys_fstat(int fd, struct stat *_stat) {
   struct Process *current;
 
   Info("sys_fstat fd:%d", fd);
-	Info ("*** sizeof stat = %d", sizeof (struct stat));
 	  
   current = get_current_process();
   filp = get_filp(current, fd);
@@ -111,8 +124,23 @@ int sys_fstat(int fd, struct stat *_stat) {
   stat.st_atime = vnode->atime;
   stat.st_mtime = vnode->mtime;
   stat.st_ctime = vnode->ctime;
+
+	// TODO: Handle st_blocks and st_blocksize correctly 
+	// Update these on reads, writes or truncate operations.
+	// special case return zeros for char and other non-block devices?
+
+#if 0
   stat.st_blocks = vnode->blocks;
   stat.st_blksize = vnode->blksize;
+#else
+	if (vnode->superblock->block_size != 0) {
+		stat.st_blocks = vnode->size / vnode->superblock->block_size;
+		stat.st_blksize = vnode->superblock->block_size;
+	} else {
+		stat.st_blocks = 0;
+		stat.st_blksize = 0;
+	}
+#endif
 
   vnode_unlock(vnode);
 

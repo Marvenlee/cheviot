@@ -79,7 +79,7 @@ void sys_debug(char *s)
   CopyInString (debug_buf, s, sizeof debug_buf - 1);
   debug_buf[sizeof debug_buf - 1] = '\0';
 
-  Info("PID %4d: %s:", GetPid(), &debug_buf[0]);
+  DoLog("%s", &debug_buf[0]);
 }
 
 
@@ -107,19 +107,23 @@ void DoLog(const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
-
-	if (lcanary1 != 0xdeadbeef || lcanary2 != 0xcafef00d || lcanary3 != 0x5ea1dead) {
-		Info("***sys_debug :can1: %08x, can2:%08x, can3:08x ***", lcanary1, lcanary2,lcanary3);
-	}	
-
+	struct Process *current;
+	
   if (processes_initialized) {
-    Snprintf(&klog_entry[0], 5, "%4d:", GetPid());
-    Vsnprintf(&klog_entry[5], KLOG_WIDTH - 5, format, ap);
+  	current = get_current_process();
+    Snprintf(&klog_entry[0], KLOG_WIDTH, "%4d: %s:", GetPid(), current->basename);
+	  KPrintString(&klog_entry[0]);
+        
+    Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
+	  KPrintString(&klog_entry[0]);
+    
+    KPrintString("\n");
+    
+    
   } else {
     Vsnprintf(&klog_entry[0], KLOG_WIDTH, format, ap);
   }
 
-  KPrintString(&klog_entry[0]);
 
   va_end(ap);
 }
@@ -149,15 +153,11 @@ void KPrintString(char *string)
 {
   char *ch = string;
 
-//  if (debug_initialized) {
-    while (*ch != '\0') {
-      aux_uart_write_byte(*ch);
-      ch++;
-    }
-    
-    aux_uart_write_byte('\n');
-//  }
-  
+  while (*ch != '\0') {
+    aux_uart_write_byte(*ch);
+    ch++;
+  }
+      
   // TODO:  Switch to writing to syslog inode once console driver is initialized.
 }
 

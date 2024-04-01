@@ -212,6 +212,7 @@ int copy_in_argv(char *pool, struct execargs *args, struct execargs *_args) {
   remaining = &pool[MAX_ARGS_SZ] - string_table;
   dst = string_table;
 
+
   for (int t = 0; t < args->argc; t++) {
     src = argv[t];
 
@@ -223,6 +224,22 @@ int copy_in_argv(char *pool, struct execargs *args, struct execargs *_args) {
     argv[t] = dst;
 
     sz = StrLen(dst) + 1;
+    
+		if (t == 0) {			
+			size_t basename_sz = (sz < PROC_BASENAME_SZ) ? sz : PROC_BASENAME_SZ;
+			struct Process *current;
+			
+			current = get_current_process();
+	
+			current->basename[0] = '\0';
+						
+			for(int c=0; c<basename_sz; c++) {
+				current->basename[c] = dst[c];
+			}			
+
+			current->basename[PROC_BASENAME_SZ-1] = '\0';
+		}    
+        
     dst += sz;
     remaining -= sz;
   }
@@ -434,16 +451,11 @@ ssize_t read_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
-  Info("exec: read_file(offset:%08x, vaddr:%08x, sz:%d", (uint32_t)offset, (uint32_t)vaddr, sz);
-
   if (sys_lseek(fd, offset, SEEK_SET) == -1) {
     return -1;
   }
 
   nbytes_read = sys_read(fd, vaddr, sz);
-
-	Info("exec: nbytes_read: %d", nbytes_read);
-  
   return nbytes_read;
 }
 
@@ -455,16 +467,11 @@ ssize_t kread_file (int fd, off_t offset, void *vaddr, size_t sz)
 {
   size_t nbytes_read;
   
-  Info("exec: kread_file(offset:%08x, vaddr:%08x, sz:%d", (uint32_t)offset, (uint32_t)vaddr, sz);
-    
   if (sys_lseek(fd, offset, SEEK_SET) == -1) {
     return -1;
   }
 
   nbytes_read = kread(fd, vaddr, sz);  
-
-	Info("exec: nbytes_read: %d", nbytes_read);
-
   return nbytes_read;
 }
 

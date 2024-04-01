@@ -19,6 +19,8 @@
  * THE SOFTWARE.
  */
 
+#define LOG_LEVEL_WARN
+
 #include <sys/debug.h>
 #include "timer.h"
 #include "globals.h"
@@ -55,16 +57,18 @@ int delay_microsecs(int usec)
 /*
  *
  */
-void register_timer(struct timer_wait * tw, unsigned int usec)
+void register_timer(struct timer_wait *tw, unsigned int usec)
 {
 	struct timespec timeout_ts;
+	struct timespec now;
+
+	tw->timeout_usec = usec;
 	
-	tw->timeout_nsec = usec * 1000;
-	
-	timeout_ts.tv_sec = 0;
-	timeout_ts.tv_nsec = usec * 1000;
-	
-  clock_gettime(CLOCK_MONOTONIC_RAW, &tw->start_ts);
+  timeout_ts.tv_sec = usec / 1000000;
+  timeout_ts.tv_nsec = (usec % 1000000) * 1000;    	
+
+  clock_gettime(CLOCK_MONOTONIC_RAW, &now);  
+  add_timespec(&tw->expire_ts, &timeout_ts, &now);
 }
 
 
@@ -73,17 +77,19 @@ void register_timer(struct timer_wait * tw, unsigned int usec)
  */
 int compare_timer(struct timer_wait * tw)
 {
-	struct timespec current_ts;
+	struct timespec now;
 	struct timespec diff_ts;
 	bool elapsed;
 	
-	clock_gettime(CLOCK_MONOTONIC_RAW, &current_ts);
+	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 
-	elapsed = diff_timespec(&diff_ts, &current_ts, &tw->start_ts);
-	
+	elapsed = diff_timespec(&diff_ts, &now, &tw->expire_ts);
+
 	if (elapsed) {
-		log_warn("timeout expired: %d s, %d usecs, timeout:%d", 
-							(int)diff_ts.tv_sec, (int)diff_ts.tv_nsec / 1000, (int)tw->timeout_nsec);				
+		log_warn("timeout expired: %d", (int)tw->timeout_usec);
+	  log_warn("diff: sec:%d, nsec:%6d", (int)diff_ts.tv_sec, (int)diff_ts.tv_nsec);
+	  log_warn("now: sec:%d, nsec:%6d", (int)now.tv_sec, (int)now.tv_nsec);
+	  log_warn("exp: sec:%d, nsec:%6d\n", (int)tw->expire_ts.tv_sec, (int)tw->expire_ts.tv_nsec);
 		return 1;
 	} else {
 		return 0;

@@ -68,7 +68,6 @@ LIST_TYPE(DelWriMsg, delwrimsg_list_t, delwrimsg_link_t);
 #define DNAME_HASH      32
 
 #define NR_DELWRI_BUCKETS  (PAGE_SIZE / sizeof(buf_list_t))
-#define NR_DELWRIMSG_PER_SB  (PAGE_SIZE / sizeof(struct DelWriMsg))
 
 // Static table sizes (TODO: Adjust based on RAM size)
 #define NR_SOCKET       1024
@@ -93,8 +92,8 @@ LIST_TYPE(DelWriMsg, delwrimsg_list_t, delwrimsg_link_t);
 
 #define PIPE_BUF_SZ     4096      // Buffer size of pipes (should be same as page size)
 
-#define BDFLUSH_WAKEUP_INTERVAL_MS    300  // Period between runs of the bd_flush task
-#define BDFLUSH_SOFTCLOCK_TICKS       50   // time between buckets on delayed-write timing wheels
+//#define BDFLUSH_WAKEUP_INTERVAL_MS    300  // Period between runs of the bd_flush task
+//#define BDFLUSH_SOFTCLOCK_TICKS       50   // time between buckets on delayed-write timing wheels
 #define DELWRI_DELAY_TICKS            500  // Time in ticks to delay a delayed-write
 
 
@@ -102,18 +101,21 @@ LIST_TYPE(DelWriMsg, delwrimsg_list_t, delwrimsg_link_t);
  */
 struct Buf
 {  
+  struct Msg msg;
+  struct IOV siov[2];							// fsreq for CMD_WRITE and buf->data
+  struct fsreq req;
+
   struct Rendez rendez;
   bits32_t flags;
   struct VNode *vnode;
 
-  off64_t cluster_offset;
+  off64_t cluster_offset;					// TODO: Rename to file_offset
   void *data;                     // Address of the page-sized buffer holding cached file data
 
   buf_link_t free_link;           // Free list entry
   buf_link_t lookup_link;         // Hash table entry
-  buf_link_t delwri_hash_link;    // Delayed write entry  
-  buf_link_t vnode_link;          // Entry on vnode's list of cached blocks
-
+  buf_link_t delwri_hash_link;    // Delayed write hash table entry  
+  
   uint64_t expiration_time;       // Time that a delayed-write block should be flushed
 };
 
@@ -132,22 +134,6 @@ struct Buf
 #define B_ASYNC     (1 << 8)  // Hint to FS Handler that block won't be written again soon (writing next block).
 #define B_DELWRI    (1 << 9)  // Hint to FS Handler that block may be written again soon
 #define B_READAHEAD (1 << 10)  // Hint to FS Handler to read additional blocks after this block has been read.
-
-
-/* @brief   Message and metadata for handling delayed writes by the bdflush_task
- * 
- */
-struct DelWriMsg
-{
-  struct SuperBlock *superblock;
-  struct Msg msg;
-  struct fsreq req;
-  struct fsreply reply;
-  struct IOV siov[2];
-  struct IOV riov[1];
-  struct Buf *buf;  
-  delwrimsg_link_t link;
-};
 
 
 /* @brief   Pipe state
@@ -239,13 +225,11 @@ struct SuperBlock
   int reference_cnt;
 
   superblock_link_t link;
-  superblock_link_t writable_filesystem_link;  // Filesystems that have delayed-write support.
+  
+  buf_list_t bdflush_list;
     
   buf_list_t *delwri_timing_wheel;    // Timing wheel for writing async and delayed write bufs       
-  delwrimsg_list_t free_delwri_msg_list;
-  struct DelWriMsg *delwrimsg_pool;
   uint64_t softclock;
-
 };
 
 // SuperBlock.flags
@@ -343,22 +327,22 @@ ssize_t write_to_block (struct VNode *vnode, void *dst, size_t sz, off64_t *offs
 /* fs/cache.c */
 ssize_t read_from_cache (struct VNode *vnode, void *src, size_t nbytes, off64_t *offset, bool inkernel);
 ssize_t write_to_cache (struct VNode *vnode, void *src, size_t nbytes, off64_t *offset);
-struct Buf *bread(struct VNode *vnode, uint64_t cluster);
+struct Buf *bread(struct VNode *vnode, uint64_t cluster_base);
+struct Buf *bread_zero(struct VNode *vnode, uint64_t cluster_base);
 int bwrite(struct Buf *buf);
 int bawrite(struct Buf *buf);
 int bdwrite(struct Buf *buf);
 void brelse(struct Buf *buf);
-struct Buf *getblk(struct VNode *vnode, uint64_t cluster);
-struct Buf *findblk(struct VNode *vnode, uint64_t cluster);
+struct Buf *getblk(struct VNode *vnode, uint64_t cluster_base);
+struct Buf *findblk(struct VNode *vnode, uint64_t cluster_base);
 int btruncate(struct VNode *vnode);
 size_t resize_cache(size_t free);
 int init_superblock_bdflush(struct SuperBlock *sb);
 void deinit_superblock_bdflush(struct SuperBlock *sb);
-int bdflush(void *arg);
+int sys_bdflush(int fd);
+int bdflush_brelse(struct Msg *msg);
 struct Buf *find_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock);
-void unhash_delayed_write_buf(struct SuperBlock *sb, uint64_t softclock, struct Buf *buf);
-struct DelWriMsg *alloc_delwri_msg(struct SuperBlock *sb);
-void free_delwri_msg(struct SuperBlock *sb, struct DelWriMsg *msg);
+
 
 /* fs/char.c */
 int sys_isatty(int fd);
@@ -487,7 +471,7 @@ int sys_fsync(int fd);
 /* fs/vfs.c */
 ssize_t vfs_read(struct VNode *vnode, void *buf, size_t nbytes, off64_t *offset);
 ssize_t vfs_write(struct VNode *vnode, void *buf, size_t nbytes, off64_t *offset);
-int vfs_write_async(struct SuperBlock *sb, struct DelWriMsg *msg, struct Buf *buf);
+int vfs_write_async(struct SuperBlock *sb, struct Buf *buf);
 int vfs_readdir(struct VNode *vnode, void *buf, size_t bytes, off64_t *cookie);
 int vfs_lookup(struct VNode *dir, char *name, struct VNode **result);
 int vfs_create(struct VNode *dvnode, char *name, int oflags, struct stat *stat, struct VNode **result);                             

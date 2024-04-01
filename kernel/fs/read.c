@@ -66,7 +66,7 @@ ssize_t sys_read(int fd, void *dst, size_t sz)
 
   // Separate into vnode_ops structure for each device type
 
-  if (S_ISCHR(vnode->mode)) {  
+  if (S_ISCHR(vnode->mode)) {
     xfered = read_from_char (vnode, dst, sz);
   } else if (S_ISREG(vnode->mode)) {
     xfered = read_from_cache (vnode, dst, sz, &filp->offset, false);

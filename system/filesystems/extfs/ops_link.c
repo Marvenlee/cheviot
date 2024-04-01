@@ -4,7 +4,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -38,7 +38,7 @@ void ext2_rename(struct fsreq *req)
   ino_t ino_nr;
   struct inode *inode;
   int sc;
-    
+
   src_name_sz = req->args.rename.src_name_sz;
   dst_name_sz = req->args.rename.dst_name_sz;
   
@@ -74,17 +74,17 @@ void ext2_rename(struct fsreq *req)
     return;
   }
 
-  sc = dirent_enter(dst_dir_inode, dst_name, ino_nr, inode->i_mode);
+  sc = dirent_enter(dst_dir_inode, dst_name, ino_nr, inode->odi.i_mode);
 
   if (sc == 0) {
-	  inode->i_links_count++;
+	  inode->odi.i_links_count++;
 	  inode->i_update |= CTIME;
 	  inode_markdirty(inode);
 	  
     sc = dirent_delete(src_dir_inode, src_name);
 
     if (sc == 0) {
-	    inode->i_links_count--;
+	    inode->odi.i_links_count--;
 	    inode->i_update |= CTIME;
       inode_markdirty(inode);
     }
@@ -136,7 +136,9 @@ void ext2_mknod(struct fsreq *req)
   put_inode(inode);
   put_inode(dir_inode);
 
-  replymsg(portid, msgid, 0, NULL, 0);
+	// FIXME: TODO:  Return inode details in reply
+
+  replymsg(portid, msgid, 0, NULL, 0);  // FIXME: return reply
 }
 
 
@@ -151,7 +153,7 @@ void ext2_unlink(struct fsreq *req)
   char name[NAME_MAX+1];
   ino_t ino_nr;
   int	sc;
- 
+
   readmsg(portid, msgid, name, req->args.unlink.name_sz, sizeof *req);
 
   dir_inode = get_inode(req->args.unlink.dir_inode_nr);
@@ -176,9 +178,11 @@ void ext2_unlink(struct fsreq *req)
   sc = dirent_delete(dir_inode, name);
 
   if (sc == 0) {
-	  inode->i_links_count--;
+	  inode->odi.i_links_count--;
 	  inode->i_update |= CTIME;
 	  inode_markdirty(inode);
+	  
+	  // TODO: Remove file contents if i_links_count == 0, call truncate file.? 
   }
 
   put_inode(inode);

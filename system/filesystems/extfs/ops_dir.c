@@ -17,7 +17,7 @@
  */
 void ext2_lookup(struct fsreq *req)
 {
-  struct fsreply reply;
+  struct fsreply reply = {0};
   struct inode *dir_inode;
   struct inode *inode;
   char name[NAME_MAX+1];
@@ -28,8 +28,6 @@ void ext2_lookup(struct fsreq *req)
   memset(&reply, 0, sizeof reply);  
     
   readmsg(portid, msgid, name, req->args.lookup.name_sz, sizeof *req);
-
-  log_info("ext2_lookup: %s", name);
 
   dir_inode = get_inode(req->args.lookup.dir_inode_nr);
   
@@ -55,16 +53,18 @@ void ext2_lookup(struct fsreq *req)
   }
   
   reply.args.lookup.inode_nr = inode->i_ino;
-  reply.args.lookup.size = inode->i_size;
-  reply.args.lookup.uid = inode->i_uid;
-  reply.args.lookup.gid = inode->i_gid; 
-  reply.args.lookup.mode = inode->i_mode;   // FIXME: Maybe add conversion function for native to ext2
+  reply.args.lookup.size = inode->odi.i_size;
+  reply.args.lookup.uid = inode->odi.i_uid;
+  reply.args.lookup.gid = inode->odi.i_gid; 
+  reply.args.lookup.mode = inode->odi.i_mode;   // FIXME: Maybe add conversion function for native to ext2
+  reply.args.lookup.atime = 0;    // FIXME: set time
+  reply.args.lookup.mtime = 0;
+  reply.args.lookup.ctime = 0;
 
   put_inode(inode);
   put_inode(dir_inode);
 
-  replymsg(portid, msgid, 0, &reply, sizeof reply);
-  
+  replymsg(portid, msgid, 0, &reply, sizeof reply);  
 }
 
 
@@ -72,20 +72,15 @@ void ext2_lookup(struct fsreq *req)
  *
  * @param   fsreq, message header received by getmsg.
  */
-
-
-
 void ext2_readdir(struct fsreq *req)
 {
 	static char readdir_buf[512];
-  struct fsreply reply;
+  struct fsreply reply = {0};
   struct inode *dir_inode;
   uint32_t sz;
   off64_t cookie;
   size_t dirents_sz;
   size_t dirents_read_sz;
-
-	log_info("readdir, ino_nr:%d", req->args.readdir.inode_nr);
 
   memset(&reply, 0, sizeof reply);
       
@@ -99,24 +94,13 @@ void ext2_readdir(struct fsreq *req)
   cookie = req->args.readdir.offset;  
   sz = req->args.readdir.sz;
   dirents_sz = (sizeof readdir_buf < sz) ? sizeof readdir_buf : sz;  
-
-	log_info("dirents buf to read sz: %d", dirents_sz);
-	log_info("cookie :%d", (uint32_t)cookie);
-	
   dirents_read_sz = get_dirents(dir_inode, &cookie, readdir_buf, dirents_sz);
 
-	log_info("readdir dirents_read_sz:%d", dirents_read_sz);
-  
   if (dirents_read_sz > 0) {
-    log_info("readdir writing reply");
     writemsg(portid, msgid, readdir_buf, dirents_read_sz, sizeof reply);
   }
 
-  log_info("readdir putting inode %08x", (uint32_t)dir_inode);
-
   put_inode(dir_inode);  
-
-  log_info("readdir replying message");
 
   reply.args.readdir.offset = cookie;
   replymsg(portid, msgid, dirents_read_sz, &reply, sizeof reply);
@@ -129,6 +113,7 @@ void ext2_readdir(struct fsreq *req)
  */
 void ext2_mkdir(struct fsreq *req)
 {
+  struct fsreply reply = {0};
   mode_t mode;
   uid_t uid;
   gid_t gid;
@@ -136,7 +121,7 @@ void ext2_mkdir(struct fsreq *req)
   struct inode *dir_inode;
   struct inode *inode;
   char name[NAME_MAX+1];
-        
+          
   readmsg(portid, msgid, name, req->args.mkdir.name_sz, sizeof *req);
 
   dir_inode = get_inode(req->args.mkdir.dir_inode_nr);
@@ -162,23 +147,32 @@ void ext2_mkdir(struct fsreq *req)
   sc2 = dirent_enter(inode, "..", dir_inode->i_ino, S_IFDIR);
 
   if (sc1 == 0 && sc2 == 0) {
-	  inode->i_links_count++;
-	  dir_inode->i_links_count++;
+	  inode->odi.i_links_count++;
+	  dir_inode->odi.i_links_count++;
 	  inode_markdirty(dir_inode);
   } else {
 	  if (dirent_delete(dir_inode, name) != 0) {
 		  panic("extfs: dir disappeared during mkdir: %d ", (int) inode->i_ino);
 		}
 		
-	  inode->i_links_count--;
+	  inode->odi.i_links_count--;
   }
   
   inode_markdirty(inode);
-  
   put_inode(dir_inode);
+
+  reply.args.mkdir.inode_nr = inode->i_ino;
+  reply.args.mkdir.mode = inode->odi.i_mode;
+  reply.args.mkdir.size = inode->odi.i_size;
+  reply.args.mkdir.uid = inode->odi.i_uid;
+  reply.args.mkdir.gid = inode->odi.i_gid;
+  reply.args.mkdir.atime = 0;   // FIXME: set time
+  reply.args.mkdir.mtime = 0;
+  reply.args.mkdir.ctime = 0;
+
   put_inode(inode);
 
-  replymsg(portid, msgid, 0, NULL, 0);
+  replymsg(portid, msgid, 0, &reply, sizeof reply);  
 }
 
 
@@ -193,6 +187,8 @@ void ext2_rmdir(struct fsreq *req)
   char name[NAME_MAX+1];
   ino_t ino_nr;
   int	sc;
+
+  log_info("ext2_rmdir");
  
   readmsg(portid, msgid, name, req->args.rmdir.name_sz, sizeof *req);
 
@@ -229,14 +225,16 @@ void ext2_rmdir(struct fsreq *req)
    * Do we need an unlink function that deletes these and the dir?
    * Replacing what is below?
    */
+
+	// TODO: Truncate directory to 0 bytes free up blocks
 	  
   sc = dirent_delete(dir_inode, name);
 
   if (sc == 0) {
-	  dir_inode->i_links_count--;
+	  dir_inode->odi.i_links_count--;
 	  dir_inode->i_update |= CTIME;
 	  inode_markdirty(dir_inode);	  
-	  inode->i_links_count--;
+	  inode->odi.i_links_count--;
 	  inode->i_update |= CTIME;
 	  inode_markdirty(inode);	  
   }

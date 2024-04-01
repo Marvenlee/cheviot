@@ -14,9 +14,9 @@ struct Timer;
 LIST_TYPE(Timer, timer_list_t, timer_list_link_t);
 
 // Timer configuration
-#define JIFFIES_PER_SECOND      100
-#define MICROSECONDS_PER_JIFFY  10000
-#define NANOSECONDS_PER_JIFFY   10000000
+#define JIFFIES_PER_SECOND      100ll
+#define MICROSECONDS_PER_JIFFY  10000ll
+#define NANOSECONDS_PER_JIFFY   10000000ll
 
 
 /*
@@ -40,7 +40,7 @@ int sys_alarm(int seconds);
 int sys_sleep(int seconds);
 int SetAlarm();
 int SetTimeout (int milliseconds, void (*callback)(struct Timer *timer), void *arg);
-bool softclock_trailing_hardclock(uint64_t softclock);
+uint64_t get_hardclock(void);
 void TimerTopHalf(void);
 void TimerBottomHalf(void);
 

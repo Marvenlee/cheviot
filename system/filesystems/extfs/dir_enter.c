@@ -42,7 +42,7 @@ int dirent_enter(struct inode *dir_inode, char *name, ino_t ino_nr, mode_t mode)
   required_space = MIN_DIR_ENTRY_SIZE + name_len;
   required_space += ((required_space & 0x03) == 0) ? 0 : (DIR_ENTRY_ALIGN - (required_space & 0x03) );
 
-  while(pos < dir_inode->i_size) {
+  while(pos < dir_inode->odi.i_size) {
 	  if(!(bp = get_dir_block(dir_inode, pos))) {
 		  panic("dirent_enter found a hole in a directory");
     }
@@ -141,7 +141,7 @@ int enter_dirent(struct inode *dir_inode, struct buf *bp, struct dir_entry *dp,
   put_block(cache, bp);
 
   if (extended) {
-  	dir_inode->i_size += (off_t) bswap2(be_cpu, dp->d_rec_len);
+  	dir_inode->odi.i_size += (off_t) bswap2(be_cpu, dp->d_rec_len);
   }
 
   dir_inode->i_update |= CTIME | MTIME;
@@ -162,7 +162,7 @@ struct dir_entry *extend_directory(struct inode *dir_inode, struct buf **bpp)
 {    
   struct dir_entry *dp;
   
-  if ((*bpp = new_block(dir_inode, dir_inode->i_size)) == NULL) {
+  if ((*bpp = new_block(dir_inode, dir_inode->odi.i_size)) == NULL) {
 	  return NULL;
 	}
 	  

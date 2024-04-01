@@ -7,7 +7,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -30,14 +30,15 @@ int new_inode(struct inode *dir_inode, char *name, mode_t mode,
   int sc;
   ino_t ino_nr;
   
+  log_debug("new_inode(dir_inode:%u)", (uint32_t)dir_inode->i_ino);
   *res = NULL;
   
-  if (dir_inode->i_links_count == 0) {
+  if (dir_inode->odi.i_links_count == 0) {
   	return -ENOENT;
   }
 
   // If creating directory, will need a link for ".." in new directory
-  if (S_ISDIR(mode) && dir_inode->i_links_count >= LINK_MAX) {
+  if (S_ISDIR(mode) && dir_inode->odi.i_links_count >= LINK_MAX) {
     return -EMLINK;
   }
 
@@ -50,11 +51,11 @@ int new_inode(struct inode *dir_inode, char *name, mode_t mode,
   }
 
   // Flush the inode prior to adding a dirent to the directory
-  inode->i_links_count++;
+  inode->odi.i_links_count++;
   write_inode(inode);
 
   if ((sc = dirent_enter(dir_inode, name, inode->i_ino, mode)) != 0) {
-	  inode->i_links_count--;
+	  inode->odi.i_links_count--;
 	  inode_markdirty(inode);
 	  put_inode(inode);
 	  return sc;
@@ -80,6 +81,8 @@ int alloc_inode(struct inode *parent_inode, mode_t mode, uid_t uid, gid_t gid, s
   ino_t ino_nr;
   uint32_t group;
   
+  log_debug("alloc_inode(parent ino:%u)", (uint32_t)parent_inode->i_ino);
+  
 	*res = NULL;
 
 	if (S_ISDIR(mode)) {
@@ -103,22 +106,23 @@ int alloc_inode(struct inode *parent_inode, mode_t mode, uid_t uid, gid_t gid, s
   	free_inode_bit(ino_nr, S_ISDIR(mode));
     return -EIO;
   }
-  
-  inode->i_mode = mode;
-  inode->i_links_count = 0;
-  inode->i_uid = uid;
-  inode->i_gid = gid;
-  inode->i_size = 0;
+
   inode->i_update = ATIME | CTIME | MTIME;
-  inode->i_blocks = 0;
-  inode->i_flags = 0;
-  inode->i_generation = 0;
-  inode->i_file_acl = 0;
-  inode->i_dir_acl = 0;
-  inode->i_faddr = 0;
+  
+  inode->odi.i_mode = mode;
+  inode->odi.i_links_count = 0;
+  inode->odi.i_uid = uid;
+  inode->odi.i_gid = gid;
+  inode->odi.i_size = 0;
+  inode->odi.i_blocks = 0;
+  inode->odi.i_flags = 0;
+  inode->odi.i_generation = 0;
+  inode->odi.i_file_acl = 0;
+  inode->odi.i_dir_acl = 0;
+  inode->odi.i_faddr = 0;
 
   for (int i = 0; i < EXT2_N_BLOCKS; i++) {
-    inode->i_block[i] = NO_BLOCK;
+    inode->odi.i_block[i] = NO_BLOCK;
   }
 
   inode_markdirty(inode);
@@ -135,13 +139,15 @@ void free_inode(struct inode *inode)
 {
   uint32_t b = inode->i_ino;
 
+	log_debug("free_inode() ino_nr:%u, inode:%08x", (uint32_t)inode->i_ino, (uint32_t)inode);
+
   if (b <= NO_ENTRY || b > superblock.s_inodes_count) {
 	  log_warn("extfs: freeing block that is out of range, ignoring");
 	  return;
   }
   
-  free_inode_bit(b, S_ISDIR(inode->i_mode));
-  inode->i_mode = 0;  
+  free_inode_bit(b, S_ISDIR(inode->odi.i_mode));
+  inode->odi.i_mode = 0;  
 }
 
 
@@ -169,13 +175,22 @@ uint32_t alloc_inode_bit(uint32_t group, bool is_dir)
     panic("extfs: group desc reports no free inodes but earlier search reported it does");
   }
   
+  log_debug("group: %u, free_inodes_count = %u", group, (uint32_t)gd->g_free_inodes_count);
+  
+  // Is an inode bitmap 1024 bytes, 8192 inodes per group ????
+  // Do we need to loop over inode blocks per group ?
+  
   bp = get_block(cache, gd->g_inode_bitmap, BLK_READ);
   
   bitmap = (uint32_t *)bp->data;  
+
+// FIXME: Need alloc_inode_bit to return NO_INODE or NO_BLOCK ( = 0)
+// need alloc_bit to return -1 if not free bit,  on bit found return from 0 upto maxbits - 1
+
   bit = alloc_bit(bitmap, superblock.s_inodes_per_group, 0);
 
-  if (bit == NO_BLOCK) {
-    panic("extfs: unable to alloc bit in bitmap, but descriptor indicated free blocks"); 
+  if (bit == -1) {
+    panic("extfs: unable to alloc bit in bitmap, but descriptor indicated free inode"); 
   }
   
   ino_nr = group * superblock.s_inodes_per_group + bit + 1;

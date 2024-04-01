@@ -7,7 +7,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -36,7 +36,7 @@ ssize_t get_dirents(struct inode *dir_inode, off64_t *cookie, char *data, ssize_
   pos = (off_t) *cookie;
   
   if ((unsigned int) pos % DIR_ENTRY_ALIGN) {
-  	log_info("get_dirents -ENOENT");
+  	log_debug("get_dirents -ENOENT");
   	return -ENOENT;
   }
     
@@ -44,55 +44,52 @@ ssize_t get_dirents(struct inode *dir_inode, off64_t *cookie, char *data, ssize_
 
   full = false;
 
-	log_info("dir_inode->i_size:%08x", dir_inode->i_size);
+	log_debug("dir_inode->odi.i_size:%08x", dir_inode->odi.i_size);
 
-  while(!full && pos < dir_inode->i_size) {
-  	log_info("loop: pos:%08x", pos);
+  while(!full && pos < dir_inode->odi.i_size) {
+  	log_debug("loop: pos:%08x", pos);
   	
 //    block_pos = pos % sb_block_size;
     
-    log_info("call get_dir_block");
+    log_debug("call get_dir_block");
     
     bp = get_dir_block(dir_inode, pos);
     assert(bp != NULL);
     
-    log_info("seek_to_valid_dirent");
+    log_debug("seek_to_valid_dirent");
     
     d_desc = seek_to_valid_dirent(bp, pos);
 
     if (d_desc == NULL) {
-    	log_info("advancing to next block");
+    	log_debug("advancing to next block");
       pos = (pos/sb_block_size)*sb_block_size + sb_block_size;
-      
-      //pos = (block_pos + 1) * sb_block_size;  // Advance to next block
       put_block(cache, bp);
       continue;
     }
     
-    log_info("fill dirent_buffer");
+    log_debug("fill dirent_buffer");
     
     full = fill_dirent_buf(bp, &d_desc, &dirent_buf);
-//	  pos = block_pos + ((uint8_t *)d_desc - (uint8_t *)bp->data);
 	  
-	  log_info("full=%d", full);
+	  log_debug("full=%d", full);
 	  
 	  // d_desc is updated by full_dirent_buf
 	  block_base_pos = (pos/sb_block_size)*sb_block_size;
 	 	pos = block_base_pos + ((uint8_t *)d_desc - (uint8_t *)bp->data);
 	  
-	  log_info("updated pos:%d", (uint32_t)pos);
+	  log_debug("updated pos:%d", (uint32_t)pos);
 	  
 	  put_block(cache, bp);
   }
 
   if ((sz = dirent_buf_finish(&dirent_buf)) >= 0) {
-  	log_info("new cookie :%d", (uint32_t)pos);
+  	log_debug("new cookie :%d", (uint32_t)pos);
 	  *cookie = pos;
 	  dir_inode->i_update |= ATIME;
 	  inode_markdirty(dir_inode);
   }
 
-	log_info("dirent buf sz:%d", sz);
+	log_debug("dirent buf sz:%d", sz);
 
   return sz;
 }
@@ -109,17 +106,15 @@ struct buf *get_dir_block(struct inode *dir_inode, off64_t position)
 	struct buf *bp;	
 	block_t b;
 	
-	log_info("get_dir_block(dir_inode:%08x: pos:%d)", (uint32_t)dir_inode, (uint32_t)position);
-	
-	log_info("call read_map_entry");
+	log_debug("get_dir_block(dir_inode:%08x: pos:%d)", (uint32_t)dir_inode, (uint32_t)position);
 	
 	b = read_map_entry(dir_inode, position);
 	if(b == NO_BLOCK) {
-		log_info("get_dir_block NO_BLOCK");
+		log_debug("get_dir_block NO_BLOCK");
 		return NULL;
   }
 
-	log_info("block = %d", (uint32_t)b);
+	log_debug("block = %d", (uint32_t)b);
 
 	if ((bp = get_block(cache, b, BLK_READ)) == NULL) {
 		panic("extfs: error getting block %d", b);
@@ -158,11 +153,11 @@ struct dir_entry *seek_to_valid_dirent(struct buf *bp, off_t pos)
   
   if ((scan_pos - base_pos) >= sb_block_size) {
 //  if ((uint8_t *)d_desc - (uint8_t *)bp->data >= sb_block_size) {
-		log_info("reached end of block, no valid dirents");
+		log_debug("reached end of block, no valid dirents");
   	return NULL;
   }
   
-  log_info("scan_pos after seek valid dirent: %d", scan_pos);
+  log_debug("scan_pos after seek valid dirent: %d", scan_pos);
   return d_desc;
 }
 
@@ -228,7 +223,7 @@ int dirent_buf_add(struct dirent_buf *db, int ino_nr, char *name, int namelen)
     dirent->d_cookie = 0;
     dirent->d_reclen = reclen;
 
-		log_info("dirent add: %s", dirent->d_name);
+		log_debug("dirent add: %s", dirent->d_name);
 
     db->position += reclen;
     return reclen;
@@ -243,7 +238,7 @@ int dirent_buf_add(struct dirent_buf *db, int ino_nr, char *name, int namelen)
  */
 size_t dirent_buf_finish(struct dirent_buf *db)
 {
-	log_info("dirent_buf_finish");
+	log_debug("dirent_buf_finish");
   return db->position;
 }
 

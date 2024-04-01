@@ -51,9 +51,9 @@
 #endif
 
 #if DEBUG_LEVEL >= 3
-#define KLog(fmt, args...) DoLog(fmt, ##args)
+#define KDebug(fmt, args...) DoLog(fmt, ##args)
 #else
-#define KLog(fmt, args...)
+#define KDebug(fmt, args...)
 #endif
 
 #define KASSERT(expr)                                                          \
@@ -76,7 +76,7 @@
 #define Error(fmt, args...)
 #define Warn(fmt, args...)
 #define Info(fmt, args...)
-#define KLog(fmt, args...)
+#define KDebug(fmt, args...)
 
 #define KASSERT(expr)
 #define KernelPanic()                                                          \
@@ -86,34 +86,6 @@
   }
 
 #endif
-
-
-/*
- * TODO: Alow selective control of modules that enable debug
- */
-#define DEBUG_INIT
-#define DEBUG_ARCH
-
-#define DEBUG_SCHED
-#define DEBUG_PROC
-#define DEBUG_TIMER
-
-#define DEBUG_MOUNT
-#define DEBUG_LOOKUP
-#define DEBUG_CACHE
-#define DEBUG_CHAR
-#define DEBUG_BLK
-#define DEBUG_PIPE
-#define DEBUG_ACCESS
-#define DEBUG_DIR
-#define DEBUG_VFS
-#define DEBUG_VNODE
-#define DEBUG_FILE
-#define DEBUG_OPEN
-#define DEBUG_HANDLE
-#define DEBUG_POLL
-
-
 
 
 /*

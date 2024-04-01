@@ -28,7 +28,6 @@ LIST_TYPE(Msg, msg_list_t, msg_link_t);
 struct Msg
 {
   msg_link_t link;
-	//  msgid_t msgid;
   struct MsgPort *port;       // The port it is attached to or NULL if not attached.
                               // Set to reply_port on reply, so any msgid_to_msg fails after replymsg
                               

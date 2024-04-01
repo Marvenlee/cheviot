@@ -1,4 +1,4 @@
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_WARN
 
 #include "sdcard.h"
 #include "globals.h"
@@ -32,7 +32,7 @@ void init(int argc, char *argv[])
 {
   int sc;
   
-  log_info("sdcard: init");
+  log_info("init");
 
   sc = process_args(argc, argv);
   if (sc != 0) {

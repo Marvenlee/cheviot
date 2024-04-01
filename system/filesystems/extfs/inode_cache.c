@@ -22,7 +22,7 @@ int init_inode_cache(void)
 {
   LIST_INIT(&unused_inode_list);
   
-  log_debug("extfs: sizeof inode=%d", sizeof (struct inode));
+  log_debug("init_inode_cache(), sizeof inode=%d", sizeof (struct inode));
   
   for (int t=0; t< NR_INODES; t++) {
   	memset(&inode_cache[t], 0, sizeof(struct inode));
@@ -92,6 +92,7 @@ struct inode *get_inode(ino_t ino_nr)
   }
 
   if (LIST_EMPTY(&unused_inode_list)) {
+  	log_warn("..get_inode() failed to find free inode");
   	return NULL;
   }
 
@@ -152,13 +153,15 @@ void put_inode(struct inode *inode)
   if (inode == NULL) {
   	return;
   }
-  
+
   if (inode->i_count < 1) {
-  	panic("extfs: put_inode: i_count already below 1");
+  	panic("put_inode: i_count already below 1");
   }
   
-  if (--inode->i_count == 0) {
-	  if (inode->i_links_count == 0) {
+  inode->i_count--;
+  
+  if (inode->i_count == 0) {
+	  if (inode->odi.i_links_count == 0) {
 		  truncate_inode(inode, (off_t) 0);
 		  inode_markdirty(inode);
 		  free_inode(inode);
@@ -168,7 +171,7 @@ void put_inode(struct inode *inode)
 	    write_inode(inode);
     }
     
-	  if (inode->i_links_count == 0) {
+	  if (inode->odi.i_links_count == 0) {
 		  unhash_inode(inode);
 		  inode->i_ino = NO_ENTRY;
 		  LIST_ADD_HEAD(&unused_inode_list, inode, i_unused_link);
@@ -204,15 +207,15 @@ void update_times(struct inode *inode)
   cur_time = time(NULL);
 
   if (inode->i_update & ATIME) {
-  	inode->i_atime = cur_time;
+  	inode->odi.i_atime = cur_time;
   }
   
   if (inode->i_update & CTIME) {
-  	inode->i_ctime = cur_time;
+  	inode->odi.i_ctime = cur_time;
   }
   
   if (inode->i_update & MTIME) {
-  	inode->i_mtime = cur_time;
+  	inode->odi.i_mtime = cur_time;
   }
   
   inode->i_update = 0;
@@ -228,7 +231,7 @@ void read_inode(struct inode *inode)
 {
   struct buf *bp;
   struct group_desc *gd;
-  struct inode *dir_inode;
+  struct ondisk_inode *disk_inode;
   uint32_t block_group_number;
   block_t b, offset;
 
@@ -236,7 +239,7 @@ void read_inode(struct inode *inode)
   gd = get_group_desc(block_group_number);
 
   if (gd == NULL) {
-  	panic("extfs: can't get group_desc to read/ inode");
+  	panic("can't get group_desc to read inode");
   }
   
   offset = ((inode->i_ino - 1) % superblock.s_inodes_per_group) * sb_inode_size;
@@ -245,21 +248,22 @@ void read_inode(struct inode *inode)
   bp = get_block(cache, b, BLK_READ);
 
   offset &= (sb_block_size - 1);
-  dir_inode = (struct inode*) (bp->data + offset);
+  disk_inode = (struct ondisk_inode*) ((uint8_t *)bp->data + offset);
 
-  inode_copy(inode, dir_inode);
+  inode_copy(&inode->odi, disk_inode);
   put_block(cache, bp);
 
-  log_debug("extfs: inode nr        = %d", inode->i_ino);
-  log_debug("extfs: inode->i_mode   = %08x", inode->i_mode);
-  log_debug("extfs: inode->i_size   = %08x", inode->i_size);
-  log_debug("extfs: inode->i_uid    = %08x", inode->i_uid);
-  log_debug("extfs: inode->i_atime  = %08x", inode->i_atime);
-  log_debug("extfs: inode->i_ctime  = %08x", inode->i_ctime);
-  log_debug("extfs: inode->i_mtime  = %08x", inode->i_mtime);
-  log_debug("extfs: inode->i_gid    = %08x", inode->i_gid);
-  log_debug("extfs: inode->i_blocks = %08x", inode->i_blocks);
-  log_debug("extfs: inode->i_flags  = %08x", inode->i_flags);
+  log_debug("inode nr        = %d", inode->i_ino);
+  log_debug("inode->odi.i_links_count = %08x", inode->odi.i_links_count);
+  log_debug("inode->odi.i_mode   = %08x", inode->odi.i_mode);
+  log_debug("inode->odi.i_size   = %08x", inode->odi.i_size);
+  log_debug("inode->odi.i_uid    = %08x", inode->odi.i_uid);
+  log_debug("inode->odi.i_atime  = %08x", inode->odi.i_atime);
+  log_debug("inode->odi.i_ctime  = %08x", inode->odi.i_ctime);
+  log_debug("inode->odi.i_mtime  = %08x", inode->odi.i_mtime);
+  log_debug("inode->odi.i_gid    = %08x", inode->odi.i_gid);
+  log_debug("inode->odi.i_blocks = %08x", inode->odi.i_blocks);
+  log_debug("inode->odi.i_flags  = %08x", inode->odi.i_flags);
 }
 
 
@@ -272,15 +276,16 @@ void write_inode(struct inode *inode)
 {
   struct buf *bp;
   struct group_desc *gd;
-  struct inode *dir_inode;
+  struct ondisk_inode *disk_inode;
   uint32_t block_group_number;
   block_t b, offset;
 
+	
   block_group_number = (inode->i_ino - 1) / superblock.s_inodes_per_group;
   gd = get_group_desc(block_group_number);
 
   if (gd == NULL) {
-  	panic("extfs: can't get group_desc to write inode");
+  	panic("can't get group_desc to write inode");
   }
   
   offset = ((inode->i_ino - 1) % superblock.s_inodes_per_group) * sb_inode_size;
@@ -289,17 +294,28 @@ void write_inode(struct inode *inode)
   bp = get_block(cache, b, BLK_READ);
 
   offset &= (sb_block_size - 1);
-  dir_inode = (struct inode*) (bp->data + offset);
+  disk_inode = (struct ondisk_inode*) ((uint8_t *)bp->data + offset);
 
   if (inode->i_update) {
 	  update_times(inode);
 	}
 
-  inode_copy(dir_inode, inode);
+  inode_copy(disk_inode, &inode->odi);
   	  
   if (config.read_only == false) {
 	  block_markdirty(bp);
 	}
+  log_debug("inode nr        = %d", inode->i_ino);
+  log_debug("inode->odi.i_links_count = %08x", inode->odi.i_links_count);
+  log_debug("inode->odi.i_mode   = %08x", inode->odi.i_mode);
+  log_debug("inode->odi.i_size   = %08x", inode->odi.i_size);
+  log_debug("inode->odi.i_uid    = %08x", inode->odi.i_uid);
+  log_debug("inode->odi.i_atime  = %08x", inode->odi.i_atime);
+  log_debug("inode->odi.i_ctime  = %08x", inode->odi.i_ctime);
+  log_debug("inode->odi.i_mtime  = %08x", inode->odi.i_mtime);
+  log_debug("inode->odi.i_gid    = %08x", inode->odi.i_gid);
+  log_debug("inode->odi.i_blocks = %08x", inode->odi.i_blocks);
+  log_debug("inode->odi.i_flags  = %08x", inode->odi.i_flags);
   
   put_block(cache, bp);
   inode_markclean(inode);
@@ -309,10 +325,10 @@ void write_inode(struct inode *inode)
 
 /* @brief   Copy on-disk inode structure in RAM and optionally swap bytes
  *
- * @param   inode, pointer to the in-core inode struct
- * @param   dir_inode, pointer to the on-disk struct
+ * @param   dst, pointer to inode to copy to
+ * @param   src, pointer to inode to copy from
  */
-void inode_copy(struct inode *dst, struct inode *src)
+void inode_copy(struct ondisk_inode *dst, struct ondisk_inode *src)
 {
   dst->i_mode         = bswap2(be_cpu, src->i_mode);
   dst->i_uid          = bswap2(be_cpu, src->i_uid);

@@ -31,31 +31,33 @@ int read_superblock(void)
 {
   int sz;
 
+	log_info("read_superblock()");
+	
   // Read 1024 bytes from disk into the ondisk_superblock
   lseek64(block_fd, SUPERBLOCK_OFFSET, SEEK_SET);
   sz = read(block_fd, &ondisk_superblock, SUPERBLOCK_SIZE);
 
   if (sz != SUPERBLOCK_SIZE) {
-    log_info("extfs: superblock read failed, sz:%d", sz);
+    log_info("superblock read failed, sz:%d", sz);
 	  return -EINVAL;
   }
 
   super_copy(&superblock, &ondisk_superblock);
 
   if (superblock.s_magic != SUPER_MAGIC) {
-  	log_error("extfs: superblock magic != SUPER_MAGIC");
+  	log_error("superblock magic != SUPER_MAGIC");
   	return -EINVAL;
   }
   
   sb_block_size = EXT2_MIN_BLOCK_SIZE * (1<<superblock.s_log_block_size);
 
   if ((sb_block_size % 512) != 0) {
-    log_error("extfs: block size is not a multiple of 512");
+    log_error("block size is not a multiple of 512");
   	return -EINVAL;
   }
   
   if (SUPERBLOCK_SIZE > sb_block_size) {
-  	log_error("extfs: superblock size is larger than block size");
+  	log_error("superblock size is larger than block size");
   	return -EINVAL;
   }
 
@@ -70,7 +72,7 @@ int read_superblock(void)
   }
 
   if ((sb_inode_size & (sb_inode_size - 1)) != 0 || sb_inode_size > sb_block_size) {
-	  log_error("extfs: inode size is incorrect");
+	  log_error("inode size is incorrect");
 	  return -EINVAL;
   }
 
@@ -79,7 +81,7 @@ int read_superblock(void)
   sb_inodes_per_block = sb_block_size / sb_inode_size;
 
   if (sb_inodes_per_block == 0 || superblock.s_inodes_per_group == 0) {
-	  log_error("extfs: either inodes_per_block or inodes_per_group count is 0");
+	  log_error("either inodes_per_block or inodes_per_group count is 0");
 	  return -EINVAL;
   }
 
@@ -89,21 +91,22 @@ int read_superblock(void)
   sb_group_desc_block_count = (sb_groups_count + sb_desc_per_block - 1) / sb_desc_per_block;
   sb_gdt_position = (superblock.s_first_data_block + 1) * sb_block_size;
 
-  log_info("extfs: sb_inode_table_blocks_per_group = %d", sb_inode_table_blocks_per_group);    
-  log_info("extfs: sb_desc_per_block = %d", sb_desc_per_block);    
-  log_info("extfs: sb_groups_count   = %d", sb_groups_count);  
-  log_info("extfs: sb_group_desc_block_count      = %d", sb_group_desc_block_count);  
-  log_info("extfs: sb_gdt_position   = %d (lower 32 bits)", (uint32_t)sb_gdt_position);  
-  log_info("extfs: sb_block_size  = %d ", (uint32_t)sb_block_size);  
+  log_info("sb_inodes_per_group = %u", superblock.s_inodes_per_group);
+  log_info("sb_inode_table_blocks_per_group = %u", sb_inode_table_blocks_per_group);    
+  log_info("sb_desc_per_block = %u", sb_desc_per_block);    
+  log_info("sb_groups_count   = %u", sb_groups_count);  
+  log_info("sb_group_desc_block_count      = %u", sb_group_desc_block_count);  
+  log_info("sb_gdt_position   = %u (lower 32 bits)", (uint32_t)sb_gdt_position);  
+  log_info("sb_block_size  = %u", (uint32_t)sb_block_size);  
   
   if(!(group_descs = virtualalloc(NULL, sb_groups_count * sizeof(struct group_desc), PROT_READWRITE))) {
-	  panic("extfs: can't allocate group desc array");
+	  panic("can't allocate group desc array");
   }
   
   ondisk_group_descs = virtualalloc(NULL, sb_groups_count * sizeof(struct group_desc), PROT_READWRITE);
 
   if (ondisk_group_descs == NULL) {
-	  panic("extfs: can't allocate group desc array");
+	  panic("can't allocate group desc array");
   }
   
   /* s_first_data_block (block number, where superblock is stored)
@@ -119,7 +122,7 @@ int read_superblock(void)
   sz = read(block_fd, (char *)ondisk_group_descs, sb_groups_count * sizeof(struct group_desc));
 
   if (sz != sb_groups_count * sizeof(struct group_desc)) {
-	  log_error("extfs: can not read group descriptors");
+	  log_error("can not read group descriptors");
 	  return -EINVAL;    
   }
   
@@ -127,7 +130,7 @@ int read_superblock(void)
 
   /* Make a few basic checks to see if super block looks reasonable. */
   if (superblock.s_inodes_count < 1 || superblock.s_blocks_count < 1) {
-	  log_error("extfs: not enough inodes or data blocks");
+	  log_error("not enough inodes or data blocks");
 	  return -EINVAL;
   }
 
@@ -149,7 +152,6 @@ int read_superblock(void)
 
 	log_info("***sb_out_range_s: %08x", (uint32_t)sb_out_range_s);
 
-  // sb_dev = ?????;   // FIXME: set dev major/minor number
   return 0;
 }
 
@@ -160,7 +162,9 @@ int read_superblock(void)
 void write_superblock(void)
 {
   int sz;
-    
+  
+  log_info("write_superblock()");
+  
   super_copy(&ondisk_superblock, &superblock);
 
   // Write 1024 bytes from the ondisk_superblock structure to disk
@@ -174,11 +178,13 @@ void write_superblock(void)
   if (sb_group_descriptors_dirty) {
     copy_group_descriptors(ondisk_group_descs, group_descs, sb_groups_count);
 
+		log_info("write group descriptors");
+
     lseek64(block_fd, sb_gdt_position, SEEK_SET);
     sz = write(block_fd, (char *)ondisk_group_descs, sb_groups_count * sizeof(struct group_desc));
 
     if (sz != sb_groups_count * sizeof(struct group_desc)) {
-	    panic("extfs: can not read group descriptors");
+	    panic("can not read group descriptors");
     }
 	  
 	  sb_group_descriptors_dirty = false;

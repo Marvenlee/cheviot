@@ -24,13 +24,14 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
 #include <sys/types.h>
 #include "sdcard.h"
 
 
 struct timer_wait {
-		struct timespec start_ts;
-    uint32_t timeout_nsec;
+		struct timespec expire_ts;
+    uint32_t timeout_usec;
 };
 
 

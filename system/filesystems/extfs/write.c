@@ -8,7 +8,7 @@
  *   December 2023 (Marven Gilhespie) 
  */
  
-#define LOG_LEVEL_INFO
+#define LOG_LEVEL_WARN
 
 #include "ext2.h"
 #include "globals.h"
@@ -31,16 +31,18 @@ ssize_t write_file(ino_t ino_nr, size_t nbytes, off64_t position)
   int sc;                 // result
 
   if ((inode = find_inode(ino_nr)) == NULL) {
+    log_error("write file to unknown inode");
   	return -EINVAL;
   }
   
-  file_size = inode->i_size;
+  file_size = inode->odi.i_size;
   
   if (file_size < 0) {
     file_size = MAX_FILE_POS;
   }
   
   if (position > (off_t) (sb_max_size - nbytes)) {
+    log_error("position out of bounds");
 	  return -EFBIG;
 	}
 
@@ -66,13 +68,14 @@ ssize_t write_file(ino_t ino_nr, size_t nbytes, off64_t position)
 	  position += chunk_size;
   }
 
-  if (S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode)) {
+  if (S_ISREG(inode->odi.i_mode) || S_ISDIR(inode->odi.i_mode)) {
 	  if (position > file_size) {
-	    inode->i_size = position;
+	    inode->odi.i_size = position;
 	  }
   }
 
   if (sc != 0) {
+    log_error("write file error:%d", sc);
   	return sc;
   }
   
@@ -111,7 +114,7 @@ int write_chunk(struct inode *inode, off64_t position, size_t off, size_t chunk_
   } else {
 	  if (chunk_size == sb_block_size) {
   	  buf = get_block(cache, block, BLK_CLEAR);
-	  } else if (off == 0 && position >= inode->i_size) {
+	  } else if (off == 0 && position >= inode->odi.i_size) {
   	  buf = get_block(cache, block, BLK_CLEAR);
 		} else {
   	  buf = get_block(cache, block, BLK_READ);

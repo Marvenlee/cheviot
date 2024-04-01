@@ -81,11 +81,8 @@ int close_vnode(struct Process *proc, int fd)
   
   vnode_lock(vnode);
   
-  
-  
-  
   if (vnode->reference_cnt == 1) {
-    // Do any special cleanup of file, dir, fifo ?
+    // FIXME: Do any special cleanup of file, dir, fifo ?
   }
 
   vnode_put(vnode);
@@ -121,27 +118,40 @@ struct VNode *vnode_new(struct SuperBlock *sb, int inode_nr)
   // TODO: Need to handle case if vnode is not in cache and no free slot availble,
   // release any existing vnode (remember to flush buf cache of file) and reuse it.    
 
-  vnode->busy = true;
-  
-  vnode->vnode_mounted_here = NULL;
-  vnode->vnode_covered = NULL;
-
-  vnode->reader_cnt = 0;
-  vnode->writer_cnt = 0;
-  
-  vnode->flags = 0;
-  vnode->superblock = sb;
-  vnode->inode_nr = inode_nr;
-  vnode->reference_cnt = 1;
   sb->reference_cnt++;
-  
-  LIST_INIT(&vnode->vnode_list);
-  LIST_INIT(&vnode->directory_list);
-  LIST_INIT(&vnode->knote_list);
   
   InitRendez(&vnode->rendez);
   
-  Info ("vnode_new = %08x", (uint32_t)vnode);
+  vnode->busy = true;
+  vnode->reader_cnt = 0;
+  vnode->writer_cnt = 0;
+
+  vnode->superblock = sb;
+  vnode->flags = 0;
+  vnode->reference_cnt = 1;
+    
+  vnode->vnode_mounted_here = NULL;
+  vnode->vnode_covered = NULL;
+  vnode->pipe = NULL;
+  
+  vnode->inode_nr = inode_nr;
+  
+  vnode->mode = 0;
+  vnode->uid = 9999;
+  vnode->gid = 9999;
+  vnode->size = 0;
+  vnode->atime = 0;
+  vnode->mtime = 0;
+  vnode->ctime = 0;
+  vnode->blocks = 0;
+  vnode->blksize = 512;  // default to 512
+  vnode->rdev = 0;   // FIXME: rdev
+  vnode->nlink = 0;  // hard links count
+    
+  LIST_INIT(&vnode->buf_list);
+  LIST_INIT(&vnode->vnode_list);
+  LIST_INIT(&vnode->directory_list);
+  LIST_INIT(&vnode->knote_list);
   
   return vnode;
 }
@@ -153,9 +163,10 @@ struct VNode *vnode_get(struct SuperBlock *sb, int inode_nr)
 {
   struct VNode *vnode;
 
-  Info ("vnode_get(sb:%08x, ino_nr:%d)",(uint32_t)sb, inode_nr);
-
-  while (1) {                       // FIXME: Why is a while loop needed ?
+  // FIXME: vnode_get, Why is a while loop needed ?  Were we going to wait for a vnode to be freed?
+  // FIXME: how does this compare to cache.c getblk
+  
+  while (1) {
     if (sb->flags & S_ABORT) {
       return NULL;
     }
@@ -165,7 +176,6 @@ struct VNode *vnode_get(struct SuperBlock *sb, int inode_nr)
       sb->reference_cnt++;
     
       while (vnode->busy) {
-        Info("vnode %08x busy, sleeping", (uint32_t)vnode);
         TaskSleep(&vnode->rendez);
       }
 
@@ -175,7 +185,6 @@ struct VNode *vnode_get(struct SuperBlock *sb, int inode_nr)
         LIST_REM_ENTRY(&vnode_free_list, vnode, vnode_entry);
       }
 
-      Info ("vnode_get retval: %08x", (uint32_t)vnode);
       return vnode;
     
     } else {

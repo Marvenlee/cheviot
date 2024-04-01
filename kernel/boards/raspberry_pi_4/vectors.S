@@ -187,6 +187,7 @@ syscall_table:
 
 		.long sys_clock_settime							// 98
 
+		.long sys_bdflush										// 99
 
     // .long sys_sigreturn
 
@@ -223,7 +224,7 @@ syscall_table:
     
     
 #define UNKNOWN_SYSCALL             0
-#define MAX_SYSCALL                 98
+#define MAX_SYSCALL                 99
 
 
 // @brief   System call entry point

@@ -47,8 +47,6 @@ struct SuperBlock pipe_sb;
 /*
  * VFS file cache
  */ 
-struct Process *bdflush_process; 
- 
 int max_buf;
 struct Buf *buf_table;
 
@@ -83,7 +81,6 @@ knote_list_t knote_hash[KNOTE_HASH_SZ];
  */
 struct VNode *logger_vnode = NULL;
 
-superblock_list_t writable_filesystem_list;
 
 
 

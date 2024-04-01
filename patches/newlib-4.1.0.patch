@@ -1,6 +1,6 @@
 diff -aurN third_party_original/newlib-4.1.0/configure third_party/newlib-4.1.0/configure
 --- third_party_original/newlib-4.1.0/configure	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/configure	2024-03-17 17:47:03.827202561 +0000
++++ third_party/newlib-4.1.0/configure	2024-04-01 17:55:03.258448215 +0100
 @@ -3620,6 +3620,9 @@
  
  # Disable newlib and libgloss for various target OSes.
@@ -13,7 +13,7 @@ diff -aurN third_party_original/newlib-4.1.0/configure third_party/newlib-4.1.0/
      ;;
 diff -aurN third_party_original/newlib-4.1.0/configure.ac third_party/newlib-4.1.0/configure.ac
 --- third_party_original/newlib-4.1.0/configure.ac	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/configure.ac	2024-03-17 17:47:03.839202792 +0000
++++ third_party/newlib-4.1.0/configure.ac	2024-04-01 17:55:03.266448347 +0100
 @@ -956,6 +956,9 @@
  
  # Disable newlib and libgloss for various target OSes.
@@ -26,7 +26,7 @@ diff -aurN third_party_original/newlib-4.1.0/configure.ac third_party/newlib-4.1
      ;;
 diff -aurN third_party_original/newlib-4.1.0/newlib/configure.host third_party/newlib-4.1.0/newlib/configure.host
 --- third_party_original/newlib-4.1.0/newlib/configure.host	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/configure.host	2024-03-17 17:47:03.723200552 +0000
++++ third_party/newlib-4.1.0/newlib/configure.host	2024-04-01 17:55:03.194447160 +0100
 @@ -471,11 +471,11 @@
  	have_crt0="no"
  	;;
@@ -54,7 +54,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/configure.host third_party/n
  # ARM_RDI_MONITOR selects the Angel monitor.
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/stdlib/mallocr.c third_party/newlib-4.1.0/newlib/libc/stdlib/mallocr.c
 --- third_party_original/newlib-4.1.0/newlib/libc/stdlib/mallocr.c	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/stdlib/mallocr.c	2024-03-17 17:47:03.451195299 +0000
++++ third_party/newlib-4.1.0/newlib/libc/stdlib/mallocr.c	2024-04-01 17:55:03.158446566 +0100
 @@ -610,7 +610,7 @@
  */
  
@@ -66,7 +66,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/stdlib/mallocr.c third_
  /*
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/access.c third_party/newlib-4.1.0/newlib/libc/sys/arm/access.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/access.c	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/access.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/access.c	2024-04-01 17:55:03.130446104 +0100
 @@ -1,33 +1,36 @@
 -/* This is file ACCESS.C */
 +#include <_ansi.h>
@@ -132,7 +132,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/access.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/acconfig.h third_party/newlib-4.1.0/newlib/libc/sys/arm/acconfig.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/acconfig.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/acconfig.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/acconfig.h	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,26 @@
 +/* Name of package.  */
 +#undef PACKAGE
@@ -162,7 +162,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/acconfig.h thir
 +#undef __SYMBOL_PREFIX
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/aclocal.m4 third_party/newlib-4.1.0/newlib/libc/sys/arm/aclocal.m4
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/aclocal.m4	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/aclocal.m4	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/aclocal.m4	2024-04-01 17:55:03.130446104 +0100
 @@ -1,4 +1,4 @@
 -# generated automatically by aclocal 1.11.6 -*- Autoconf -*-
 +# generated automatically by aclocal 1.12 -*- Autoconf -*-
@@ -908,7 +908,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/aeabi_atexit.c 
 -}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/alarm.c third_party/newlib-4.1.0/newlib/libc/sys/arm/alarm.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/alarm.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/alarm.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/alarm.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,15 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -927,7 +927,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/alarm.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/arm.h third_party/newlib-4.1.0/newlib/libc/sys/arm/arm.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/arm.h	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/arm.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/arm.h	2024-04-01 17:55:03.126446038 +0100
 @@ -29,27 +29,25 @@
  #ifndef _LIBGLOSS_ARM_H
  #define _LIBGLOSS_ARM_H
@@ -1004,9 +1004,39 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/arm.h third_par
 -#define CPSR_M_MASK			0x0F	/* Mode mask except M[4].  */
 -
  #endif /* _LIBGLOSS_ARM_H */
+diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/bdflush.c third_party/newlib-4.1.0/newlib/libc/sys/arm/bdflush.c
+--- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/bdflush.c	1970-01-01 01:00:00.000000000 +0100
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/bdflush.c	2024-04-01 17:55:03.130446104 +0100
+@@ -0,0 +1,26 @@
++#include <_ansi.h>
++#include <_syslist.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <sys/stat.h>
++#include <sys/syscalls.h>
++
++
++/* @brief Truncate an already open file
++ *
++ */
++int bdflush(int fd)
++{
++    int sc;
++    
++    sc = _swi_bdflush(fd);
++    
++    if (sc < 0) {
++        errno = -sc;
++        return -1;
++    }
++    
++    return 0;
++}
++
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/chmod.c third_party/newlib-4.1.0/newlib/libc/sys/arm/chmod.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/chmod.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/chmod.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/chmod.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,79 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -1037,7 +1067,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/chmod.c third_p
 +/*
 + *
 + */
-+int chown (const char *__path, uid_t __owner, gid_t __group )
++int chown(const char *__path, uid_t __owner, gid_t __group )
 +{
 +  int sc;
 +  
@@ -1087,9 +1117,97 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/chmod.c third_p
 +  return sc;
 +}
 +
+diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/clock.c third_party/newlib-4.1.0/newlib/libc/sys/arm/clock.c
+--- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/clock.c	1970-01-01 01:00:00.000000000 +0100
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/clock.c	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,84 @@
++#include <_ansi.h>
++#include <_syslist.h>
++#include <sys/time.h>
++#include <sys/times.h>
++#include <sys/syscalls.h>
++#include <utime.h>
++#include <errno.h>
++
++
++/*
++ *
++ */
++int clock_gettime(clockid_t clk_id, struct timespec *tp)
++{
++  int sc;
++  
++  sc = _swi_clock_gettime(clk_id, tp);
++
++  if (sc < 0) {
++    errno = -sc;
++    return -1;
++  }
++
++  return sc;
++}
++
++
++/*
++ *
++ */
++int clock_settime(clockid_t clk_id, const struct timespec *tp)
++{
++  int sc;
++  
++  sc = _swi_clock_settime(clk_id, tp);
++
++  if (sc < 0) {
++    errno = -sc;
++    return -1;
++  }
++
++  return sc;
++}
++
++
++/* @brief		Helper function to subtract time t2 from time t1
++ *
++ * @return	1 if t2 is after or equal to t1, else return 0.
++ */
++int diff_timespec(struct timespec *result, struct timespec *t2, struct timespec *t1)
++{
++  result->tv_nsec = t2->tv_nsec - t1->tv_nsec;
++  result->tv_sec  = t2->tv_sec - t1->tv_sec;
++
++  if (result->tv_sec > 0 && result->tv_nsec < 0)
++  {
++      result->tv_nsec += 1000000000;
++      result->tv_sec--;
++  }
++  else if (result->tv_sec < 0 && result->tv_nsec > 0)
++  {
++      result->tv_nsec -= 1000000000;
++      result->tv_sec++;
++  }
++
++  return (result->tv_sec >= 0 && result->tv_nsec >= 0) ? 1 : 0;
++}
++
++
++/* @brief		Helper function to add t2 to t1
++ *
++ */
++void add_timespec(struct timespec *result, struct timespec *t2, struct timespec *t1)
++{
++  result->tv_sec = t2->tv_sec + t1->tv_sec;
++  result->tv_nsec = t2->tv_nsec + t1->tv_nsec;
++  
++  if (result->tv_nsec >= 1000000000) {
++    result->tv_nsec -= 1000000000;
++    result->tv_sec++;
++  }
++}
++
++
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/close.c third_party/newlib-4.1.0/newlib/libc/sys/arm/close.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/close.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/close.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/close.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,23 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -1116,7 +1234,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/close.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/closedir.c third_party/newlib-4.1.0/newlib/libc/sys/arm/closedir.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/closedir.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/closedir.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/closedir.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,32 @@
 +#include <sys/types.h>
 +#include <dirent.h>
@@ -1152,7 +1270,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/closedir.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure third_party/newlib-4.1.0/newlib/libc/sys/arm/configure
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure	2024-04-01 17:55:03.126446038 +0100
 @@ -89,7 +89,6 @@
  IFS=" ""	$as_nl"
  
@@ -2570,7 +2688,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure third
    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.in third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.in
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.in	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.in	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.in	2024-04-01 17:55:03.126446038 +0100
 @@ -3,7 +3,7 @@
  
  AC_PREREQ(2.59)
@@ -2582,7 +2700,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.in th
  AC_CONFIG_AUX_DIR(../../../..)
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.orig third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.orig
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.orig	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.orig	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.orig	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,4766 @@
 +#! /bin/sh
 +# Guess values for system-dependent variables and create Makefiles.
@@ -7352,7 +7470,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.orig 
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.rej third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.rej
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.rej	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.rej	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/configure.rej	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,65 @@
 +--- newlib/libc/sys/arm/configure	2020-01-02 19:56:24.000000000 +0000
 ++++ newlib/libc/sys/arm/configure	2022-06-29 14:50:02.721940993 +0100
@@ -7421,7 +7539,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/configure.rej t
 + 
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/creat.c third_party/newlib-4.1.0/newlib/libc/sys/arm/creat.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/creat.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/creat.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/creat.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,12 @@
 +#include <fcntl.h>
 +#include <sys/syscalls.h>
@@ -7437,7 +7555,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/creat.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/crt0.S third_party/newlib-4.1.0/newlib/libc/sys/arm/crt0.S
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/crt0.S	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/crt0.S	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/crt0.S	2024-04-01 17:55:03.130446104 +0100
 @@ -1,6 +1,7 @@
  #include "newlib.h"
  #include "arm.h"
@@ -8086,7 +8204,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/crt0.S third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/debug.c third_party/newlib-4.1.0/newlib/libc/sys/arm/debug.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/debug.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/debug.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/debug.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,31 @@
 +#include <stdio.h>
 +#include <stdlib.h>
@@ -8121,7 +8239,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/debug.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dir.c third_party/newlib-4.1.0/newlib/libc/sys/arm/dir.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dir.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/dir.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/dir.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,104 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -8229,7 +8347,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dir.c third_par
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dirname.c third_party/newlib-4.1.0/newlib/libc/sys/arm/dirname.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dirname.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/dirname.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/dirname.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,37 @@
 +#ifndef _NO_DIRNAME
 +
@@ -8270,7 +8388,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dirname.c third
 +#endif /* !_NO_DIRNAME  */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dup.c third_party/newlib-4.1.0/newlib/libc/sys/arm/dup.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dup.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/dup.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/dup.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,37 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -8311,7 +8429,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/dup.c third_par
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/environ.c third_party/newlib-4.1.0/newlib/libc/sys/arm/environ.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/environ.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/environ.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/environ.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,9 @@
 +/*
 + * Version of environ for no OS.
@@ -8324,7 +8442,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/environ.c third
 +int __envc = 0;
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/err.c third_party/newlib-4.1.0/newlib/libc/sys/arm/err.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/err.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/err.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/err.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,7 @@
 +
 +void err (int c, char *str)
@@ -8335,7 +8453,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/err.c third_par
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/errx.c third_party/newlib-4.1.0/newlib/libc/sys/arm/errx.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/errx.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/errx.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/errx.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,63 @@
 +/*	$NetBSD: errx.c,v 1.14 2007/06/18 14:13:54 ginsbach Exp $	*/
 +
@@ -8402,7 +8520,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/errx.c third_pa
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execl.c third_party/newlib-4.1.0/newlib/libc/sys/arm/execl.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execl.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execl.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execl.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,34 @@
 +/* execl.c */
 +
@@ -8440,7 +8558,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execl.c third_p
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execle.c third_party/newlib-4.1.0/newlib/libc/sys/arm/execle.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execle.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execle.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execle.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,33 @@
 +/* execle.c */
 +
@@ -8477,7 +8595,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execle.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execlp.c third_party/newlib-4.1.0/newlib/libc/sys/arm/execlp.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execlp.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execlp.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execlp.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,31 @@
 +/* execlp.c */
 +
@@ -8512,7 +8630,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execlp.c third_
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execv.c third_party/newlib-4.1.0/newlib/libc/sys/arm/execv.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execv.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execv.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execv.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,17 @@
 +#include <_ansi.h>
 +#include <unistd.h>
@@ -8533,7 +8651,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execv.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execve.c third_party/newlib-4.1.0/newlib/libc/sys/arm/execve.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execve.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execve.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execve.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,43 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -8580,7 +8698,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execve.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execvp.c third_party/newlib-4.1.0/newlib/libc/sys/arm/execvp.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execvp.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execvp.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/execvp.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,68 @@
 +/* execvp.c */
 +
@@ -8652,7 +8770,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/execvp.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/_exit.c third_party/newlib-4.1.0/newlib/libc/sys/arm/_exit.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/_exit.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/_exit.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/_exit.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,20 @@
 +#include <limits.h>
 +#include <_ansi.h>
@@ -8676,7 +8794,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/_exit.c third_p
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/expand_number.c third_party/newlib-4.1.0/newlib/libc/sys/arm/expand_number.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/expand_number.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/expand_number.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/expand_number.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,94 @@
 +/*-
 + * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -8774,7 +8892,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/expand_number.c
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fcntl.c third_party/newlib-4.1.0/newlib/libc/sys/arm/fcntl.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fcntl.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fcntl.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fcntl.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,55 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -8833,7 +8951,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fcntl.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fnmatch.c third_party/newlib-4.1.0/newlib/libc/sys/arm/fnmatch.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fnmatch.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fnmatch.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fnmatch.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,222 @@
 +/*	$NetBSD: fnmatch.c,v 1.26 2014/10/12 22:32:33 christos Exp $	*/
 +
@@ -9059,7 +9177,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fnmatch.c third
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fork.c third_party/newlib-4.1.0/newlib/libc/sys/arm/fork.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fork.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fork.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fork.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,23 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -9086,7 +9204,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fork.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/format.c third_party/newlib-4.1.0/newlib/libc/sys/arm/format.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/format.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/format.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/format.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,16 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -9106,7 +9224,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/format.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fstat.c third_party/newlib-4.1.0/newlib/libc/sys/arm/fstat.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fstat.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fstat.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/fstat.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,11 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -9121,7 +9239,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/fstat.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getbsize.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getbsize.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getbsize.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getbsize.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getbsize.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,106 @@
 +/*-
 + * SPDX-License-Identifier: BSD-3-Clause
@@ -9231,7 +9349,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getbsize.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getentropy.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getentropy.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getentropy.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getentropy.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getentropy.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,27 @@
 +#include <errno.h>
 +#include <fcntl.h>
@@ -9262,7 +9380,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getentropy.c th
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgrent.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getgrent.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgrent.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getgrent.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getgrent.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,1976 @@
 +/*	$NetBSD: getgrent.c,v 1.67 2012/08/29 18:50:35 dholland Exp $	*/
 +
@@ -11242,7 +11360,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgrent.c thir
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgrouplist.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getgrouplist.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgrouplist.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getgrouplist.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getgrouplist.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,70 @@
 +/*	$NetBSD: getgrouplist.c,v 1.22 2008/04/28 20:22:59 martin Exp $	*/
 +
@@ -11316,7 +11434,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgrouplist.c 
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgroupmembership.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getgroupmembership.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgroupmembership.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getgroupmembership.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getgroupmembership.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,406 @@
 +/*	$NetBSD: getgroupmembership.c,v 1.4 2008/04/28 20:22:59 martin Exp $	*/
 +
@@ -11726,7 +11844,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getgroupmembers
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/gethostname.c third_party/newlib-4.1.0/newlib/libc/sys/arm/gethostname.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/gethostname.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/gethostname.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/gethostname.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,62 @@
 +/*	$NetBSD: gethostname.c,v 1.13 2012/06/25 22:32:43 abs Exp $	*/
 +
@@ -11792,7 +11910,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/gethostname.c t
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/__getlogin.c third_party/newlib-4.1.0/newlib/libc/sys/arm/__getlogin.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/__getlogin.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/__getlogin.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/__getlogin.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,29 @@
 +/*  getlogin(3)
 + *
@@ -11825,7 +11943,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/__getlogin.c th
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getlogin.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getlogin.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getlogin.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getlogin.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getlogin.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,138 @@
 +/*	$NetBSD: getlogin.c,v 1.15 2009/01/11 02:46:27 christos Exp $	*/
 +
@@ -11967,7 +12085,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getlogin.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getnetgrent.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getnetgrent.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getnetgrent.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getnetgrent.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getnetgrent.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,990 @@
 +/*	$NetBSD: getnetgrent.c,v 1.42 2012/03/20 16:36:05 matt Exp $	*/
 +
@@ -12961,7 +13079,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getnetgrent.c t
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpass.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getpass.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpass.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getpass.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getpass.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,364 @@
 +/*	$NetBSD: getpass.c,v 1.29 2014/09/18 13:58:20 christos Exp $	*/
 +
@@ -13329,7 +13447,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpass.c third
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpid.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getpid.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpid.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getpid.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getpid.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,33 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -13366,7 +13484,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpid.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getprogname.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getprogname.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getprogname.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getprogname.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getprogname.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,57 @@
 +/* $NetBSD: getprogname.c,v 1.4 2011/10/06 20:31:41 christos Exp $ */
 +
@@ -13427,7 +13545,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getprogname.c t
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpwent.c third_party/newlib-4.1.0/newlib/libc/sys/arm/getpwent.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpwent.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getpwent.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/getpwent.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,2628 @@
 +/*	$NetBSD: getpwent.c,v 1.81 2012/09/08 15:15:06 dholland Exp $	*/
 +
@@ -16059,7 +16177,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/getpwent.c thir
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/gettod.c third_party/newlib-4.1.0/newlib/libc/sys/arm/gettod.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/gettod.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/gettod.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/gettod.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,48 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -16111,7 +16229,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/gettod.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/heapsort.c third_party/newlib-4.1.0/newlib/libc/sys/arm/heapsort.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/heapsort.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/heapsort.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/heapsort.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,202 @@
 +/*-
 + * SPDX-License-Identifier: BSD-3-Clause
@@ -16317,7 +16435,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/heapsort.c thir
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/humanize_number.c third_party/newlib-4.1.0/newlib/libc/sys/arm/humanize_number.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/humanize_number.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/humanize_number.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/humanize_number.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,183 @@
 +/*	$NetBSD: humanize_number.c,v 1.14 2008/04/28 20:22:59 martin Exp $	*/
 +
@@ -16504,7 +16622,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/humanize_number
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/id.c third_party/newlib-4.1.0/newlib/libc/sys/arm/id.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/id.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/id.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/id.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,190 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -16698,7 +16816,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/id.c third_part
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/assert.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/assert.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/assert.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/assert.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/assert.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,54 @@
 +/*
 +	assert.h
@@ -16756,7 +16874,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/assert.
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/btree.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/btree.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/btree.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/btree.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/btree.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,433 @@
 +/*	$NetBSD: btree.h,v 1.17 2013/09/04 13:03:22 ryoon Exp $	*/
 +
@@ -17193,7 +17311,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/btree.h
 +#include "btree_extern.h"
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/compat.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/compat.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/compat.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/compat.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/compat.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,113 @@
 +/*
 + * Copyright (c) 2021 David Cantrell <david.l.cantrell@gmail.com>
@@ -17310,7 +17428,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/compat.
 +#endif /* _COMPAT_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/crypt.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/crypt.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/crypt.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/crypt.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/crypt.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,19 @@
 +/*
 + * $NetBSD: crypt.h,v 1.4 2006/10/27 18:22:56 drochner Exp $
@@ -17333,7 +17451,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/crypt.h
 +#define SHA1_SIZE 20
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/db.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/db.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/db.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/db.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/db.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,234 @@
 +/*	$NetBSD: db.h,v 1.26 2013/12/01 00:23:11 christos Exp $	*/
 +
@@ -17571,7 +17689,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/db.h th
 +#endif /* !_DB_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/err.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/err.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/err.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/err.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/err.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,64 @@
 +/*	$NetBSD: err.h,v 1.17 2014/01/16 17:22:06 christos Exp $	*/
 +
@@ -17639,7 +17757,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/err.h t
 +#endif /* !_ERR_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/extern.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/extern.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/extern.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/extern.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/extern.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,83 @@
 +/*	$NetBSD: extern.h,v 1.23 2013/08/19 13:03:12 joerg Exp $	*/
 +
@@ -17726,7 +17844,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/extern.
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/fnmatch.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/fnmatch.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/fnmatch.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/fnmatch.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/fnmatch.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,57 @@
 +/*-
 + * Copyright (c) 1992, 1993
@@ -17787,7 +17905,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/fnmatch
 +#endif /* !_FNMATCH_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/gr_private.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/gr_private.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/gr_private.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/gr_private.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/gr_private.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,114 @@
 +/*	$NetBSD: gr_private.h,v 1.2 2008/04/28 20:22:59 martin Exp $	*/
 +
@@ -17905,7 +18023,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/gr_priv
 +			int (*)(void *, struct group **), void *);
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/limits.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/limits.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/limits.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/limits.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/limits.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,173 @@
 +/*
 + *  This file lists the minimums for the limits set by each of
@@ -18082,8 +18200,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/limits.
 +/* end of include file */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.h	2024-03-17 17:47:03.411194527 +0000
-@@ -0,0 +1,167 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.h	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,56 @@
 +#ifndef	_MNTENT_H
 +#define	_MNTENT_H
 +
@@ -18094,101 +18212,6 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.
 +#include <stdio.h>
 +#include <paths.h>
 +
-+#if 0
-+#define	MNTTYPE_ZFS			"zfs"		/* ZFS file system */
-+#define	MNTTYPE_UFS			"ufs"		/* Unix file system */
-+#define	MNTTYPE_NFS			"nfs"		/* NFS file system */
-+#define	MNTTYPE_NFS3		"nfs3"		/* NFS Version 3 file system */
-+#define	MNTTYPE_NFS4		"nfs4"		/* NFS Version 4 file system */
-+#define	MNTTYPE_CACHEFS		"cachefs"	/* Cache File System */
-+#define	MNTTYPE_PCFS		"pcfs"		/* PC (MSDOS) file system */
-+#define	MNTTYPE_PC	MNTTYPE_PCFS		/* Deprecated name; use MNTTYPE_PCFS */
-+#define	MNTTYPE_LOFS		"lofs"		/* Loop back file system */
-+#define	MNTTYPE_LO	MNTTYPE_LOFS		/* Deprecated name; use MNTTYPE_LOFS */
-+#define	MNTTYPE_HSFS		"hsfs"		/* High Sierra (9660) file system */
-+#define	MNTTYPE_SWAP		"swap"		/* Swap file system */
-+#define	MNTTYPE_TMPFS		"tmpfs"		/* Tmp volatile file system */
-+#define	MNTTYPE_AUTOFS		"autofs"	/* Automounter ``file'' system */
-+#define	MNTTYPE_MNTFS		"mntfs"		/* In-kernel mnttab */
-+#define	MNTTYPE_XMEMFS		"xmemfs"	/* Extended memory FS, IA32 only */
-+#define	MNTTYPE_DEV			"dev"		/* /dev file system */
-+#define	MNTTYPE_CTFS		"ctfs"		/* Contract file system */
-+#define	MNTTYPE_OBJFS		"objfs"		/* Kernel object file system */
-+
-+#define	MNTOPT_RO			"ro"		/* Read only */
-+#define	MNTOPT_RW			"rw"		/* Read/write */
-+#define	MNTOPT_RQ			"rq"		/* Read/write with quotas */
-+#define	MNTOPT_QUOTA		"quota"		/* Check quotas */
-+#define	MNTOPT_NOQUOTA		"noquota"	/* Don't check quotas */
-+#define	MNTOPT_ONERROR		"onerror"	/* action to taken on error */
-+#define	MNTOPT_SOFT			"soft"		/* Soft mount */
-+#define	MNTOPT_SEMISOFT		"semisoft"	/* partial soft, uncommited interface */
-+#define	MNTOPT_HARD			"hard"		/* Hard mount */
-+#define	MNTOPT_SUID			"suid"		/* Both setuid and devices allowed */
-+#define	MNTOPT_NOSUID		"nosuid"	/* Neither setuid nor devices allowed */
-+#define	MNTOPT_DEVICES		"devices"	/* Device-special allowed */
-+#define	MNTOPT_NODEVICES	"nodevices"	/* Device-special disallowed */
-+#define	MNTOPT_SETUID		"setuid"	/* Set uid allowed */
-+#define	MNTOPT_NOSETUID		"nosetuid"	/* Set uid not allowed */
-+#define	MNTOPT_GRPID		"grpid"		/* SysV-compatible gid on create */
-+#define	MNTOPT_REMOUNT		"remount"	/* Change mount options */
-+#define	MNTOPT_NOSUB		"nosub"		/* Disallow mounts on subdirs */
-+#define	MNTOPT_MULTI		"multi"		/* Do multi-component lookup */
-+#define	MNTOPT_INTR			"intr"		/* Allow NFS ops to be interrupted */
-+#define	MNTOPT_NOINTR		"nointr"	/* Don't allow interrupted ops */
-+#define	MNTOPT_PORT			"port"		/* NFS server IP port number */
-+#define	MNTOPT_SECURE		"secure"	/* Secure (AUTH_DES) mounting */
-+#define	MNTOPT_RSIZE		"rsize"		/* Max NFS read size (bytes) */
-+#define	MNTOPT_WSIZE		"wsize"		/* Max NFS write size (bytes) */
-+#define	MNTOPT_TIMEO		"timeo"		/* NFS timeout (1/10 sec) */
-+#define	MNTOPT_RETRANS		"retrans"	/* Max retransmissions (soft mnts) */
-+#define	MNTOPT_ACTIMEO		"actimeo"	/* Attr cache timeout (sec) */
-+#define	MNTOPT_ACREGMIN		"acregmin"	/* Min attr cache timeout (files) */
-+#define	MNTOPT_ACREGMAX		"acregmax"	/* Max attr cache timeout (files) */
-+#define	MNTOPT_ACDIRMIN		"acdirmin"	/* Min attr cache timeout (dirs) */
-+#define	MNTOPT_ACDIRMAX		"acdirmax"	/* Max attr cache timeout (dirs) */
-+#define	MNTOPT_NOAC			"noac"		/* Don't cache attributes at all */
-+#define	MNTOPT_NOCTO		"nocto"		/* No close-to-open consistency */
-+#define	MNTOPT_BG			"bg"		/* Do mount retries in background */
-+#define	MNTOPT_FG			"fg"		/* Do mount retries in foreground */
-+#define	MNTOPT_RETRY		"retry"		/* Number of mount retries */
-+#define	MNTOPT_DEV			"dev"		/* Device id of mounted fs */
-+#define	MNTOPT_POSIX		"posix"		/* Get static pathconf for mount */
-+#define	MNTOPT_MAP			"map"		/* Automount map */
-+#define	MNTOPT_DIRECT		"direct"	/* Automount   direct map mount */
-+#define	MNTOPT_INDIRECT		"indirect"	/* Automount indirect map mount */
-+#define	MNTOPT_LLOCK		"llock"		/* Local locking (no lock manager) */
-+#define	MNTOPT_IGNORE		"ignore"	/* Ignore this entry */
-+#define	MNTOPT_VERS			"vers"		/* protocol version number indicator */
-+#define	MNTOPT_PROTO		"proto"		/* protocol network_id indicator */
-+#define	MNTOPT_SEC			"sec"		/* Security flavor indicator */
-+#define	MNTOPT_SYNCDIR		"syncdir"	/* Synchronous local directory ops */
-+#define	MNTOPT_NOSETSEC		"nosec"		/* Do no allow setting sec attrs */
-+#define	MNTOPT_NOPRINT		"noprint"	/* Do not print messages */
-+#define	MNTOPT_LARGEFILES 	"largefiles"		/* allow large files */
-+#define	MNTOPT_NOLARGEFILES "nolargefiles" 		/* don't allow large files */
-+#define	MNTOPT_FORCEDIRECTIO 	"forcedirectio" /* Force DirectIO on all files */
-+#define	MNTOPT_NOFORCEDIRECTIO	"noforcedirectio" /* No Force DirectIO */
-+#define	MNTOPT_DISABLEDIRECTIO	"disabledirectio" /* Disable DirectIO ioctls */
-+#define	MNTOPT_PUBLIC		"public"	/* Use NFS public file handlee */
-+#define	MNTOPT_LOGGING 		"logging" 	/* enable logging */
-+#define	MNTOPT_NOLOGGING	"nologging"	/* disable logging */
-+#define	MNTOPT_ATIME		"atime"		/* update atime for files */
-+#define	MNTOPT_NOATIME 	 	"noatime"	/* do not update atime for files */
-+#define	MNTOPT_GLOBAL		"global"	/* Cluster-wide global mount */
-+#define	MNTOPT_NOGLOBAL		"noglobal"	/* Mount local to single node */
-+#define	MNTOPT_DFRATIME		"dfratime"	/* Deferred access time updates */
-+#define	MNTOPT_NODFRATIME 	"nodfratime"/* No Deferred access time updates */
-+#define	MNTOPT_NBMAND		"nbmand"	/* allow non-blocking mandatory locks */
-+#define	MNTOPT_NONBMAND		"nonbmand"	/* deny non-blocking mandatory locks */
-+#define	MNTOPT_XATTR		"xattr"		/* enable extended attributes */
-+#define	MNTOPT_NOXATTR		"noxattr"	/* disable extended attributes */
-+#define	MNTOPT_EXEC			"exec"		/* enable executables */
-+#define	MNTOPT_NOEXEC		"noexec"	/* disable executables */
-+#define	MNTOPT_RESTRICT		"restrict"	/* restricted autofs mount */
-+#define	MNTOPT_BROWSE		"browse"	/* browsable autofs mount */
-+#define	MNTOPT_NOBROWSE		"nobrowse"	/* non-browsable autofs mount */
-+#endif
 +
 +struct mntent
 +{
@@ -18201,18 +18224,11 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.
 +};
 +
 +
-+/* File listing canonical interesting mount points.  */
-+#define	MNTTAB		_PATH_MNTTAB	/* Deprecated alias.  */
-+
-+/* File listing currently active mount points.  */
-+#define	MOUNTED		_PATH_MOUNTED	/* Deprecated alias.  */
-+
-+
 +/* Generic mount options.  */
 +#define MNTOPT_DEFAULTS	"defaults"	/* Use all default options.  */
-+#define MNTOPT_RO	"ro"		/* Read only.  */
-+#define MNTOPT_RW	"rw"		/* Read/write.  */
-+#define MNTOPT_SUID	"suid"		/* Set uid allowed.  */
++#define MNTOPT_RO	"ro"          /* Read only.  */
++#define MNTOPT_RW	"rw"          /* Read/write.  */
++#define MNTOPT_SUID	"suid"      /* Set uid allowed.  */
 +#define MNTOPT_NOSUID	"nosuid"	/* No set uid allowed.  */
 +#define MNTOPT_NOAUTO	"noauto"	/* Do not auto mount.  */
 +
@@ -18222,18 +18238,9 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.
 +#define	VFSTAB		"/etc/vfstab"
 +#define	MNTMAXSTR	128
 +
-+#define MNTTYPE_IGNORE	"ignore"	/* Ignore this entry.  */
-+#define MNTTYPE_NFS	"nfs"		/* Network file system.  */
-+#define MNTTYPE_SWAP	"swap"		/* Swap device.  */
-+
-+
-+/* Generic mount options.  */
-+#define MNTOPT_DEFAULTS	"defaults"	/* Use all default options.  */
-+#define MNTOPT_RO	"ro"		/* Read only.  */
-+#define MNTOPT_RW	"rw"		/* Read/write.  */
-+#define MNTOPT_SUID	"suid"		/* Set uid allowed.  */
-+#define MNTOPT_NOSUID	"nosuid"	/* No set uid allowed.  */
-+#define MNTOPT_NOAUTO	"noauto"	/* Do not auto mount.  */
++#define MNTTYPE_IGNORE	"ignore"  /* Ignore this entry.  */
++#define MNTTYPE_NFS	"nfs"         /* Network file system.  */
++#define MNTTYPE_SWAP	"swap"      /* Swap device.  */
 +
 +
 +FILE *setmntent(const char *filename, const char *type);
@@ -18253,7 +18260,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mntent.
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mpool.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/mpool.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mpool.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/mpool.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/mpool.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,103 @@
 +/*	$NetBSD: mpool.h,v 1.14 2013/11/22 16:25:01 christos Exp $	*/
 +
@@ -18360,7 +18367,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/mpool.h
 +#endif /* _MPOOL_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/namespace.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/namespace.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/namespace.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/namespace.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/namespace.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,943 @@
 +/*	$NetBSD: namespace.h,v 1.179 2015/09/10 14:05:06 christos Exp $	*/
 +
@@ -19307,7 +19314,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/namespa
 +#endif /* _NAMESPACE_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/netdb.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/netdb.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/netdb.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/netdb.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/netdb.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,169 @@
 +/* 
 + */
@@ -19480,7 +19487,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/netdb.h
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/netgroup.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/netgroup.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/netgroup.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/netgroup.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/netgroup.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,71 @@
 +/*	$NetBSD: netgroup.h,v 1.10 2009/10/21 01:07:45 snj Exp $	*/
 +
@@ -19555,7 +19562,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/netgrou
 +#endif /* !_NETGROUP_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/nsswitch.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/nsswitch.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/nsswitch.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/nsswitch.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/nsswitch.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,230 @@
 +/*	$NetBSD: nsswitch.h,v 1.21 2011/07/17 20:54:34 joerg Exp $	*/
 +
@@ -19789,7 +19796,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/nsswitc
 +#endif /* !_NSSWITCH_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/paths.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/paths.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/paths.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/paths.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/paths.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,31 @@
 +#ifndef	_PATHS_H_
 +#define _PATHS_H_
@@ -19824,7 +19831,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/paths.h
 +#endif /* _PATHS_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/poll.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/poll.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/poll.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/poll.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/poll.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,30 @@
 +#ifndef _POLL_H
 +#define _POLL_H
@@ -19858,7 +19865,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/poll.h 
 +#endif 
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pwcache.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pwcache.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pwcache.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pwcache.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pwcache.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,72 @@
 +/*	$NetBSD: pwcache.h,v 1.5 2003/11/10 08:51:51 wiz Exp $	*/
 +
@@ -19934,7 +19941,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pwcache
 +} GIDC;
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pwd.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pwd.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pwd.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pwd.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pwd.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,117 @@
 +/*-
 + * Copyright (c) 1989 The Regents of the University of California.
@@ -20055,7 +20062,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pwd.h t
 +#endif /* _PWD_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pw_private.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pw_private.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pw_private.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pw_private.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/pw_private.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,8 @@
 +/*	$NetBSD: pw_private.h,v 1.3 2012/03/20 16:36:05 matt Exp $	*/
 +
@@ -20067,7 +20074,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/pw_priv
 +int	__pw_scan(char *bp, struct passwd *pw, int *flags);
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/recno.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/recno.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/recno.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/recno.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/recno.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,37 @@
 +/*	$NetBSD: recno.h,v 1.6 2003/08/07 16:42:44 agc Exp $	*/
 +
@@ -20108,7 +20115,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/recno.h
 +#include "extern.h"
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/reentrant.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/reentrant.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/reentrant.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/reentrant.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/reentrant.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,355 @@
 +/*	$NetBSD: reentrant.h,v 1.18 2015/01/20 18:31:25 christos Exp $	*/
 +
@@ -20467,7 +20474,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/reentra
 +#endif /* !defined(__cheviotos) || !defined(_LIBC_REENTRANT_H) */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/stringlist.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/stringlist.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/stringlist.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/stringlist.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/stringlist.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,54 @@
 +/*	$NetBSD: stringlist.h,v 1.7 2008/04/28 20:22:54 martin Exp $	*/
 +
@@ -20525,7 +20532,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/stringl
 +#endif /* _STRINGLIST_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/termios.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/termios.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/termios.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/termios.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/termios.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,11 @@
 +/* termios.h
 + */
@@ -20540,8 +20547,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/termios
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/time.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/time.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/time.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/time.h	2024-03-17 17:47:03.411194527 +0000
-@@ -0,0 +1,218 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/time.h	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,222 @@
 +/*
 + * time.h
 + * 
@@ -20698,6 +20705,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/time.h 
 +#endif
 +
 +#include <sys/features.h>
++#include <sys/types.h>
 +#include <signal.h>
 +
 +
@@ -20707,9 +20715,12 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/time.h 
 +extern "C" {
 +#endif
 +
-+int nanosleep (const struct timespec  *rqtp, struct timespec *rmtp);
++int clock_getres(clockid_t clk_id, struct timespec *res);
++int clock_gettime(clockid_t clk_id, struct timespec *tp);
++int clock_settime(clockid_t clk_id, const struct timespec *tp);
 +
-+int clock_nanosleep (clockid_t clock_id, int flags,
++int nanosleep(const struct timespec  *rqtp, struct timespec *rmtp);
++int clock_nanosleep(clockid_t clock_id, int flags,
 +	const struct timespec *rqtp, struct timespec *rmtp);
 +
 +/* CPU-time Clock Attributes, P1003.4b/D8, p. 54 */
@@ -20762,7 +20773,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/time.h 
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/ucontext.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/ucontext.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/ucontext.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/ucontext.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/ucontext.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,93 @@
 +#ifndef	_UCONTEXT_H
 +#define	_UCONTEXT_H
@@ -20859,7 +20870,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/ucontex
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/unistd.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/unistd.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/unistd.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/unistd.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/unistd.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,20 @@
 +#ifndef _UNISTD_H_
 +#define _UNISTD_H_
@@ -20883,7 +20894,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/unistd.
 +#endif /* _UNISTD_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/util.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/util.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/util.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/util.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/util.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,173 @@
 +/*	$NetBSD: util.h,v 1.68 2015/09/24 14:39:37 christos Exp $	*/
 +
@@ -21060,7 +21071,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/util.h 
 +#endif /* !_UTIL_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/utmp.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/utmp.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/utmp.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/utmp.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/utmp.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,72 @@
 +/*	$NetBSD: utmp.h,v 1.12 2009/01/11 03:04:12 christos Exp $	*/
 +
@@ -21136,7 +21147,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/utmp.h 
 +#endif /* !_UTMP_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/utmpx.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/utmpx.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/utmpx.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/utmpx.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/utmpx.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,159 @@
 +/*	$NetBSD: utmpx.h,v 1.17 2009/01/11 19:09:29 christos Exp $	 */
 +
@@ -21299,7 +21310,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/utmpx.h
 +#endif /* !_UTMPX_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/vis.h third_party/newlib-4.1.0/newlib/libc/sys/arm/include/vis.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/vis.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/vis.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/include/vis.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,122 @@
 +/*	$NetBSD: vis.h,v 1.25 2017/04/23 01:57:36 christos Exp $	*/
 +/*	$FreeBSD$	*/
@@ -21425,7 +21436,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/include/vis.h t
 +#endif /* !_VIS_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/initgroups.c third_party/newlib-4.1.0/newlib/libc/sys/arm/initgroups.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/initgroups.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/initgroups.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/initgroups.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,82 @@
 +/*	$NetBSD: initgroups.c,v 1.22 2012/06/25 22:32:43 abs Exp $	*/
 +
@@ -21511,7 +21522,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/initgroups.c th
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/interrupt.c third_party/newlib-4.1.0/newlib/libc/sys/arm/interrupt.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/interrupt.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/interrupt.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/interrupt.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,58 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -21573,7 +21584,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/interrupt.c thi
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/ioctl.c third_party/newlib-4.1.0/newlib/libc/sys/arm/ioctl.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/ioctl.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/ioctl.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/ioctl.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,27 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -21604,7 +21615,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/ioctl.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/kqueue.c third_party/newlib-4.1.0/newlib/libc/sys/arm/kqueue.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/kqueue.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/kqueue.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/kqueue.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,37 @@
 +#include <stdint.h>
 +#include <sys/event.h>
@@ -21664,7 +21675,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/libcfunc.c thir
 -}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/link.c third_party/newlib-4.1.0/newlib/libc/sys/arm/link.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/link.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/link.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/link.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,52 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -21720,7 +21731,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/link.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/lseek.c third_party/newlib-4.1.0/newlib/libc/sys/arm/lseek.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/lseek.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/lseek.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/lseek.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,41 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -21765,7 +21776,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/lseek.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/limits.h third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/limits.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/limits.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/limits.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/limits.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,6 @@
 +/*
 + *  $Id: limits.h,v 1.1 2002/11/07 19:27:36 jjohnstn Exp $
@@ -21775,7 +21786,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/limits.
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/param.h third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/param.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/param.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/param.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/param.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,92 @@
 +/*
 + *  $Id: param.h,v 1.1 2002/11/07 19:27:36 jjohnstn Exp $
@@ -21871,7 +21882,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/param.h
 +#endif /* !_MACHINE_PARAM_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/types.h third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/types.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/types.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/machine/types.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,32 @@
 +#ifndef	_MACHTYPES_H_
 +#define	_MACHTYPES_H_
@@ -21907,8 +21918,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/machine/types.h
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am third_party/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am	2024-03-17 17:47:03.407194450 +0000
-@@ -2,28 +2,120 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am	2024-04-01 17:55:03.126446038 +0100
+@@ -2,28 +2,123 @@
  
  AUTOMAKE_OPTIONS = cygnus
  
@@ -21933,7 +21944,9 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am thi
 +  _exit.c \
 +  access.c \
 +	alarm.c \
++	bdflush.c \
 +	chmod.c \
++	clock.c \
 +	close.c \
 +	closedir.c \
 +	creat.c \
@@ -21986,6 +21999,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am thi
 +	termios.c \
 +	time.c \
 +	times.c \
++	timespec.c \
 +	truncate.c \
 +	unlink.c \
 +	user_strerror.c \
@@ -22044,7 +22058,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.am thi
  CONFIG_STATUS_DEPENDENCIES = $(newlib_basedir)/configure.host
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in third_party/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in	2024-04-01 17:55:03.130446104 +0100
 @@ -1,4 +1,4 @@
 -# Makefile.in generated by automake 1.11.6 from Makefile.am.
 +# Makefile.in generated by automake 1.12 from Makefile.am.
@@ -22062,7 +22076,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
  am__aclocal_m4_deps = $(top_srcdir)/../../../acinclude.m4 \
  	$(top_srcdir)/configure.in
-@@ -68,9 +68,80 @@
+@@ -68,9 +68,84 @@
  LIBRARIES = $(noinst_LIBRARIES)
  ARFLAGS = cru
  lib_a_AR = $(AR) $(ARFLAGS)
@@ -22071,7 +22085,10 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 -am_lib_a_OBJECTS = lib_a-access.$(OBJEXT) lib_a-aeabi_atexit.$(OBJEXT)
 +lib_a_LIBADD =
 +am_lib_a_OBJECTS = lib_a-_exit.$(OBJEXT) lib_a-access.$(OBJEXT) \
-+	lib_a-alarm.$(OBJEXT) lib_a-chmod.$(OBJEXT) \
++	lib_a-alarm.$(OBJEXT) \
++	lib_a-bdflush.$(OBJEXT) \
++	lib_a-chmod.$(OBJEXT) \
++	lib_a-clock.$(OBJEXT) \
 +	lib_a-close.$(OBJEXT) lib_a-closedir.$(OBJEXT) \
 +	lib_a-creat.$(OBJEXT) lib_a-debug.$(OBJEXT) \
 +	lib_a-dir.$(OBJEXT) lib_a-dup.$(OBJEXT) \
@@ -22096,7 +22113,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 +	lib_a-stat.$(OBJEXT) lib_a-statvfs.$(OBJEXT) \
 +	lib_a-sync.$(OBJEXT) lib_a-sysconf.$(OBJEXT) \
 +	lib_a-termios.$(OBJEXT) lib_a-time.$(OBJEXT) \
-+	lib_a-times.$(OBJEXT) lib_a-truncate.$(OBJEXT) \
++	lib_a-times.$(OBJEXT) lib_a-timespec.$(OBJEXT) \
++	lib_a-truncate.$(OBJEXT) \
 +	lib_a-unlink.$(OBJEXT) lib_a-user_strerror.$(OBJEXT) \
 +	lib_a-virtualalloc.$(OBJEXT) lib_a-wait.$(OBJEXT) \
 +	lib_a-write.$(OBJEXT) \
@@ -22146,7 +22164,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  lib_a_OBJECTS = $(am_lib_a_OBJECTS)
  DEFAULT_INCLUDES = -I.@am__isrc@
  depcomp =
-@@ -81,7 +152,7 @@
+@@ -81,7 +156,7 @@
  	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
  CCLD = $(CC)
  LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -22155,7 +22173,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  am__can_run_installinfo = \
    case $$AM_UPDATE_INFO_DIR in \
      n|no|NO) false;; \
-@@ -89,6 +160,8 @@
+@@ -89,6 +164,8 @@
    esac
  ETAGS = etags
  CTAGS = ctags
@@ -22164,7 +22182,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  ACLOCAL = @ACLOCAL@
  AMTAR = @AMTAR@
  AR = @AR@
-@@ -193,15 +266,115 @@
+@@ -193,15 +270,118 @@
  top_builddir = @top_builddir@
  top_srcdir = @top_srcdir@
  AUTOMAKE_OPTIONS = cygnus
@@ -22181,8 +22199,10 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 +lib_a_SOURCES = \
 +  _exit.c \
 +  access.c \
++  bdflush.c \
 +	alarm.c \
 +	chmod.c \
++	clock.c \
 +	close.c \
 +	closedir.c \
 +	creat.c \
@@ -22236,6 +22256,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 +	termios.c \
 +	time.c \
 +	times.c \
++	timespec.c \
 +	truncate.c \
 +	unlink.c \
 +	user_strerror.c \
@@ -22287,7 +22308,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  lib_a_CCASFLAGS = $(AM_CCASFLAGS)
  lib_a_CFLAGS = $(AM_CFLAGS)
  ACLOCAL_AMFLAGS = -I ../../.. -I ../../../..
-@@ -264,11 +437,11 @@
+@@ -264,11 +444,11 @@
  .S.obj:
  	$(CPPASCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
  
@@ -22303,7 +22324,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  
  .c.o:
  	$(COMPILE) -c $<
-@@ -276,29 +449,614 @@
+@@ -276,29 +456,632 @@
  .c.obj:
  	$(COMPILE) -c `$(CYGPATH_W) '$<'`
  
@@ -22327,11 +22348,23 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 +lib_a-alarm.obj: alarm.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-alarm.obj `if test -f 'alarm.c'; then $(CYGPATH_W) 'alarm.c'; else $(CYGPATH_W) '$(srcdir)/alarm.c'; fi`
 +
++lib_a-bdflush.o: bdflush.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-bdflush.o `test -f 'bdflush.c' || echo '$(srcdir)/'`bdflush.c
++
++lib_a-bdflush.obj: bdflush.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-bdflush.obj `if test -f 'bdflush.c'; then $(CYGPATH_W) 'bdflush.c'; else $(CYGPATH_W) '$(srcdir)/bdflush.c'; fi`
++
 +lib_a-chmod.o: chmod.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-chmod.o `test -f 'chmod.c' || echo '$(srcdir)/'`chmod.c
 +
 +lib_a-chmod.obj: chmod.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-chmod.obj `if test -f 'chmod.c'; then $(CYGPATH_W) 'chmod.c'; else $(CYGPATH_W) '$(srcdir)/chmod.c'; fi`
++
++lib_a-clock.o: clock.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-clock.o `test -f 'clock.c' || echo '$(srcdir)/'`clock.c
++
++lib_a-clock.obj: clock.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-clock.obj `if test -f 'clock.c'; then $(CYGPATH_W) 'clock.c'; else $(CYGPATH_W) '$(srcdir)/clock.c'; fi`
 +
 +lib_a-close.o: close.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-close.o `test -f 'close.c' || echo '$(srcdir)/'`close.c
@@ -22611,27 +22644,27 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 +
 +lib_a-statvfs.o: statvfs.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-statvfs.o `test -f 'statvfs.c' || echo '$(srcdir)/'`statvfs.c
-+
-+lib_a-statvfs.obj: statvfs.c
-+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-statvfs.obj `if test -f 'statvfs.c'; then $(CYGPATH_W) 'statvfs.c'; else $(CYGPATH_W) '$(srcdir)/statvfs.c'; fi`
  
 -lib_a-aeabi_atexit.obj: aeabi_atexit.c
 -	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-aeabi_atexit.obj `if test -f 'aeabi_atexit.c'; then $(CYGPATH_W) 'aeabi_atexit.c'; else $(CYGPATH_W) '$(srcdir)/aeabi_atexit.c'; fi`
-+lib_a-sync.o: sync.c
-+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sync.o `test -f 'sync.c' || echo '$(srcdir)/'`sync.c
++lib_a-statvfs.obj: statvfs.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-statvfs.obj `if test -f 'statvfs.c'; then $(CYGPATH_W) 'statvfs.c'; else $(CYGPATH_W) '$(srcdir)/statvfs.c'; fi`
  
 -lib_a-syscalls.o: syscalls.c
 -	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-syscalls.o `test -f 'syscalls.c' || echo '$(srcdir)/'`syscalls.c
-+lib_a-sync.obj: sync.c
-+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sync.obj `if test -f 'sync.c'; then $(CYGPATH_W) 'sync.c'; else $(CYGPATH_W) '$(srcdir)/sync.c'; fi`
++lib_a-sync.o: sync.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sync.o `test -f 'sync.c' || echo '$(srcdir)/'`sync.c
  
 -lib_a-syscalls.obj: syscalls.c
 -	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-syscalls.obj `if test -f 'syscalls.c'; then $(CYGPATH_W) 'syscalls.c'; else $(CYGPATH_W) '$(srcdir)/syscalls.c'; fi`
-+lib_a-sysconf.o: sysconf.c
-+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sysconf.o `test -f 'sysconf.c' || echo '$(srcdir)/'`sysconf.c
++lib_a-sync.obj: sync.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sync.obj `if test -f 'sync.c'; then $(CYGPATH_W) 'sync.c'; else $(CYGPATH_W) '$(srcdir)/sync.c'; fi`
  
 -lib_a-libcfunc.o: libcfunc.c
 -	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-libcfunc.o `test -f 'libcfunc.c' || echo '$(srcdir)/'`libcfunc.c
++lib_a-sysconf.o: sysconf.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sysconf.o `test -f 'sysconf.c' || echo '$(srcdir)/'`sysconf.c
++
 +lib_a-sysconf.obj: sysconf.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sysconf.obj `if test -f 'sysconf.c'; then $(CYGPATH_W) 'sysconf.c'; else $(CYGPATH_W) '$(srcdir)/sysconf.c'; fi`
 +
@@ -22652,6 +22685,12 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
 +
 +lib_a-times.obj: times.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-times.obj `if test -f 'times.c'; then $(CYGPATH_W) 'times.c'; else $(CYGPATH_W) '$(srcdir)/times.c'; fi`
++
++lib_a-timespec.o: timespec.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-timespec.o `test -f 'timespec.c' || echo '$(srcdir)/'`timespec.c
++
++lib_a-timespec.obj: timespec.c
++	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-timespec.obj `if test -f 'timespec.c'; then $(CYGPATH_W) 'timespec.c'; else $(CYGPATH_W) '$(srcdir)/timespec.c'; fi`
 +
 +lib_a-truncate.o: truncate.c
 +	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-truncate.o `test -f 'truncate.c' || echo '$(srcdir)/'`truncate.c
@@ -22930,7 +22969,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  
  ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
  	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
-@@ -349,11 +1107,34 @@
+@@ -349,11 +1132,34 @@
  	  && $(am__cd) $(top_srcdir) \
  	  && gtags -i $(GTAGS_ARGS) "$$here"
  
@@ -22966,7 +23005,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  all-am: Makefile $(LIBRARIES) all-local
  installdirs:
  install: install-am
-@@ -459,20 +1240,20 @@
+@@ -459,20 +1265,20 @@
  .MAKE: install-am install-strip
  
  .PHONY: CTAGS GTAGS all all-am all-local am--refresh check check-am \
@@ -23001,7 +23040,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/Makefile.in thi
  # Otherwise a system limit (for SysV at least) may be exceeded.
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/malloc.c third_party/newlib-4.1.0/newlib/libc/sys/arm/malloc.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/malloc.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/malloc.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/malloc.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,6466 @@
 +/*
 +  This is a version (aka dlmalloc) of malloc/free/realloc written by
@@ -29471,7 +29510,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/malloc.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/merge.c third_party/newlib-4.1.0/newlib/libc/sys/arm/merge.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/merge.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/merge.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/merge.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,359 @@
 +/*-
 + * SPDX-License-Identifier: BSD-3-Clause
@@ -29834,7 +29873,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/merge.c third_p
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mknod.c third_party/newlib-4.1.0/newlib/libc/sys/arm/mknod.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mknod.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/mknod.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/mknod.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,36 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -29874,7 +29913,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mknod.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mntent.c third_party/newlib-4.1.0/newlib/libc/sys/arm/mntent.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mntent.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/mntent.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/mntent.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,56 @@
 +#include <stdio.h>
 +#include <mntent.h>
@@ -29934,7 +29973,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mntent.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mount.c third_party/newlib-4.1.0/newlib/libc/sys/arm/mount.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mount.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/mount.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/mount.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,93 @@
 +#include <_ansi.h>
 +#include <errno.h>
@@ -30031,7 +30070,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/mount.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/msg.c third_party/newlib-4.1.0/newlib/libc/sys/arm/msg.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/msg.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/msg.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/msg.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,94 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -30129,7 +30168,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/msg.c third_par
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/netinet/in.h third_party/newlib-4.1.0/newlib/libc/sys/arm/netinet/in.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/netinet/in.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/netinet/in.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/netinet/in.h	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,59 @@
 +/* 
 + */
@@ -30192,7 +30231,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/netinet/in.h th
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsdispatch.c third_party/newlib-4.1.0/newlib/libc/sys/arm/nsdispatch.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsdispatch.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsdispatch.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsdispatch.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,700 @@
 +/*	$NetBSD: nsdispatch.c,v 1.38 2014/09/18 13:58:20 christos Exp $	*/
 +
@@ -30896,7 +30935,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsdispatch.c th
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nslexer.c third_party/newlib-4.1.0/newlib/libc/sys/arm/nslexer.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nslexer.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nslexer.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nslexer.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,1910 @@
 +
 +#line 3 "nslexer.c"
@@ -32810,7 +32849,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nslexer.c third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nslexer.l.txt third_party/newlib-4.1.0/newlib/libc/sys/arm/nslexer.l.txt
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nslexer.l.txt	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nslexer.l.txt	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nslexer.l.txt	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,110 @@
 +%{
 +/*	$NetBSD: nslexer.l,v 1.13 2012/06/25 22:32:45 abs Exp $	*/
@@ -32924,7 +32963,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nslexer.l.txt t
 +} /* _nsyyerror */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.c third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,1458 @@
 +/* original parser id follows */
 +/* _nsyysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93" */
@@ -34386,7 +34425,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.c thir
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.h third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.h	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.h	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,25 @@
 +#ifndef _yy_defines_h_
 +#define _yy_defines_h_
@@ -34415,7 +34454,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.h thir
 +#endif /* _yy_defines_h_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.y.txt third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.y.txt
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.y.txt	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.y.txt	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/nsparser.y.txt	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,191 @@
 +%{
 +/*	$NetBSD: nsparser.y,v 1.12 2012/03/20 17:44:18 matt Exp $	*/
@@ -34610,7 +34649,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/nsparser.y.txt 
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/open.c third_party/newlib-4.1.0/newlib/libc/sys/arm/open.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/open.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/open.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/open.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,38 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -34652,7 +34691,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/open.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/opendir.c third_party/newlib-4.1.0/newlib/libc/sys/arm/opendir.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/opendir.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/opendir.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/opendir.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,54 @@
 +#include <sys/types.h>
 +#include <dirent.h>
@@ -34710,7 +34749,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/opendir.c third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pathconf.c third_party/newlib-4.1.0/newlib/libc/sys/arm/pathconf.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pathconf.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/pathconf.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/pathconf.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,21 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -34735,7 +34774,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pathconf.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pipe.c third_party/newlib-4.1.0/newlib/libc/sys/arm/pipe.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pipe.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/pipe.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/pipe.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,24 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -34763,7 +34802,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pipe.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/popen.c third_party/newlib-4.1.0/newlib/libc/sys/arm/popen.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/popen.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/popen.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/popen.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,28 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -34795,7 +34834,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/popen.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pwcache.c third_party/newlib-4.1.0/newlib/libc/sys/arm/pwcache.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pwcache.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/pwcache.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/pwcache.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,643 @@
 +/*	$NetBSD: pwcache.c,v 1.31 2010/03/23 20:28:59 drochner Exp $	*/
 +
@@ -35442,7 +35481,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/pwcache.c third
 +#endif	/* !HAVE_PWCACHE_USERDB */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/read.c third_party/newlib-4.1.0/newlib/libc/sys/arm/read.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/read.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/read.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/read.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,23 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -35469,7 +35508,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/read.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/readdir.c third_party/newlib-4.1.0/newlib/libc/sys/arm/readdir.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/readdir.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/readdir.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/readdir.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,50 @@
 +#include <sys/types.h>
 +#include <dirent.h>
@@ -35523,7 +35562,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/readdir.c third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/readme.txt third_party/newlib-4.1.0/newlib/libc/sys/arm/readme.txt
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/readme.txt	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/readme.txt	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/readme.txt	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,9 @@
 +
 +When adding files to this directory, add the name
@@ -35536,7 +35575,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/readme.txt thir
 +automake --cygnus --add-missing Makefile
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/reallocarray.c third_party/newlib-4.1.0/newlib/libc/sys/arm/reallocarray.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/reallocarray.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/reallocarray.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/reallocarray.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,52 @@
 +/*	$NetBSD: reallocarray.c,v 1.5 2015/07/26 02:22:33 kamil Exp $	*/
 +/*	$OpenBSD: reallocarray.c,v 1.1 2014/05/08 21:43:49 deraadt Exp $	*/
@@ -35592,7 +35631,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/reallocarray.c 
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/reallocarr.c third_party/newlib-4.1.0/newlib/libc/sys/arm/reallocarr.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/reallocarr.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/reallocarr.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/reallocarr.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,95 @@
 +/* $NetBSD: reallocarr.c,v 1.5 2015/08/20 22:27:49 kamil Exp $ */
 +
@@ -35691,7 +35730,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/reallocarr.c th
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/rename.c third_party/newlib-4.1.0/newlib/libc/sys/arm/rename.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/rename.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/rename.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/rename.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,26 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -35721,7 +35760,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/rename.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/resource.c third_party/newlib-4.1.0/newlib/libc/sys/arm/resource.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/resource.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/resource.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/resource.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,83 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -35808,7 +35847,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/resource.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/rewinddir.c third_party/newlib-4.1.0/newlib/libc/sys/arm/rewinddir.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/rewinddir.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/rewinddir.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/rewinddir.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,31 @@
 +#include <sys/types.h>
 +#include <dirent.h>
@@ -35843,7 +35882,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/rewinddir.c thi
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/select.c third_party/newlib-4.1.0/newlib/libc/sys/arm/select.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/select.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/select.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/select.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,48 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -35895,7 +35934,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/select.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/setmode.c third_party/newlib-4.1.0/newlib/libc/sys/arm/setmode.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/setmode.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/setmode.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/setmode.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,480 @@
 +/*-
 + * SPDX-License-Identifier: BSD-3-Clause
@@ -36379,7 +36418,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/setmode.c third
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/setproctitle.c third_party/newlib-4.1.0/newlib/libc/sys/arm/setproctitle.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/setproctitle.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/setproctitle.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/setproctitle.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,99 @@
 +/* $NetBSD: setproctitle.c,v 1.22 2008/01/03 04:26:27 christos Exp $ */
 +
@@ -36482,7 +36521,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/setproctitle.c 
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/siglist.c third_party/newlib-4.1.0/newlib/libc/sys/arm/siglist.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/siglist.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/siglist.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/siglist.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,114 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -36600,7 +36639,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/siglist.c third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/signal.c third_party/newlib-4.1.0/newlib/libc/sys/arm/signal.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/signal.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/signal.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/signal.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,131 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -36735,7 +36774,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/signal.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/signames.c third_party/newlib-4.1.0/newlib/libc/sys/arm/signames.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/signames.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/signames.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/signames.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,174 @@
 +/*
 + * No copyright is claimed.  This code is in the public domain; do with
@@ -36913,7 +36952,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/signames.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sigtramp.s third_party/newlib-4.1.0/newlib/libc/sys/arm/sigtramp.s
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sigtramp.s	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sigtramp.s	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sigtramp.s	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,66 @@
 +.global __kielder_sigtramp
 +.equ SF_SIGNUM,     0
@@ -36983,7 +37022,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sigtramp.s thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sleep.c third_party/newlib-4.1.0/newlib/libc/sys/arm/sleep.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sleep.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sleep.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sleep.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,43 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -37030,7 +37069,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sleep.c third_p
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/stat.c third_party/newlib-4.1.0/newlib/libc/sys/arm/stat.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/stat.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/stat.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/stat.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,77 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -37111,7 +37150,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/stat.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/statvfs.c third_party/newlib-4.1.0/newlib/libc/sys/arm/statvfs.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/statvfs.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/statvfs.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/statvfs.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,44 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -37159,7 +37198,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/statvfs.c third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/stringlist.c third_party/newlib-4.1.0/newlib/libc/sys/arm/stringlist.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/stringlist.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/stringlist.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/stringlist.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,158 @@
 +/*	$NetBSD: stringlist.c,v 1.14 2015/05/21 01:29:13 christos Exp $	*/
 +
@@ -37321,7 +37360,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/stringlist.c th
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/strmode.c third_party/newlib-4.1.0/newlib/libc/sys/arm/strmode.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/strmode.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/strmode.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/strmode.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,150 @@
 +/*-
 + * SPDX-License-Identifier: BSD-3-Clause
@@ -37570,7 +37609,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/swi.h third_par
 -#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sync.c third_party/newlib-4.1.0/newlib/libc/sys/arm/sync.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sync.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sync.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sync.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,41 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -37615,7 +37654,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sync.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/cdefs.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/cdefs.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/cdefs.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/cdefs.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/cdefs.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,736 @@
 +/* libc/sys/linux/sys/cdefs.h - Helper macros for K&R vs. ANSI C compat. */
 +
@@ -38355,7 +38394,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/cdefs.h thi
 +#endif /* !_SYS_CDEFS_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/debug.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/debug.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/debug.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/debug.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/debug.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,106 @@
 +#ifndef _SYS_DEBUG_H
 +#define _SYS_DEBUG_H
@@ -38465,7 +38504,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/debug.h thi
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/dirent.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/dirent.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/dirent.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/dirent.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/dirent.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,56 @@
 +/*
 + *  $Id: utime.h,v 1.1 2002/11/07 19:27:36 jjohnstn Exp $
@@ -38526,7 +38565,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/dirent.h th
 \ No newline at end of file
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/event.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/event.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/event.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/event.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/event.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,145 @@
 +/*-
 + * Copyright (c) 1999,2000,2001 Jonathan Lemon <jlemon@FreeBSD.org>
@@ -38675,7 +38714,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/event.h thi
 +#endif /* !_SYS_EVENT_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/execargs.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/execargs.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/execargs.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/execargs.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/execargs.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,29 @@
 +#ifndef _SYS_EXECARGS_H
 +#define _SYS_EXECARGS_H
@@ -38708,7 +38747,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/execargs.h 
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fcntl.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/fcntl.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fcntl.h	2020-12-18 23:50:49.000000000 +0000
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/fcntl.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/fcntl.h	2024-04-01 17:55:03.126446038 +0100
 @@ -3,10 +3,4 @@
  
  #include <sys/_default_fcntl.h>
@@ -38722,7 +38761,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fcntl.h thi
  #endif /* _SYS_FCNTL_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/features.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/features.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/features.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/features.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/features.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,557 @@
 +/*
 + *  Written by Joel Sherrill <joel@OARcorp.com>.
@@ -39283,8 +39322,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/features.h 
 +#endif /* _SYS_FEATURES_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h	2024-03-17 17:47:03.407194450 +0000
-@@ -0,0 +1,256 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,268 @@
 +#ifndef SYS_FSREQ_H
 +#define SYS_FSREQ_H
 +
@@ -39491,6 +39530,18 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h thi
 +            time_t ctime;
 +        } create;
 +
++        // mkdir - int status
++        struct {
++            uint32_t inode_nr;
++            mode_t mode;
++            int uid;
++            int gid;
++            off64_t size;
++            time_t atime;
++            time_t mtime;
++            time_t ctime;
++        } mkdir;
++
 +        // readdir - ssize_t nbytes_read        
 +        struct {
 +            off64_t offset;
@@ -39543,7 +39594,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/fsreq.h thi
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/interrupts.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/interrupts.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/interrupts.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/interrupts.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/interrupts.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,24 @@
 +#ifndef _SYS_INTERRUPTS_H
 +#define _SYS_INTERRUPTS_H
@@ -39571,7 +39622,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/interrupts.
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/ioctl.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/ioctl.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/ioctl.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/ioctl.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/ioctl.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,21 @@
 +#ifndef _SYS_IOCTL_H
 +#define _SYS_IOCTL_H
@@ -39596,7 +39647,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/ioctl.h thi
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/lists.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/lists.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/lists.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/lists.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/lists.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,503 @@
 +#ifndef SYS_LISTS_H
 +#define SYS_LISTS_H
@@ -40103,7 +40154,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/lists.h thi
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/md5.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/md5.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/md5.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/md5.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/md5.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,58 @@
 +/*	$NetBSD: md5.h,v 1.9 2005/12/26 18:41:36 perry Exp $	*/
 +
@@ -40165,8 +40216,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/md5.h third
 +#endif /* _SYS_MD5_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h	2024-03-17 17:47:03.407194450 +0000
-@@ -0,0 +1,107 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,108 @@
 +#ifndef _SYS_MOUNT_H
 +#define _SYS_MOUNT_H
 +
@@ -40266,6 +40317,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h thi
 +int pivotroot(char *new_root, char *old_root);
 +int getfsstat(struct statfs *buf, int bufsize, int flags);
 +int getmntinfo(struct statfs **mntbufp, int flags);
++int bdflush(int fd);
 +
 +
 +#ifdef __cplusplus
@@ -40276,7 +40328,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/mount.h thi
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/panic.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/panic.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/panic.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/panic.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/panic.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,27 @@
 +#ifndef _SYS_PANIC_H
 +#define _SYS_PANIC_H
@@ -40307,7 +40359,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/panic.h thi
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/param.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/param.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/param.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/param.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/param.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,241 @@
 +/*-
 + * Copyright (c) 1982, 1986, 1989, 1993
@@ -40552,7 +40604,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/param.h thi
 +#endif	/* _SYS_PARAM_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/resource.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/resource.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/resource.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/resource.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/resource.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,129 @@
 +/*	$NetBSD: resource.h,v 1.33 2012/06/09 02:31:15 christos Exp $	*/
 +
@@ -40685,7 +40737,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/resource.h 
 +#endif	/* !_SYS_RESOURCE_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/sha1.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/sha1.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/sha1.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/sha1.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/sha1.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,37 @@
 +/*	$NetBSD: sha1.h,v 1.14 2009/11/06 20:31:19 joerg Exp $	*/
 +
@@ -40726,7 +40778,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/sha1.h thir
 +#endif /* _SYS_SHA1_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/signal.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/signal.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/signal.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/signal.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/signal.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,333 @@
 +/* sys/signal.h */
 +
@@ -41063,7 +41115,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/signal.h th
 +#endif /* _SYS_SIGNAL_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/stat.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/stat.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/stat.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/stat.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/stat.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,189 @@
 +#ifndef	_SYS_STAT_H
 +#define	_SYS_STAT_H
@@ -41256,7 +41308,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/stat.h thir
 +#endif /* _SYS_STAT_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/statvfs.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/statvfs.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/statvfs.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/statvfs.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/statvfs.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,56 @@
 +#ifndef	_SYS_STATVFS_H
 +#define	_SYS_STATVFS_H
@@ -41316,8 +41368,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/statvfs.h t
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h	2024-03-17 17:47:03.407194450 +0000
-@@ -0,0 +1,261 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,287 @@
 +#ifndef _SYS_KSYSCALLS_H
 +#define _SYS_KSYSCALLS_H
 +
@@ -41459,6 +41511,12 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +int _swi_dup(int fd); 
 +int _swi_dup2(int fd1, int fd2);
 +
++int _swi_mkdir(const char *path, mode_t mode);
++int _swi_rmdir(const char *path);
++int _swi_unlink(const char *path);
++int _swi_ftruncate (int fd, off_t size);
++
++
 +int _swi_rename (const char *oldname, const char *newname);
 +
 +int _swi_pipe (int fdp[2]);
@@ -41498,7 +41556,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +int _swi_signalnotify(int fd, int ino, int signal);
 +int _swi_pollnotify(int fd, int ino, short events);
 +
-+int _swi_chdir(char *path);
++int _swi_chdir(const char *path);
 +int _swi_fchdir(int fd);
 +
 +int _swi_fcntl(int fd, int cmd, int arg);
@@ -41506,13 +41564,13 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +
 +int _swi_fsync(int fd);
 +int _swi_sync(void);
-+int _swi_chmod(char *_path, mode_t mode);
-+int _swi_chown(char *_path, uid_t uid, gid_t gid);
++int _swi_chmod(const char *_path, mode_t mode);
++int _swi_chown(const char *_path, uid_t uid, gid_t gid);
 +int _swi_fchmod(int fd, mode_t mode);
 +int _swi_fchown(int fd, uid_t uid, gid_t gid);
 +
-+int _swi_symlink(char *_path, char *_link);
-+int _swi_readlink(char *_path, char *_link, size_t link_size);
++int _swi_symlink(const char *path1, const char *path2);
++int _swi_readlink(const char *path, char *buf, size_t bufsize);
 +
 +int _swi_ioctl(int fd, int cmd, void *arg);
 +
@@ -41537,15 +41595,38 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +int _swi_get_priority(id_t who, int *prio);
 +int _swi_setpriority(id_t who, int prio);
 +
++int _swi_access(const char *path, int amode);
++mode_t _swi_umask(mode_t cmask);
++
++int _swi_bdflush(int fd);
++int _swi_chroot(const char *path);
++
++pid_t _swi_getpid(void);
++pid_t _swi_getppid(void);
++
++int _swi_gettimeofday(struct timeval *tp);
++int _swi_settimeofday(const struct timeval *tp);
++
++int _swi_getpgrp(void);
++int _swi_setpgrp(void);
++uid_t _swi_getuid(void);
++int _swi_setuid(uid_t uid);
++gid_t _swi_getgid(void);
++int _swi_setgid(gid_t gid);
++uid_t _swi_geteuid(void);
++int _swi_setegid(gid_t gid);
++int _swi_seteuid(uid_t uid);
++int _swi_issetugid(void);
++int	_swi_setgroups(int ngroups, const gid_t *grouplist);
++int _swi_getgroups(int gidsetsize, gid_t grouplist[]);
 +
 +/*
 + * unistd.h 64-bit syscalls.
 + */
-+ 
 +off64_t lseek64(int fd, off64_t offset, int whence);
 +
 +/*
-+ *
++ * Virtual Memory system calls
 + */
 +void *virtualalloc (void *addr, size_t size, bits32_t flags);
 +void *virtualallocphys (void *addr, size_t size, bits32_t flags, void *phys_addr);
@@ -41554,7 +41635,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +void *virtualtophysaddr(void *addr);
 +
 +/*
-+ *
++ * Interprocess Communication system calls
 + */
 +int sendrec(int fd, int siov_cnt, struct IOV *siov, int riov_cnt, struct IOV *riov);
 +int getmsg(int portid, msgid_t *msgid, void *buf, size_t buf_sz);
@@ -41562,15 +41643,12 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +int readmsg(int portid, msgid_t msgid, void *buf, size_t buf_sz, off_t offset);
 +int writemsg(int portid, msgid_t msgid, void *buf, size_t buf_sz, off_t offset);
 +
-+
 +/*
-+ *
++ * Interrupt system calls
 + */
 +int createinterrupt (int irq, void (*interrupt_handler)(int irq, struct InterruptAPI *api));
 +int maskinterrupt (int irq);
 +int unmaskinterrupt (int irq);
-+
-+
 +
 +
 +#ifdef __cplusplus
@@ -41581,7 +41659,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syscalls.h 
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syslimits.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/syslimits.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syslimits.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/syslimits.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/syslimits.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,47 @@
 +/* "sys/syslimits.h"
 + * 
@@ -41632,7 +41710,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/syslimits.h
 +#endif /* !_SYS_SYSLIMITS_H_ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/termios.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/termios.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/termios.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/termios.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/termios.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,245 @@
 +/* termios.h
 + *
@@ -41881,8 +41959,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/termios.h t
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h	2024-03-17 17:47:03.407194450 +0000
-@@ -0,0 +1,219 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,223 @@
 +/* ANSI C namespace clean utility typedefs */
 +
 +/* This file defines various typedefs needed by the system calls that support
@@ -41910,6 +41988,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h th
 +#include <newlib.h>
 +#include <sys/config.h>
 +#include <machine/_types.h>
++#include <machine/types.h>
 +
 +#ifndef __machine_blkcnt_t_defined
 +typedef long __blkcnt_t;
@@ -42061,11 +42140,14 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h th
 +
 +typedef	_CLOCK_T_	__clock_t;
 +
++#if 0
 +#if defined(_USE_LONG_TIME_T) || __LONG_MAX__ > 0x7fffffffL
 +#define	_TIME_T_ long
 +#else
-+#define	_TIME_T_ __int_least64_t
++#define	_TIME_T_ long long
 +#endif
++#endif
++
 +typedef	_TIME_T_	__time_t;
 +
 +#ifndef __machine_clockid_t_defined
@@ -42104,7 +42186,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/_types.h th
 +#endif	/* _SYS__TYPES_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/types.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/types.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/types.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/types.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,232 @@
 +/* unified sys/types.h: 
 +   start with sef's sysvi386 version.
@@ -42340,7 +42422,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/types.h thi
 +#endif	/* _SYS_TYPES_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/uio.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/uio.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/uio.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/uio.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/uio.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,18 @@
 +#ifndef _SYS_UIO_H
 +#define _SYS_UIO_H
@@ -42362,7 +42444,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/uio.h third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/unistd.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/unistd.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/unistd.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/unistd.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/unistd.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,604 @@
 +#ifndef _SYS_UNISTD_H
 +#define _SYS_UNISTD_H
@@ -42970,7 +43052,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/unistd.h th
 +#endif /* _SYS_UNISTD_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/utime.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/utime.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/utime.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/utime.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/utime.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,32 @@
 +/*
 + *  $Id: utime.h,v 1.1 2002/11/07 19:27:36 jjohnstn Exp $
@@ -43006,7 +43088,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/utime.h thi
 +#endif /* _SYS_UTIME_H */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/utmp.h third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/utmp.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/utmp.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/utmp.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sys/utmp.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,47 @@
 +/* Written 2000 by Werner Almesberger */
 +/* Some things copied from glibc's /usr/include/bits/utmp.h */
@@ -43057,8 +43139,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sys/utmp.h thir
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/syscall.S third_party/newlib-4.1.0/newlib/libc/sys/arm/syscall.S
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/syscall.S	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/syscall.S	2024-03-17 17:47:03.411194527 +0000
-@@ -0,0 +1,176 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/syscall.S	2024-04-01 17:55:03.130446104 +0100
+@@ -0,0 +1,177 @@
 +.extern __real_set_errno
 +
 +.text
@@ -43234,6 +43316,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/syscall.S third
 +
 +SYSCALL2( _swi_clock_settime, 98)
 +
++SYSCALL1( _swi_bdflush, 99)
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/syscalls.c third_party/newlib-4.1.0/newlib/libc/sys/arm/syscalls.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/syscalls.c	2020-12-18 23:50:49.000000000 +0000
@@ -43957,7 +44040,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/syscalls.c thir
 -}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sysconf.c third_party/newlib-4.1.0/newlib/libc/sys/arm/sysconf.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sysconf.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sysconf.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/sysconf.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,24 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -43985,7 +44068,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/sysconf.c third
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/termios.c third_party/newlib-4.1.0/newlib/libc/sys/arm/termios.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/termios.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/termios.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/termios.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,140 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -44129,8 +44212,8 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/termios.c third
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/time.c third_party/newlib-4.1.0/newlib/libc/sys/arm/time.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/time.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/time.c	2024-03-17 17:47:03.411194527 +0000
-@@ -0,0 +1,106 @@
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/time.c	2024-04-01 17:55:03.130446104 +0100
+@@ -0,0 +1,31 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
 +#include <sys/time.h>
@@ -44162,84 +44245,9 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/time.c third_pa
 +}
 +
 +
-+/*
-+ *
-+ */
-+int clock_gettime(clockid_t clk_id, struct timespec *tp)
-+{
-+  int sc;
-+  
-+  sc = _swi_clock_settime(clk_id, tp);
-+
-+  if (sc < 0) {
-+    errno = -sc;
-+    return -1;
-+  }
-+
-+  return sc;
-+}
-+
-+
-+/*
-+ *
-+ */
-+int clock_settime(clockid_t clk_id, const struct timespec *tp)
-+{
-+  int sc;
-+  
-+  sc = _swi_clock_settime(clk_id, tp);
-+
-+  if (sc < 0) {
-+    errno = -sc;
-+    return -1;
-+  }
-+
-+  return sc;
-+}
-+
-+
-+/* @brief		Helper function to subtract time t1 from time t2
-+ *
-+ * @return	1 if t1 is after t2, else return 0.
-+ */
-+int diff_timespec(struct timespec *result, struct timespec *t2, struct timespec *t1)
-+{
-+  if (t2->tv_nsec < t1->tv_nsec) {
-+    int nsec = (t1->tv_nsec - t2->tv_nsec) / 1000000 + 1;
-+    t1->tv_nsec -= 1000000 * nsec;
-+    t1->tv_sec += nsec;
-+  }
-+  if (t2->tv_nsec - t1->tv_nsec > 1000000) {
-+    int nsec = (t2->tv_nsec - t1->tv_nsec) / 1000000;
-+    t1->tv_nsec += 1000000 * nsec;
-+    t1->tv_sec -= nsec;
-+  }
-+
-+  result->tv_sec = t2->tv_sec - t1->tv_sec;
-+  result->tv_nsec = t2->tv_nsec - t1->tv_nsec;
-+
-+  return (t1->tv_sec > t2->tv_sec) ? 1 : 0;
-+}
-+
-+
-+/* @brief		Helper function to add t2 to t1
-+ *
-+ */
-+void add_timespec(struct timespec *result, struct timespec *t2, struct timespec *t1)
-+{
-+  result->tv_sec = t2->tv_sec + t1->tv_sec;
-+  result->tv_nsec = t2->tv_nsec + t1->tv_nsec;
-+  
-+  if (result->tv_nsec > 1000000000) {
-+    result->tv_nsec -= 1000000000;
-+    result->tv_sec++;
-+  }
-+}
-+
-+
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/times.c third_party/newlib-4.1.0/newlib/libc/sys/arm/times.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/times.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/times.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/times.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,16 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -44256,6 +44264,58 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/times.c third_p
 +    errno = ENOSYS;
 +    return -1;
 +}
++
+diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/timespec.c third_party/newlib-4.1.0/newlib/libc/sys/arm/timespec.c
+--- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/timespec.c	1970-01-01 01:00:00.000000000 +0100
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/timespec.c	2024-04-01 17:55:03.126446038 +0100
+@@ -0,0 +1,48 @@
++#include <_ansi.h>
++#include <_syslist.h>
++#include <sys/time.h>
++#include <sys/times.h>
++#include <sys/syscalls.h>
++#include <utime.h>
++#include <errno.h>
++
++
++/* @brief		Helper function to subtract time t2 from time t1
++ *
++ * @return	1 if t2 is after or equal to t1, else return 0.
++ */
++int diff_timespec(struct timespec *result, struct timespec *t2, struct timespec *t1)
++{
++  result->tv_nsec = t2->tv_nsec - t1->tv_nsec;
++  result->tv_sec  = t2->tv_sec - t1->tv_sec;
++
++  if (result->tv_sec > 0 && result->tv_nsec < 0)
++  {
++      result->tv_nsec += 1000000000;
++      result->tv_sec--;
++  }
++  else if (result->tv_sec < 0 && result->tv_nsec > 0)
++  {
++      result->tv_nsec -= 1000000000;
++      result->tv_sec++;
++  }
++
++  return (result->tv_sec >= 0 && result->tv_nsec >= 0) ? 1 : 0;
++}
++
++
++/* @brief		Helper function to add t2 to t1
++ *
++ */
++void add_timespec(struct timespec *result, struct timespec *t2, struct timespec *t1)
++{
++  result->tv_sec = t2->tv_sec + t1->tv_sec;
++  result->tv_nsec = t2->tv_nsec + t1->tv_nsec;
++  
++  if (result->tv_nsec >= 1000000000) {
++    result->tv_nsec -= 1000000000;
++    result->tv_sec++;
++  }
++}
++
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/trap.S third_party/newlib-4.1.0/newlib/libc/sys/arm/trap.S
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/trap.S	2020-12-18 23:50:49.000000000 +0000
@@ -44358,7 +44418,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/trap.S third_pa
 -#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/truncate.c third_party/newlib-4.1.0/newlib/libc/sys/arm/truncate.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/truncate.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/truncate.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/truncate.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,53 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -44415,7 +44475,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/truncate.c thir
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/ttyaction.c third_party/newlib-4.1.0/newlib/libc/sys/arm/ttyaction.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/ttyaction.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/ttyaction.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/ttyaction.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,160 @@
 +/*	$NetBSD: ttyaction.c,v 1.19 2008/04/28 20:23:03 martin Exp $	*/
 +
@@ -44579,7 +44639,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/ttyaction.c thi
 +}
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/uio.c third_party/newlib-4.1.0/newlib/libc/sys/arm/uio.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/uio.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/uio.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/uio.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,57 @@
 +#include <stdint.h>
 +#include <unistd.h>
@@ -44640,7 +44700,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/uio.c third_par
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/unlink.c third_party/newlib-4.1.0/newlib/libc/sys/arm/unlink.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/unlink.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/unlink.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/unlink.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,23 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -44651,7 +44711,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/unlink.c third_
 +/* @brief Remove a file
 + *
 + */
-+int unlink (char *path)
++int unlink (const char *path)
 +{
 +    int sc;
 +    
@@ -44667,7 +44727,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/unlink.c third_
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/update.sh third_party/newlib-4.1.0/newlib/libc/sys/arm/update.sh
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/update.sh	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/update.sh	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/update.sh	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,7 @@
 +# When adding files to this directory, add the name
 +# of the object file to makefile.am then run the following
@@ -44678,7 +44738,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/update.sh third
 +automake --cygnus Makefile
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/user_strerror.c third_party/newlib-4.1.0/newlib/libc/sys/arm/user_strerror.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/user_strerror.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/user_strerror.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/user_strerror.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,20 @@
 +#include <_ansi.h>
 +#include <sys/syscalls.h>
@@ -44702,7 +44762,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/user_strerror.c
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/verrx.c third_party/newlib-4.1.0/newlib/libc/sys/arm/verrx.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/verrx.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/verrx.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/verrx.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,65 @@
 +/*	$NetBSD: verrx.c,v 1.15 2011/07/17 20:54:34 joerg Exp $	*/
 +
@@ -44771,7 +44831,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/verrx.c third_p
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/virtualalloc.c third_party/newlib-4.1.0/newlib/libc/sys/arm/virtualalloc.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/virtualalloc.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/virtualalloc.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/virtualalloc.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,69 @@
 +#include <_syslist.h>
 +#include <sys/types.h>
@@ -44844,7 +44904,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/virtualalloc.c 
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vis.c third_party/newlib-4.1.0/newlib/libc/sys/arm/vis.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vis.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vis.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vis.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,742 @@
 +/*	$NetBSD: vis.c,v 1.74 2017/11/27 16:37:21 christos Exp $	*/
 +
@@ -45590,7 +45650,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vis.c third_par
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarn.c third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarn.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarn.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarn.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarn.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,55 @@
 +/*	$NetBSD: vwarn.c,v 1.16 2014/01/16 17:21:38 christos Exp $	*/
 +
@@ -45649,7 +45709,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarn.c third_p
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarnc.c third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarnc.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarnc.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarnc.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarnc.c	2024-04-01 17:55:03.130446104 +0100
 @@ -0,0 +1,67 @@
 +/*	$NetBSD: vwarnc.c,v 1.3 2014/06/06 11:38:41 joerg Exp $	*/
 +
@@ -45720,7 +45780,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarnc.c third_
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarnx.c third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarnx.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarnx.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarnx.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/vwarnx.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,64 @@
 +/*	$NetBSD: vwarnx.c,v 1.15 2011/07/17 20:54:34 joerg Exp $	*/
 +
@@ -45788,7 +45848,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/vwarnx.c third_
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/wait.c third_party/newlib-4.1.0/newlib/libc/sys/arm/wait.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/wait.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/wait.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/wait.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,32 @@
 +#include <_ansi.h>
 +#include <_syslist.h>
@@ -45824,7 +45884,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/wait.c third_pa
 +
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warn.c third_party/newlib-4.1.0/newlib/libc/sys/arm/warn.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warn.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warn.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warn.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,63 @@
 +/*	$NetBSD: warn.c,v 1.14 2007/06/18 14:13:54 ginsbach Exp $	*/
 +
@@ -45891,7 +45951,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warn.c third_pa
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warnc.c third_party/newlib-4.1.0/newlib/libc/sys/arm/warnc.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warnc.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warnc.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warnc.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,63 @@
 +/*	$NetBSD: warnc.c,v 1.3 2014/06/06 11:38:41 joerg Exp $	*/
 +
@@ -45958,7 +46018,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warnc.c third_p
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warning.h third_party/newlib-4.1.0/newlib/libc/sys/arm/warning.h
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warning.h	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warning.h	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warning.h	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,43 @@
 +#ifndef __WARNING_H__
 +#define __WARNING_H__
@@ -46005,7 +46065,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warning.h third
 +#endif /* __WARNING_H__ */
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warnx.c third_party/newlib-4.1.0/newlib/libc/sys/arm/warnx.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warnx.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warnx.c	2024-03-17 17:47:03.411194527 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/warnx.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,63 @@
 +/*	$NetBSD: warnx.c,v 1.14 2007/06/18 14:13:54 ginsbach Exp $	*/
 +
@@ -46072,7 +46132,7 @@ diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/warnx.c third_p
 +#endif
 diff -aurN third_party_original/newlib-4.1.0/newlib/libc/sys/arm/write.c third_party/newlib-4.1.0/newlib/libc/sys/arm/write.c
 --- third_party_original/newlib-4.1.0/newlib/libc/sys/arm/write.c	1970-01-01 01:00:00.000000000 +0100
-+++ third_party/newlib-4.1.0/newlib/libc/sys/arm/write.c	2024-03-17 17:47:03.407194450 +0000
++++ third_party/newlib-4.1.0/newlib/libc/sys/arm/write.c	2024-04-01 17:55:03.126446038 +0100
 @@ -0,0 +1,22 @@
 +#include <_ansi.h>
 +#include <_syslist.h>

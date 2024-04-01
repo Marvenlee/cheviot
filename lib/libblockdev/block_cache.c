@@ -18,7 +18,7 @@
  * Move into a blockcache library and cleanup.
  */
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_WARN
 
 #include <assert.h>
 #include <dirent.h>
@@ -50,6 +50,8 @@ struct block_cache *init_block_cache(int dev_fd, int buf_cnt, size_t block_size)
 {
   struct block_cache *cache;
   
+ 	log_debug("init_block_cache(buf_cnt:%d, block_size:%u", buf_cnt, block_size);
+  
 	if (buf_cnt == 0 || block_size < 512) {
 		panic("bad params to init_block_cache");
 	}
@@ -58,8 +60,7 @@ struct block_cache *init_block_cache(int dev_fd, int buf_cnt, size_t block_size)
 		if ((cache->buf_table = (struct buf *)virtualalloc(NULL, buf_cnt * sizeof (struct buf), 
 		                                                   PROT_READWRITE)) != NULL) {
 			if ((cache->mem_pool = (char *)virtualalloc(NULL, buf_cnt * block_size, 
-			                                          PROT_READWRITE)) != NULL) {
-			
+			                                          PROT_READWRITE)) != NULL) {			
 				cache->dev_fd = dev_fd;
 				
 				cache->buf_cnt = buf_cnt;
@@ -76,6 +77,8 @@ struct block_cache *init_block_cache(int dev_fd, int buf_cnt, size_t block_size)
 					cache->buf_table[t].block = 0;
 					cache->buf_table[t].data = (uint8_t *)cache->mem_pool + (t * block_size);
 					cache->buf_table[t].valid = false;
+					cache->buf_table[t].dirty = false;
+					cache->buf_table[t].in_use = true;
 													
 					LIST_ADD_TAIL(&cache->free_list, &cache->buf_table[t], free_link);
 				}
@@ -118,7 +121,7 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
 	struct buf *buf;
 	uint32_t hash;
 	int rc;
-	
+		
 	hash = block % BUF_HASH_CNT;
 	buf = LIST_HEAD (&cache->hash_list[hash]);
 
@@ -136,17 +139,22 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
 						
 		if (buf != NULL) {
 	  	LIST_REM_HEAD (&cache->free_list, free_link);
+			assert(buf->valid == false);
   			
 		} else {
 			buf = LIST_HEAD (&cache->lru_list);
 
 			if (buf == NULL) {
-				panic("lblockdev: no bufs available");
+				panic("libblockdev: no bufs available");
 			}			
 
 			// if it's on the LRU list it is valid, it is also hashed.
+			assert(buf->valid == true);
+			
+			// Put block should immediately write buffer, so it should never be dirty.
+			assert(buf->dirty == false);
+
 			hash = buf->block % BUF_HASH_CNT;
-			// assert(buf->valid)
 			LIST_REM_HEAD (&cache->lru_list, lru_link);
 			LIST_REM_ENTRY (&cache->hash_list[hash], buf, hash_link);
 		}
@@ -154,13 +162,24 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
 		buf->block = block;
 		buf->dirty = false;
 		buf->in_use = true;
+
+		uint32_t *beef = buf->data;
+		for (int t=0; t <cache->block_size/4; t++) {
+			beef[t]=0xdeadbeef;
+		}
 	  
 		hash = buf->block % BUF_HASH_CNT;
 		LIST_ADD_HEAD (&cache->hash_list[hash], buf, hash_link);
 
     if (opt == BLK_READ) {
       lseek64(cache->dev_fd, (uint64_t)block * cache->block_size, SEEK_SET);
-	    read(cache->dev_fd, buf->data, cache->block_size);
+	    rc = read(cache->dev_fd, buf->data, cache->block_size);
+
+			if (rc != cache->block_size) {
+				log_warn("libblockdev: get_block read rc:%d != sz %d", rc, cache->block_size);
+			}
+
+			buf->valid = true;
 	  } else if (opt == BLK_NO_READ) {
       /* Returning a buf without reading its contents and without clearing
        * it first. */
@@ -169,7 +188,7 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
     } else {
       panic("libblockdev: get_block unknown option");
     }
-        
+    
 		return buf;
 		
 	} else {
@@ -186,7 +205,12 @@ struct buf *get_block(struct block_cache *cache, off64_t block, int opt)
  */
 void put_block(struct block_cache *cache, struct buf *buf)
 {
-  if (block_isclean(buf) == false) {
+	if (buf->in_use == false) {
+		log_error("libblockdev: put_block of not in use blk:%u, buf:%08x", 
+		          (uint32_t)buf->block, (uint32_t)buf);
+	}
+
+  if (block_isclean(buf) == false) {  
     lseek64(cache->dev_fd, (uint64_t)buf->block * cache->block_size, SEEK_SET);
 		write(cache->dev_fd, buf->data, cache->block_size);
   }
@@ -211,13 +235,16 @@ void invalidate_block(struct block_cache *cache, off64_t block)
 	buf = LIST_HEAD (&cache->hash_list[hash]);
 		
 	while (buf != NULL) {		
-		if (buf->block == block) {			
+		if (buf->block == block) {
       // Remove from cache
+      assert(buf->valid == true);
+      
 	    LIST_REM_ENTRY (&cache->lru_list, buf, lru_link);
 	    LIST_REM_ENTRY (&cache->hash_list[hash], buf, hash_link);
 	    LIST_ADD_TAIL (&cache->free_list, buf, free_link);
       buf->dirty = false;
       buf->in_use = false;
+      buf->valid = false;
 	    return;
 		}
 		

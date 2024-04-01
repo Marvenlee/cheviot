@@ -1,5 +1,5 @@
 
-#define LOG_LEVEL_ERROR
+#define LOG_LEVEL_INFO
 
 #include "sys/debug.h"
 #include <dirent.h>
@@ -20,7 +20,8 @@
 #include "globals.h"
 #include <sys/rpi_mailbox.h>
 #include <sys/rpi_gpio.h>
-
+#include <time.h>
+#include <sys/time.h>
 
 /* @brief   The SDCard block device driver
  *
@@ -40,7 +41,7 @@ int main(int argc, char *argv[])
   msgid_t msgid;
   struct bdev_unit *unit;
    
-  log_info("*** sdcard: main");
+  log_info("sdcard starting");
    
   init(argc, argv);  
 
@@ -103,16 +104,14 @@ void sdcard_read(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req)
   xfered = 0;
   offset = req->args.read.offset;
   remaining = req->args.read.sz;  
-  
-  log_info("sdcard_read offset:%08x, sz:%d", (uint32_t)offset, (uint32_t)remaining);
-  
+	  
   while (remaining > 0) {
       block_no = ((off64_t)unit->start + (offset / 512));
       chunk_start = offset % 512;
       left = 512 - chunk_start;
 
       sc = sd_read(bdev, buf, 512, block_no);      
- 
+
       chunk_size = (left < remaining) ? left : remaining;
       
       writemsg(unit->portid, msgid, buf+chunk_start, chunk_size, xfered);
@@ -121,6 +120,7 @@ void sdcard_read(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req)
       offset += chunk_size;
       remaining -= chunk_size;
   }
+
 
   replymsg(unit->portid, msgid, xfered, NULL, 0);
 }
@@ -161,9 +161,8 @@ void sdcard_write(struct bdev_unit *unit, msgid_t msgid, struct fsreq *req)
           sc = sd_read(bdev, buf, 512, block_no);      
       }
       
-      readmsg(unit->portid, msgid, buf+chunk_start, chunk_size, xfered);
-
-//FIXME:      sc = sd_write(bdev, buf, 512, block_no);
+      readmsg(unit->portid, msgid, buf+chunk_start, chunk_size, sizeof(struct fsreq) + xfered);
+      sc = sd_write(bdev, buf, 512, block_no);
 
       xfered += chunk_size;
       offset += chunk_size;

@@ -443,7 +443,6 @@ int alloc_fd_superblock(struct Process *proc)
 }
 
 
-
 /*
  * Returns a handle to the free handle list.
  */
@@ -483,7 +482,7 @@ struct SuperBlock *alloc_superblock(void)
   memset(sb, 0, sizeof *sb);
   InitRendez (&sb->rendez);
   
-  sb->dev = sb - superblock_table;  
+  sb->dev = sb - superblock_table;  		// FIXME: Needs to be major+minor device
   return sb;
 }
 
@@ -502,9 +501,5 @@ void free_superblock(struct SuperBlock *sb)
     LIST_ADD_TAIL(&free_superblock_list, sb, link);
   }
 }
-
-
-
-
 
 

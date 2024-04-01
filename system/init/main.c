@@ -541,7 +541,7 @@ int cmdSetEnv(void)
 void cmdPrintGreeting(void)
 {
 #if 1
-  printf("\033[0;0H\033[0J\r\n\n");
+//  printf("\033[0;0H\033[0J\r\n\n");
 
   printf("  \033[34;1m   .oooooo.   oooo                               o8o                .   \033[37;1m      .oooooo.    .ooooooo.  \n");
   printf("  \033[34;1m  d8P'  `Y8b  `888                               `^'              .o8   \033[37;1m     d8P'  `Y8b  d8P'   `Y8b \n");
